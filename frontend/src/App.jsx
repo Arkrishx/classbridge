@@ -197,6 +197,7 @@ export default function App() {
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
   const [glossary, setGlossary] = useState(FALLBACK_GLOSSARY);
+  const [interimSpeech, setInterimSpeech] = useState('');
 
   const wsRef = useRef(null);
   const streamerRef = useRef(null);
@@ -288,14 +289,64 @@ export default function App() {
     }
   };
 
+  const processSpeechText = async (spokenText, confidence = 95) => {
+    if (!spokenText || !spokenText.trim()) return;
+    setInterimSpeech('');
+
+    // If backend WebSocket is open, send for backend ASR/MT processing
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        action: 'process_text_segment',
+        text: spokenText.trim(),
+        confidence: confidence,
+        duration: 4.0
+      }));
+      return;
+    }
+
+    // Real-time live browser transcription & translation fallback
+    try {
+      const transResult = await translateTextClient(spokenText.trim(), targetLang, glossary);
+      setSegments((prev) => {
+        const segId = prev.length + 1;
+        const startT = (segId - 1) * 4;
+        const endT = segId * 4;
+        const sMin = Math.floor(startT / 60);
+        const sSec = startT % 60;
+        const eMin = Math.floor(endT / 60);
+        const eSec = endT % 60;
+        const timestampStr = `${sMin.toString().padStart(2, '0')}:${sSec.toString().padStart(2, '0')} - ${eMin.toString().padStart(2, '0')}:${eSec.toString().padStart(2, '0')}`;
+
+        return [
+          ...prev,
+          {
+            id: segId,
+            start: startT,
+            end: endT,
+            timestamp: timestampStr,
+            text_en: spokenText.trim(),
+            text_vernacular: transResult.adapted_translation,
+            raw_translation: transResult.raw_translation,
+            confidence: confidence,
+            domain_terms: transResult.domain_terms,
+            target_lang: targetLang
+          }
+        ];
+      });
+    } catch (err) {
+      console.error("Error processing live speech segment:", err);
+    }
+  };
+
   // Toggle Microphone
-  const toggleRecording = async () => {
+  const toggleRecording = () => {
     if (isRecording) {
       if (streamerRef.current) {
         streamerRef.current.stop();
       }
       setIsRecording(false);
       setAudioLevel(0);
+      setInterimSpeech('');
     } else {
       const streamer = new AudioStreamer({
         onAudioData: (buffer) => {
@@ -306,65 +357,23 @@ export default function App() {
         onVolumeChange: (vol) => {
           setAudioLevel(vol);
         },
-        onSpeechRecognized: async (spokenText, confidence) => {
-          if (!spokenText.trim()) return;
-
-          // If backend WebSocket is open, send for backend ASR/MT processing
-          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-            wsRef.current.send(JSON.stringify({
-              action: 'process_text_segment',
-              text: spokenText,
-              confidence: confidence,
-              duration: 4.0
-            }));
-            return;
-          }
-
-          // Real-time live browser transcription & translation fallback
-          try {
-            const transResult = await translateTextClient(spokenText, targetLang, glossary);
-            setSegments((prev) => {
-              const segId = prev.length + 1;
-              const startT = (segId - 1) * 4;
-              const endT = segId * 4;
-              const sMin = Math.floor(startT / 60);
-              const sSec = startT % 60;
-              const eMin = Math.floor(endT / 60);
-              const eSec = endT % 60;
-              const timestampStr = `${sMin.toString().padStart(2, '0')}:${sSec.toString().padStart(2, '0')} - ${eMin.toString().padStart(2, '0')}:${eSec.toString().padStart(2, '0')}`;
-
-              return [
-                ...prev,
-                {
-                  id: segId,
-                  start: startT,
-                  end: endT,
-                  timestamp: timestampStr,
-                  text_en: spokenText,
-                  text_vernacular: transResult.adapted_translation,
-                  raw_translation: transResult.raw_translation,
-                  confidence: confidence,
-                  domain_terms: transResult.domain_terms,
-                  target_lang: targetLang
-                }
-              ];
-            });
-          } catch (err) {
-            console.error("Error processing live speech segment:", err);
-          }
+        onInterimSpeech: (text) => {
+          setInterimSpeech(text);
+        },
+        onSpeechRecognized: (text, conf) => {
+          processSpeechText(text, conf);
         },
         onError: (err) => {
-          setErrorMessage(`Microphone access warning: ${err.message}. You can also use the 1-click sample lecture buttons to test without a microphone.`);
+          setErrorMessage(`Microphone note: ${err.message}. You can also type or paste speech in the box below to test without a microphone.`);
           setIsRecording(false);
+          setInterimSpeech('');
         }
       });
 
-      const started = await streamer.start();
-      if (started) {
-        streamerRef.current = streamer;
-        setIsRecording(true);
-        setErrorMessage(null);
-      }
+      streamer.start();
+      streamerRef.current = streamer;
+      setIsRecording(true);
+      setErrorMessage(null);
     }
   };
 
@@ -689,6 +698,8 @@ export default function App() {
           onLoadSample={handleLoadSample}
           onClearSession={clearSession}
           isGeneratingGuide={isGeneratingGuide}
+          interimSpeech={interimSpeech}
+          onDirectSpeechSubmit={processSpeechText}
         />
       </div>
 
