@@ -144,6 +144,22 @@ def reset_session():
     rag_index.clear()
     return {"status": "session_cleared"}
 
+class TranslateRequest(BaseModel):
+    text: str
+    target_lang: Optional[str] = "ta"
+
+@app.post("/api/translate")
+def translate_text(req: TranslateRequest):
+    if not req.text.strip():
+        return {
+            "original": "",
+            "raw_translation": "",
+            "adapted_translation": "",
+            "target_lang": req.target_lang or "ta",
+            "domain_terms": []
+        }
+    return translator_service.translate_segment(req.text, target_lang=req.target_lang)
+
 @app.post("/api/qa")
 def ask_lecture_question(req: QuestionRequest):
     if not req.question.strip():

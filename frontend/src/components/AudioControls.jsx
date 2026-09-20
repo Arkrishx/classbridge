@@ -5,12 +5,14 @@ export default function AudioControls({
   isRecording,
   onToggleRecord,
   audioLevel,
+  liveMicStatus = 'idle',
   segmentCount,
   onGenerateStudyGuide,
   onLoadSample,
   onClearSession,
   isGeneratingGuide,
   interimSpeech,
+  interimVernacular,
   onDirectSpeechSubmit,
 }) {
   const [quickInput, setQuickInput] = useState('');
@@ -49,10 +51,10 @@ export default function AudioControls({
 
           {/* Organic Audio Waveform Visualizer */}
           <div className="waveform-container" title={`Audio Level: ${audioLevel}%`}>
-            {[...Array(12)].map((_, i) => {
-              const active = isRecording && audioLevel > i * 8;
-              const barHeight = active
-                ? Math.max(6, Math.min(26, (audioLevel / 100) * 28 + Math.sin(i) * 6))
+            {[...Array(16)].map((_, i) => {
+              const active = isRecording && (audioLevel > i * 5 || audioLevel > 15);
+              const barHeight = isRecording
+                ? Math.max(5, Math.min(26, (audioLevel / 100) * 26 + Math.sin((i + Date.now() / 200) * 1.5) * 4))
                 : 4;
               return (
                 <div
@@ -129,23 +131,67 @@ export default function AudioControls({
         </div>
       </div>
 
-      {/* Live Speech Recognition Feedback (Active while speaking) */}
+      {/* Live Speech Recognition Feedback (Active while recording) */}
       {isRecording && (
         <div
           style={{
-            background: 'rgba(56, 189, 248, 0.08)',
-            border: '1px solid rgba(56, 189, 248, 0.25)',
+            background: interimSpeech ? 'rgba(56, 189, 248, 0.12)' : 'rgba(56, 189, 248, 0.05)',
+            border: interimSpeech ? '1px solid rgba(56, 189, 248, 0.4)' : '1px solid rgba(56, 189, 248, 0.2)',
             borderRadius: 'var(--radius-md)',
-            padding: '8px 16px',
+            padding: '10px 18px',
             display: 'flex',
             alignItems: 'center',
-            gap: '10px',
+            justifyContent: 'space-between',
+            gap: '12px',
             fontSize: '13px',
             color: '#7dd3fc',
+            transition: 'all 0.2s ease',
           }}
         >
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', animation: 'pulseBlink 1s infinite' }} />
-          <span><b>Live Voice:</b> {interimSpeech ? `"${interimSpeech}..."` : "Listening for speech... (Say: 'Today we learn eigenvalues and gradient descent')"}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+            <span
+              style={{
+                width: 9,
+                height: 9,
+                borderRadius: '50%',
+                background: interimSpeech ? '#f43f5e' : '#34d399',
+                boxShadow: interimSpeech ? '0 0 10px #f43f5e' : '0 0 10px #34d399',
+                animation: 'pulseBlink 1.2s infinite',
+                flexShrink: 0,
+              }}
+            />
+            <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {interimSpeech ? (
+                <span>
+                  <b style={{ color: '#fff' }}>Streaming:</b> "{interimSpeech}"
+                  {interimVernacular && (
+                    <span style={{ color: '#fde047', marginLeft: '8px', fontWeight: 600 }}>
+                      ➔ "{interimVernacular}"
+                    </span>
+                  )}
+                </span>
+              ) : (
+                <span style={{ color: 'var(--text-muted)' }}>
+                  Listening for voice... (Speak now or say: <i>"Today we learn eigenvalues and backpropagation"</i>)
+                </span>
+              )}
+            </div>
+          </div>
+
+          <span
+            style={{
+              fontSize: '11px',
+              fontWeight: 700,
+              padding: '2px 8px',
+              borderRadius: 'var(--radius-pill)',
+              background: interimSpeech ? 'rgba(244, 63, 94, 0.2)' : 'rgba(52, 211, 153, 0.2)',
+              color: interimSpeech ? '#fda4af' : '#6ee7b7',
+              border: interimSpeech ? '1px solid rgba(244, 63, 94, 0.4)' : '1px solid rgba(52, 211, 153, 0.4)',
+              flexShrink: 0,
+            }}
+          >
+            {interimSpeech ? 'Speaking' : 'Listening'}
+          </span>
         </div>
       )}
 

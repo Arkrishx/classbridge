@@ -31,7 +31,14 @@ def test_all():
     assert glossary_data["count"] > 0
     print(f"[OK] Glossary search passed: found {glossary_data['count']} terms for 'gradient'")
 
-    # 4. Sample Lecture
+    # 4. Direct Translation
+    r = client.post("/api/translate", json={"text": "Gradient descent optimizes the loss function.", "target_lang": "ta"})
+    assert r.status_code == 200
+    trans_res = r.json()
+    assert "adapted_translation" in trans_res
+    print(f"[OK] Translation endpoint passed (length: {len(trans_res['adapted_translation'])})")
+
+    # 5. Sample Lecture
     r = client.get("/api/sample-lecture")
     assert r.status_code == 200
     samples = r.json()["samples"]

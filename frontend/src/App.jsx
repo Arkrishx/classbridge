@@ -8,7 +8,7 @@ import GlossaryModal from './components/GlossaryModal';
 import AboutModal from './components/AboutModal';
 import ErrorBanner from './components/ErrorBanner';
 import { AudioStreamer } from './utils/audioStreamer';
-import { translateTextClient } from './utils/clientTranslator';
+import { translateTextClient, translateInterimDebounced } from './utils/clientTranslator';
 import confetti from 'canvas-confetti';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -375,6 +375,8 @@ export default function App() {
   const [errorMessage, setErrorMessage] = useState(null);
   const [glossary, setGlossary] = useState(FALLBACK_GLOSSARY);
   const [interimSpeech, setInterimSpeech] = useState('');
+  const [interimVernacular, setInterimVernacular] = useState('');
+  const [liveMicStatus, setLiveMicStatus] = useState('idle');
 
   const wsRef = useRef(null);
   const streamerRef = useRef(null);
@@ -436,7 +438,13 @@ export default function App() {
         try {
           const data = JSON.parse(event.data);
           if (data.type === 'caption' && data.segment) {
-            setSegments((prev) => [...prev, data.segment]);
+            setSegments((prev) => {
+              // Prevent duplicate if already committed optimistically
+              if (prev.some((s) => s.text_en.trim().toLowerCase() === data.segment.text_en.trim().toLowerCase())) {
+                return prev;
+              }
+              return [...prev, data.segment];
+            });
           } else if (data.type === 'silence') {
             // Ambient noise / silence detected
           } else if (data.type === 'error') {
@@ -464,6 +472,12 @@ export default function App() {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ action: 'set_language', language: newLang }));
     }
+    // If there is active live interim speech, translate it immediately to the new language
+    if (interimSpeech) {
+      translateInterimDebounced(interimSpeech, newLang, glossary, (vern) => {
+        setInterimVernacular(vern);
+      });
+    }
     // Dynamically update existing segments that have multi-language translations
     setSegments((prev) =>
       prev.map((seg) => {
@@ -485,23 +499,25 @@ export default function App() {
 
   const processSpeechText = async (spokenText, confidence = 95) => {
     if (!spokenText || !spokenText.trim()) return;
+    const cleanText = spokenText.trim();
+
+    // Clear interim states immediately
     setInterimSpeech('');
+    setInterimVernacular('');
+    setLiveMicStatus(isRecording ? 'listening' : 'idle');
 
-    // If backend WebSocket is open, send for backend ASR/MT processing
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        action: 'process_text_segment',
-        text: spokenText.trim(),
-        confidence: confidence,
-        duration: 4.0
-      }));
-      return;
-    }
-
-    // Real-time live browser transcription & translation fallback
+    // Instant optimistic client translation & commit for 0ms lag
     try {
-      const transResult = await translateTextClient(spokenText.trim(), targetLang, glossary);
+      const transResult = await translateTextClient(cleanText, targetLang, glossary);
       setSegments((prev) => {
+        // Prevent duplicate commits
+        if (prev.length > 0) {
+          const last = prev[prev.length - 1];
+          if (last.text_en.trim().toLowerCase() === cleanText.toLowerCase()) {
+            return prev;
+          }
+        }
+
         const segId = prev.length + 1;
         const startT = (segId - 1) * 4;
         const endT = segId * 4;
@@ -518,7 +534,7 @@ export default function App() {
             start: startT,
             end: endT,
             timestamp: timestampStr,
-            text_en: spokenText.trim(),
+            text_en: cleanText,
             text_vernacular: transResult.adapted_translation,
             raw_translation: transResult.raw_translation,
             confidence: confidence,
@@ -530,6 +546,16 @@ export default function App() {
     } catch (err) {
       console.error("Error processing live speech segment:", err);
     }
+
+    // Also send to backend WebSocket if connected so backend RAG & session stay synced
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        action: 'process_text_segment',
+        text: cleanText,
+        confidence: confidence,
+        duration: 4.0
+      }));
+    }
   };
 
   // Toggle Microphone
@@ -537,10 +563,13 @@ export default function App() {
     if (isRecording) {
       if (streamerRef.current) {
         streamerRef.current.stop();
+        streamerRef.current = null;
       }
       setIsRecording(false);
       setAudioLevel(0);
       setInterimSpeech('');
+      setInterimVernacular('');
+      setLiveMicStatus('idle');
     } else {
       const streamer = new AudioStreamer({
         onAudioData: (buffer) => {
@@ -553,20 +582,36 @@ export default function App() {
         },
         onInterimSpeech: (text) => {
           setInterimSpeech(text);
+          if (text && text.trim()) {
+            setLiveMicStatus('speaking');
+            translateInterimDebounced(text.trim(), targetLang, glossary, (vern) => {
+              setInterimVernacular(vern);
+            });
+          } else {
+            setInterimVernacular('');
+            setLiveMicStatus('listening');
+          }
         },
         onSpeechRecognized: (text, conf) => {
           processSpeechText(text, conf);
         },
+        onStatusChange: (status) => {
+          setLiveMicStatus(status);
+        },
         onError: (err) => {
           setErrorMessage(`Microphone note: ${err.message}. You can also type or paste speech in the box below to test without a microphone.`);
           setIsRecording(false);
+          setAudioLevel(0);
           setInterimSpeech('');
+          setInterimVernacular('');
+          setLiveMicStatus('idle');
         }
       });
 
       streamer.start();
       streamerRef.current = streamer;
       setIsRecording(true);
+      setLiveMicStatus('listening');
       setErrorMessage(null);
     }
   };
@@ -1016,12 +1061,14 @@ export default function App() {
           isRecording={isRecording}
           onToggleRecord={toggleRecording}
           audioLevel={audioLevel}
+          liveMicStatus={liveMicStatus}
           segmentCount={segments.length}
           onGenerateStudyGuide={handleGenerateStudyGuide}
           onLoadSample={handleLoadSample}
           onClearSession={clearSession}
           isGeneratingGuide={isGeneratingGuide}
           interimSpeech={interimSpeech}
+          interimVernacular={interimVernacular}
           onDirectSpeechSubmit={processSpeechText}
         />
       </div>
@@ -1030,10 +1077,16 @@ export default function App() {
         <CaptionPane
           segments={segments}
           targetLangName={`${selectedLangMeta.name} (${selectedLangMeta.native})`}
+          targetLang={targetLang}
           highlightedSegmentId={highlightedSegmentId}
           autoScroll={autoScroll}
           onToggleAutoScroll={() => setAutoScroll((prev) => !prev)}
+          isRecording={isRecording}
+          liveMicStatus={liveMicStatus}
           interimSpeech={interimSpeech}
+          interimVernacular={interimVernacular}
+          glossary={glossary}
+          onClearCaptions={clearSession}
         />
 
         <ChatPanel

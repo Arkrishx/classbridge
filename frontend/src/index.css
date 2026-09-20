@@ -526,6 +526,162 @@ body {
   gap: 5px;
 }
 
+/* ==========================================================================
+   Maestra-Grade Live Dual Streaming Card & Animations
+   ========================================================================== */
+
+.live-indicator-pill {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(244, 63, 94, 0.15);
+  color: #fb7185;
+  border: 1px solid rgba(244, 63, 94, 0.4);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.live-dot-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f43f5e;
+  box-shadow: 0 0 8px #f43f5e;
+  animation: pulseBlink 1s infinite;
+}
+
+.live-stream-card {
+  background: linear-gradient(145deg, rgba(14, 21, 38, 0.95), rgba(8, 12, 22, 0.98));
+  border: 1.5px solid rgba(56, 189, 248, 0.45);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 0 30px rgba(56, 189, 248, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+  animation: liveCardGlow 3s ease-in-out infinite alternate;
+}
+
+@keyframes liveCardGlow {
+  0% {
+    border-color: rgba(56, 189, 248, 0.35);
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.1);
+  }
+  100% {
+    border-color: rgba(99, 102, 241, 0.6);
+    box-shadow: 0 0 32px rgba(99, 102, 241, 0.22);
+  }
+}
+
+.live-stream-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.live-stream-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--accent-cyan);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.live-stream-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 10px #38bdf8;
+  animation: pulseBlink 1s infinite;
+}
+
+.live-stream-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: rgba(56, 189, 248, 0.15);
+  color: #7dd3fc;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.live-stream-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.live-stream-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.live-stream-en {
+  font-size: 16px;
+  color: #f8fafc;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+.live-stream-cursor {
+  display: inline-block;
+  color: var(--accent-cyan);
+  font-weight: 800;
+  margin-left: 2px;
+  animation: cursorBlink 0.8s infinite;
+}
+
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.live-stream-vernacular {
+  font-size: 17.5px;
+  color: #fde047;
+  line-height: 1.6;
+  font-weight: 600;
+}
+
+.live-stream-translating {
+  color: var(--text-muted);
+  font-style: italic;
+  animation: shimmerText 1.5s infinite;
+}
+
+@keyframes shimmerText {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.domain-chip.live-chip {
+  background: rgba(250, 204, 21, 0.15);
+  color: #fef08a;
+  border: 1px solid rgba(250, 204, 21, 0.4);
+  box-shadow: 0 0 10px rgba(250, 204, 21, 0.2);
+}
+
+.live-stream-footer {
+  font-size: 11px;
+  color: var(--text-dim);
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  padding-top: 8px;
+  margin-top: 4px;
+}
+
 /* Minimalist Chat Card */
 .chat-card {
   background: var(--bg-surface);
