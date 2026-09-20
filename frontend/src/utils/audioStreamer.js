@@ -53,16 +53,42 @@ export class AudioStreamer {
     this.isSpeaking = false;
     this.consecutiveErrors = 0;
     this.recLang = 'en-US';
+    this.recentCommitted = [];
   }
 
   commitFinalText(text, confidence = 96) {
-    const clean = text.trim();
+    let clean = text.trim();
     if (!clean || clean.length < 2) return;
 
+    // Deduplicate repeated consecutive words within the utterance (e.g. "visit visit visit" -> "visit")
+    const words = clean.split(/\s+/);
+    const dedupedWords = [];
+    for (let i = 0; i < words.length; i++) {
+      if (i === 0 || words[i].toLowerCase() !== words[i - 1].toLowerCase()) {
+        dedupedWords.push(words[i]);
+      }
+    }
+    clean = dedupedWords.join(' ');
+    if (!clean || clean.length < 2) return;
+
+    const lowerClean = clean.toLowerCase();
+
     // Prevent duplicate rapid-fire commits of the identical sentence
-    if (clean.toLowerCase() === this.lastCommittedText.toLowerCase()) {
+    if (lowerClean === this.lastCommittedText.toLowerCase()) {
       return;
     }
+
+    // Ring buffer of recently committed sentences to prevent echoing and bounce
+    if (!this.recentCommitted) {
+      this.recentCommitted = [];
+    }
+    const now = Date.now();
+    // Prune entries older than 8 seconds
+    this.recentCommitted = this.recentCommitted.filter((item) => (now - item.time) < 8000);
+    if (this.recentCommitted.some((item) => item.text === lowerClean)) {
+      return;
+    }
+    this.recentCommitted.push({ text: lowerClean, time: now });
     this.lastCommittedText = clean;
 
     if (this.pauseTimer) {
@@ -81,8 +107,28 @@ export class AudioStreamer {
   }
 
   handleInterimText(text) {
-    const clean = text.trim();
+    let clean = text.trim();
     if (!clean) return;
+
+    // Deduplicate repeated consecutive words in interim text
+    const words = clean.split(/\s+/);
+    const dedupedWords = [];
+    for (let i = 0; i < words.length; i++) {
+      if (i === 0 || words[i].toLowerCase() !== words[i - 1].toLowerCase()) {
+        dedupedWords.push(words[i]);
+      }
+    }
+    clean = dedupedWords.join(' ');
+    if (!clean) return;
+
+    const lowerClean = clean.toLowerCase();
+    // If identical to last committed text, don't display as interim
+    if (lowerClean === this.lastCommittedText.toLowerCase()) {
+      return;
+    }
+    if (this.recentCommitted && this.recentCommitted.some((item) => item.text === lowerClean)) {
+      return;
+    }
 
     this.currentInterimText = clean;
     this.isSpeaking = true;
@@ -96,7 +142,7 @@ export class AudioStreamer {
       this.onInterimSpeech(clean);
     }
 
-    // Reset conversational pause auto-commit timer (1400ms pause)
+    // Reset conversational pause auto-commit timer (1200ms pause)
     if (this.pauseTimer) {
       clearTimeout(this.pauseTimer);
     }
@@ -112,7 +158,7 @@ export class AudioStreamer {
           this.onStatusChange('listening');
         }
       }
-    }, 1400);
+    }, 1200);
   }
 
   /**
@@ -219,18 +265,21 @@ export class AudioStreamer {
     // Start volume animation ticker for the 16-bar visualizer
     this.startVolumeTicker();
 
+    // Start physical audio capture on selected device for real-time RMS meter & WebSocket
+    try {
+      await this.initPhysicalAudioStream();
+    } catch (e) {
+      console.warn("Physical audio stream init notice:", e);
+    }
+
     const SpeechRec = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
 
     if (SpeechRec) {
-      // PRIMARY: SpeechRecognition runs with exclusive microphone access (Zero Hardware Contention)
-      // Simultaneous getUserMedia + SpeechRecognition causes audio device collision on Windows & mobile.
       this.initSpeechRecognition(SpeechRec);
     } else {
-      // FALLBACK: If browser has no Web Speech API (Firefox), use getUserMedia + MediaRecorder
       console.warn("Web Speech API not supported; relying on MediaStream fallback.");
-      await this.initPhysicalAudioStream();
       if (this.onError) {
-        this.onError(new Error("Your browser does not natively support speech recognition (e.g. Mozilla Firefox). Please use Microsoft Edge or Google Chrome for live voice dictation."));
+        this.onError(new Error("Your browser does not natively support speech recognition (e.g. Mozilla Firefox). Please use Google Chrome or Microsoft Edge for live voice dictation."));
       }
     }
 
@@ -252,14 +301,12 @@ export class AudioStreamer {
 
       const rec = new SpeechRec();
       
-      // On desktop Edge/Chrome, continuous=false guarantees onresult triggers immediately
-      // on every utterance and avoids Edge's known continuous-mode silent stalls.
-      const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      rec.continuous = isMobile;
+      // Continuous transcription mode
+      rec.continuous = true;
       rec.interimResults = true;
       rec.maxAlternatives = 1;
 
-      // en-US is universally supported by Microsoft Edge and Chrome speech services
+      // en-US is universally supported by Chrome and Edge speech services
       rec.lang = this.recLang || 'en-US';
 
       rec.onstart = () => {
@@ -297,25 +344,25 @@ export class AudioStreamer {
         this.targetSimVolume = 0;
       };
 
+      // Loop strictly from event.resultIndex to process ONLY newly arrived utterances.
+      // This prevents the mobile repetition explosion where past results were re-accumulated.
       rec.onresult = (event) => {
         let interim = '';
-        let final = '';
 
-        for (let i = 0; i < event.results.length; ++i) {
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
           const res = event.results[i];
+          if (!res || !res[0]) continue;
           const transcript = res[0].transcript;
 
           if (res.isFinal) {
-            final += transcript;
+            const conf = Math.round((res[0].confidence || 0.95) * 100);
+            this.commitFinalText(transcript, conf);
           } else {
             interim += transcript;
           }
         }
 
-        if (final.trim()) {
-          const conf = Math.round((event.results[event.results.length - 1][0].confidence || 0.95) * 100);
-          this.commitFinalText(final.trim(), conf);
-        } else if (interim.trim()) {
+        if (interim.trim()) {
           this.handleInterimText(interim.trim());
         }
       };
@@ -342,14 +389,17 @@ export class AudioStreamer {
           console.warn(`Speech recognition ${err} error; switching language to universal en-US...`);
           this.recLang = 'en-US';
           this.consecutiveErrors += 1;
+          if (this.consecutiveErrors > 2 && this.onError) {
+            this.onError(new Error("Browser speech recognition encountered a network/privacy restriction. In Windows Settings > Privacy > Speech, turn ON 'Online speech recognition', or open ClassBridge in Google Chrome."));
+          }
           // Auto-recover cleanly if still recording
           if (this.isRecording) {
             if (this.restartTimer) clearTimeout(this.restartTimer);
             this.restartTimer = setTimeout(() => {
-              if (this.isRecording) {
+              if (this.isRecording && !this.isStarting) {
                 this.initSpeechRecognition(SpeechRec);
               }
-            }, 300);
+            }, 500);
           }
           return;
         }
@@ -364,6 +414,7 @@ export class AudioStreamer {
       };
 
       rec.onend = () => {
+        this.isStarting = false;
         // If there was uncommitted interim speech, commit it safely
         if (this.currentInterimText && this.currentInterimText.trim().length > 1) {
           const textToCommit = this.currentInterimText.trim();
@@ -371,14 +422,14 @@ export class AudioStreamer {
           this.commitFinalText(textToCommit, 94);
         }
 
-        // Resilient self-healing loop: restart immediately if user still has mic turned on
+        // Resilient self-healing loop: restart if user still has mic turned on
         if (this.isRecording) {
           if (this.restartTimer) clearTimeout(this.restartTimer);
           this.restartTimer = setTimeout(() => {
-            if (this.isRecording) {
+            if (this.isRecording && !this.isStarting) {
               this.initSpeechRecognition(SpeechRec);
             }
-          }, 120);
+          }, 300);
         }
       };
 
@@ -391,10 +442,10 @@ export class AudioStreamer {
       if (this.isRecording) {
         if (this.restartTimer) clearTimeout(this.restartTimer);
         this.restartTimer = setTimeout(() => {
-          if (this.isRecording) {
+          if (this.isRecording && !this.isStarting) {
             this.initSpeechRecognition(SpeechRec);
           }
-        }, 300);
+        }, 400);
       }
     }
   }
@@ -528,7 +579,7 @@ export class AudioStreamer {
 
   async setAudioDevice(deviceId) {
     this.selectedDeviceId = deviceId;
-    if (this.isRecording && !this.recognition) {
+    if (this.isRecording) {
       await this.initPhysicalAudioStream();
     }
   }

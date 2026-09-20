@@ -575,10 +575,33 @@ export default function App() {
     try {
       const transResult = await translateTextClient(cleanText, targetLang, glossary);
       setSegments((prev) => {
-        // Prevent duplicate commits
+        // Prevent duplicate commits & collapse
         if (prev.length > 0) {
           const last = prev[prev.length - 1];
-          if (last.text_en.trim().toLowerCase() === cleanText.toLowerCase()) {
+          const lastEn = last.text_en.trim().toLowerCase();
+          const currEn = cleanText.toLowerCase();
+
+          // If exact duplicate of last segment, skip
+          if (lastEn === currEn) {
+            return prev;
+          }
+
+          // If the new phrase extends the previous segment (e.g. partial utterance updated to full)
+          if (currEn.startsWith(lastEn) && (currEn.length - lastEn.length) < 50) {
+            const updated = [...prev];
+            updated[updated.length - 1] = {
+              ...last,
+              text_en: cleanText,
+              text_vernacular: transResult.adapted_translation,
+              raw_translation: transResult.raw_translation,
+              confidence: confidence,
+              domain_terms: transResult.domain_terms
+            };
+            return updated;
+          }
+
+          // If the previous segment already contains the current text, skip
+          if (lastEn.endsWith(currEn) || lastEn.includes(currEn)) {
             return prev;
           }
         }

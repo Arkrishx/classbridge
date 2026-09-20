@@ -487,6 +487,29 @@ export default function AudioDeviceModal({
               When using a Bluetooth headset (like Harmonics Y3), verify in <b>Windows Settings &gt; System &gt; Sound</b> that your headset microphone is selected as the <b>Default Input Device</b>. This ensures browser speech recognition receives your voice directly with crystal-clear clarity.
             </div>
           </div>
+
+          {devices.some((d) => d.isVirtual) && (
+            <div
+              style={{
+                marginTop: '10px',
+                padding: '10px 14px',
+                borderRadius: 'var(--radius-md)',
+                background: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                fontSize: '11.5px',
+                color: '#fca5a5',
+                lineHeight: 1.5,
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '8px',
+              }}
+            >
+              <AlertCircle size={15} style={{ flexShrink: 0, marginTop: '2px', color: '#f87171' }} />
+              <div>
+                <b>Virtual Mic Detected (AudioRelay):</b> If your laptop has AudioRelay installed, Windows may have set Virtual Mic as the default recording device which delivers silence. Please select your <b>Bluetooth Headset (Harmonics Y3)</b> or <b>Microphone</b> above and ensure it is set as default in Windows Sound Settings.
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
