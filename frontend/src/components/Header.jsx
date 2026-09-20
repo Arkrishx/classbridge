@@ -1,6 +1,8 @@
 import React from 'react';
 import { BookOpen, Clock, Sparkles, Languages, Headphones, Mic } from 'lucide-react';
 
+import Logo from './Logo';
+
 export const SUPPORTED_LANGUAGES = [
   { code: 'en', name: 'English', native: 'English', bcp47: 'en-US', flag: '🇬🇧' },
   { code: 'ta', name: 'Tamil', native: 'தமிழ்', bcp47: 'ta-IN', flag: '🇮🇳' },
@@ -31,18 +33,7 @@ export default function Header({
   return (
     <header className="app-header">
       <div className="brand-section">
-        <div className="logo-symbol">
-          CB
-        </div>
-        <div>
-          <div className="brand-title">
-            ClassBridge
-            <span className="brand-tag">EDU-02</span>
-          </div>
-          <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
-            Real-Time Vernacular Lecture Companion
-          </div>
-        </div>
+        <Logo size="small" showSubtitle={true} />
       </div>
 
       {/* Bidirectional Language Pair Bar with 1-Click Swap */}

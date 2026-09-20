@@ -299,12 +299,19 @@ export default function ChatPanel({
         <button
           type="button"
           onClick={handleSubmit}
-          className="btn-minimal"
-          style={{ background: 'var(--accent-cyan)', color: '#08090d', border: 'none', padding: '8px 12px' }}
+          className="btn-minimal btn-chat-send"
+          style={{
+            background: input.trim() ? 'linear-gradient(135deg, #38bdf8, #6366f1)' : 'rgba(255, 255, 255, 0.08)',
+            color: input.trim() ? '#ffffff' : 'var(--text-dim)',
+            border: 'none',
+            padding: '8px 14px',
+            gap: '6px'
+          }}
           disabled={isLoading || !input.trim()}
-          title="Send question to AI Tutor"
+          title="Send question to AI Tutor (or press Enter ↵)"
         >
-          <Send size={14} />
+          <Send size={13} />
+          <span style={{ fontSize: '11px', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>↵</span>
         </button>
       </form>
     </div>

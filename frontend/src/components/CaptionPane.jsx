@@ -275,9 +275,17 @@ export default function CaptionPane({
                         : 'MICROPHONE ACTIVE — LISTENING FOR VOICE...'}
                     </span>
                   </div>
-                  <span className="live-stream-badge">
-                    {liveMicStatus === 'speaking' ? 'Speaking' : 'Listening'}
-                  </span>
+                  <div className="live-stream-header-right">
+                    <div className="live-equalizer-bars" title="Real-time acoustic speech detection">
+                      <span className="live-bar bar-1" />
+                      <span className="live-bar bar-2" />
+                      <span className="live-bar bar-3" />
+                      <span className="live-bar bar-4" />
+                    </div>
+                    <span className="live-stream-badge">
+                      {liveMicStatus === 'speaking' ? 'Speaking' : 'Listening'}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Speech Streaming Line */}
