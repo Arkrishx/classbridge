@@ -29,10 +29,12 @@ export default function ChatPanel({
   }, [messages, isLoading]);
 
   const handleSubmit = (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
+    if (e && e.stopPropagation) e.stopPropagation();
     if (!input.trim() || isLoading) return;
-    onSendMessage(input.trim());
+    const textToSend = input.trim();
     setInput('');
+    onSendMessage(textToSend);
   };
 
   const sampleQuestions = [
@@ -74,9 +76,13 @@ export default function ChatPanel({
                 {sampleQuestions.map((q, idx) => (
                   <button
                     key={idx}
+                    type="button"
                     className="chip-btn"
                     style={{ textAlign: 'left', padding: '6px 10px', justifyContent: 'flex-start' }}
-                    onClick={() => onSendMessage(q)}
+                    onClick={(e) => {
+                      if (e && e.preventDefault) e.preventDefault();
+                      onSendMessage(q);
+                    }}
                   >
                     <Sparkles size={11} color="var(--accent-cyan)" />
                     <span>{q}</span>
@@ -88,17 +94,25 @@ export default function ChatPanel({
         ) : (
           messages.map((msg, index) => {
             if (msg.role === 'user') {
+              const userText = typeof msg.text === 'string' ? msg.text : String(msg.text || '');
               return (
                 <div key={index} className="msg-bubble msg-user">
-                  <div>{msg.text}</div>
+                  <div>{userText}</div>
                 </div>
               );
             }
 
             // AI Tutor Bot Response
             const isInLecture = msg.found_in_lecture !== false;
-            const citations = msg.citations || [];
+            const citations = Array.isArray(msg.citations) ? msg.citations : [];
             const internetDef = msg.internet_definition;
+
+            const botText = typeof msg.text === 'string'
+              ? msg.text
+              : (msg.text?.text || (msg.text ? JSON.stringify(msg.text) : ''));
+            const botVernacular = typeof msg.vernacular === 'string'
+              ? msg.vernacular
+              : (msg.vernacular?.text || (msg.vernacular ? JSON.stringify(msg.vernacular) : ''));
 
             return (
               <div key={index} className="msg-bubble msg-bot upgraded-bot-card">
@@ -119,17 +133,17 @@ export default function ChatPanel({
 
                 {/* 2. Main Explanation in Both Languages */}
                 <div className="qa-answer-block">
-                  {msg.text && (
+                  {botText && (
                     <div className="qa-answer-lang-row">
                       <span className="qa-lang-tag src">{(msg.source_lang || sourceLang).toUpperCase()}</span>
-                      <span className="qa-answer-text">{msg.text}</span>
+                      <span className="qa-answer-text">{botText}</span>
                     </div>
                   )}
 
-                  {msg.vernacular && (
+                  {botVernacular && (
                     <div className="qa-answer-lang-row vernacular-row">
                       <span className="qa-lang-tag tgt">{(msg.target_lang || targetLang).toUpperCase()}</span>
-                      <span className="qa-answer-text vernacular-text">{msg.vernacular}</span>
+                      <span className="qa-answer-text vernacular-text">{botVernacular}</span>
                     </div>
                   )}
                 </div>
@@ -143,39 +157,52 @@ export default function ChatPanel({
                     </div>
 
                     <div className="evidence-segments-list">
-                      {citations.map((cite, cIdx) => (
-                        <div key={cIdx} className="evidence-item">
-                          <div className="evidence-meta-row">
-                            <button
-                              className="evidence-timestamp-btn"
-                              onClick={() => onSelectCitation && onSelectCitation(cite.segment_id)}
-                              title="Click to jump and highlight this caption in the left pane"
-                            >
-                              <Clock size={10} />
-                              <span>[{cite.timestamp}] Jump to Caption</span>
-                            </button>
-                            {cite.relevance_score && (
-                              <span className="evidence-score">
-                                Match: {Math.round(cite.relevance_score * 100)}%
-                              </span>
-                            )}
-                          </div>
+                      {citations.map((cite, cIdx) => {
+                        const citeSource = typeof cite.text_source === 'string'
+                          ? cite.text_source
+                          : (cite.text_en || '');
+                        const citeVernacular = typeof cite.text_vernacular === 'string'
+                          ? cite.text_vernacular
+                          : '';
 
-                          <div className="evidence-quote-box">
-                            <div className="evidence-quote-line">
-                              <span className="evidence-lang-mini">{(msg.source_lang || sourceLang).toUpperCase()}</span>
-                              <span className="evidence-sentence">"{cite.text_source || cite.text_en}"</span>
+                        return (
+                          <div key={cIdx} className="evidence-item">
+                            <div className="evidence-meta-row">
+                              <button
+                                type="button"
+                                className="evidence-timestamp-btn"
+                                onClick={(e) => {
+                                  if (e && e.preventDefault) e.preventDefault();
+                                  onSelectCitation && onSelectCitation(cite.segment_id);
+                                }}
+                                title="Click to jump and highlight this caption in the left pane"
+                              >
+                                <Clock size={10} />
+                                <span>[{cite.timestamp || '00:00'}] Jump to Caption</span>
+                              </button>
+                              {cite.relevance_score && (
+                                <span className="evidence-score">
+                                  Match: {Math.round(cite.relevance_score * 100)}%
+                                </span>
+                              )}
                             </div>
 
-                            {cite.text_vernacular && (
-                              <div className="evidence-quote-line tgt-line">
-                                <span className="evidence-lang-mini tgt">{(msg.target_lang || targetLang).toUpperCase()}</span>
-                                <span className="evidence-sentence tgt-text">"{cite.text_vernacular}"</span>
+                            <div className="evidence-quote-box">
+                              <div className="evidence-quote-line">
+                                <span className="evidence-lang-mini">{(msg.source_lang || sourceLang).toUpperCase()}</span>
+                                <span className="evidence-sentence">"{citeSource}"</span>
                               </div>
-                            )}
+
+                              {citeVernacular && (
+                                <div className="evidence-quote-line tgt-line">
+                                  <span className="evidence-lang-mini tgt">{(msg.target_lang || targetLang).toUpperCase()}</span>
+                                  <span className="evidence-sentence tgt-text">"{citeVernacular}"</span>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -187,7 +214,7 @@ export default function ChatPanel({
                       <div className="def-card-title-box">
                         <Globe size={12} color="var(--accent-cyan)" />
                         <span className="def-term-label">
-                          Internet Definition: <b>{internetDef.term}</b>
+                          Internet Definition: <b>{typeof internetDef.term === 'string' ? internetDef.term : String(internetDef.term || '')}</b>
                         </span>
                       </div>
 
@@ -209,14 +236,22 @@ export default function ChatPanel({
                       {internetDef.text_source && (
                         <div className="def-line">
                           <span className="qa-lang-tag src">{(msg.source_lang || sourceLang).toUpperCase()}</span>
-                          <span className="def-text">{internetDef.text_source}</span>
+                          <span className="def-text">
+                            {typeof internetDef.text_source === 'string'
+                              ? internetDef.text_source
+                              : (internetDef.text_source?.adapted_translation || String(internetDef.text_source || ''))}
+                          </span>
                         </div>
                       )}
 
                       {internetDef.text_target && (
                         <div className="def-line tgt-def">
                           <span className="qa-lang-tag tgt">{(msg.target_lang || targetLang).toUpperCase()}</span>
-                          <span className="def-text tgt-text">{internetDef.text_target}</span>
+                          <span className="def-text tgt-text">
+                            {typeof internetDef.text_target === 'string'
+                              ? internetDef.text_target
+                              : (internetDef.text_target?.adapted_translation || String(internetDef.text_target || ''))}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -238,7 +273,11 @@ export default function ChatPanel({
         <div ref={chatEndRef} />
       </div>
 
-      <form className="chat-input-row" onSubmit={handleSubmit}>
+      <form
+        className="chat-input-row"
+        action="javascript:void(0);"
+        onSubmit={handleSubmit}
+      >
         <input
           type="text"
           className="chat-input-field"
@@ -249,10 +288,17 @@ export default function ChatPanel({
           }
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleSubmit(e);
+            }
+          }}
           disabled={isLoading}
         />
         <button
-          type="submit"
+          type="button"
+          onClick={handleSubmit}
           className="btn-minimal"
           style={{ background: 'var(--accent-cyan)', color: '#08090d', border: 'none', padding: '8px 12px' }}
           disabled={isLoading || !input.trim()}

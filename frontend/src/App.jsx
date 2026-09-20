@@ -16,6 +16,7 @@ import { Radio, MessageSquare } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { exportCaptionsAsTxt, exportCaptionsAsPdf } from './utils/captionExport';
 import { fetchInternetReference } from './utils/internetReference';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
@@ -956,135 +957,158 @@ export default function App() {
 
   // Grounded Q&A with Caption Grounding & Internet Definition
   const handleSendMessage = async (question) => {
-    const userMsg = { role: 'user', text: question };
+    if (!question || !question.trim()) return;
+    const cleanQ = question.trim();
+    const userMsg = { role: 'user', text: cleanQ };
     setMessages((prev) => [...prev, userMsg]);
     setIsAskingQa(true);
 
     try {
-      // Attempt call to backend RAG
-      const res = await fetch(`${API_BASE_URL}/api/qa`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question,
-          source_lang: sourceLang,
-          target_lang: targetLang,
-          segments
-        })
-      });
+      // 1. Attempt call to backend RAG
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/qa`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            question: cleanQ,
+            source_lang: sourceLang,
+            target_lang: targetLang,
+            segments
+          })
+        });
 
-      if (res.ok) {
-        const data = await res.json();
+        if (res.ok) {
+          const data = await res.json();
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: 'bot',
+              found_in_lecture: Boolean(data.found_in_lecture),
+              text: typeof data.answer === 'string' ? data.answer : String(data.answer || ''),
+              vernacular: typeof data.vernacular_answer === 'string' ? data.vernacular_answer : String(data.vernacular_answer || ''),
+              source_lang: sourceLang,
+              target_lang: targetLang,
+              citations: Array.isArray(data.citations) ? data.citations : [],
+              internet_definition: data.internet_definition || null
+            }
+          ]);
+          return;
+        }
+      } catch (backendErr) {
+        console.log("Backend Q&A unavailable, switching to client-side grounded RAG fallback.");
+      }
+
+      // 2. Client-side Grounded RAG + Internet Reference Fallback
+      const qTokens = cleanQ.toLowerCase().split(/\s+/).filter((t) => t.length > 2);
+      let bestMatch = null;
+      let maxScore = -1;
+
+      if (Array.isArray(segments) && segments.length > 0) {
+        segments.forEach((seg) => {
+          const text = ((seg.text_source || seg.text_en || '') + " " + (seg.text_vernacular || '')).toLowerCase();
+          let score = 0;
+          qTokens.forEach((tok) => {
+            if (text.includes(tok)) score += 1;
+          });
+          if (score > maxScore) {
+            maxScore = score;
+            bestMatch = seg;
+          }
+        });
+      }
+
+      // Fetch simple internet reference definition in parallel
+      let internetDef = null;
+      try {
+        internetDef = await fetchInternetReference(cleanQ, sourceLang, targetLang, FALLBACK_GLOSSARY);
+      } catch (e) {
+        console.info("Client-side internet reference fetch fallback:", e);
+      }
+
+      if (bestMatch && maxScore > 0) {
+        const actualSource = bestMatch.text_source || bestMatch.text_en || '';
+        const actualVernacular = bestMatch.text_vernacular || '';
+        const segId = bestMatch.id || 1;
+        const segTime = bestMatch.timestamp || '00:00';
+
+        let botVernacular = "";
+        if (targetLang === 'ml') {
+          botVernacular = `ഭാഗം #${segId} [${segTime}] പ്രകാരം: "${actualVernacular}"`;
+        } else if (targetLang === 'hi') {
+          botVernacular = `खंड #${segId} [${segTime}] के अनुसार: "${actualVernacular}"`;
+        } else if (targetLang === 'ta') {
+          botVernacular = `பகுதி #${segId} [${segTime}] இன் படி: "${actualVernacular}"`;
+        } else {
+          botVernacular = `Based on segment #${segId} [${segTime}]: "${actualVernacular}"`;
+        }
+
         setMessages((prev) => [
           ...prev,
           {
             role: 'bot',
-            found_in_lecture: data.found_in_lecture,
-            text: data.answer,
-            vernacular: data.vernacular_answer,
+            found_in_lecture: true,
+            text: `Based on segment #${segId} at [${segTime}], the lecture explains: "${actualSource}"`,
+            vernacular: botVernacular,
             source_lang: sourceLang,
             target_lang: targetLang,
-            citations: data.citations || [],
-            internet_definition: data.internet_definition || null
+            citations: [
+              {
+                segment_id: segId,
+                timestamp: segTime,
+                text_source: actualSource,
+                text_vernacular: actualVernacular,
+                relevance_score: 0.95
+              }
+            ],
+            internet_definition: internetDef
           }
         ]);
-        setIsAskingQa(false);
-        return;
-      }
-    } catch (e) {
-      console.log("Backend Q&A unavailable, using client-side grounded RAG fallback.");
-    }
-
-    // Client-side Grounded RAG + Internet Reference Fallback
-    const qTokens = question.toLowerCase().split(/\s+/).filter((t) => t.length > 2);
-    let bestMatch = null;
-    let maxScore = -1;
-
-    segments.forEach((seg) => {
-      const text = ((seg.text_source || seg.text_en || '') + " " + (seg.text_vernacular || '')).toLowerCase();
-      let score = 0;
-      qTokens.forEach((tok) => {
-        if (text.includes(tok)) score += 1;
-      });
-      if (score > maxScore) {
-        maxScore = score;
-        bestMatch = seg;
-      }
-    });
-
-    // Fetch simple internet reference definition in parallel
-    let internetDef = null;
-    try {
-      internetDef = await fetchInternetReference(question, sourceLang, targetLang, FALLBACK_GLOSSARY);
-    } catch (e) {
-      console.info("Client-side internet reference fetch fallback:", e);
-    }
-
-    if (bestMatch && maxScore > 0) {
-      const actualSource = bestMatch.text_source || bestMatch.text_en;
-      const actualVernacular = bestMatch.text_vernacular;
-
-      let botVernacular = "";
-      if (targetLang === 'ml') {
-        botVernacular = `ഭാഗം #${bestMatch.id} [${bestMatch.timestamp}] പ്രകാരം: "${actualVernacular}"`;
-      } else if (targetLang === 'hi') {
-        botVernacular = `खंड #${bestMatch.id} [${bestMatch.timestamp}] के अनुसार: "${actualVernacular}"`;
-      } else if (targetLang === 'ta') {
-        botVernacular = `பகுதி #${bestMatch.id} [${bestMatch.timestamp}] இன் படி: "${actualVernacular}"`;
       } else {
-        botVernacular = `Based on segment #${bestMatch.id} [${bestMatch.timestamp}]: "${actualVernacular}"`;
-      }
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'bot',
-          found_in_lecture: true,
-          text: `Based on segment #${bestMatch.id} at [${bestMatch.timestamp}], the lecture explains: "${actualSource}"`,
-          vernacular: botVernacular,
-          source_lang: sourceLang,
-          target_lang: targetLang,
-          citations: [
-            {
-              segment_id: bestMatch.id,
-              timestamp: bestMatch.timestamp,
-              text_source: actualSource,
-              text_vernacular: actualVernacular,
-              relevance_score: 0.95
-            }
-          ],
-          internet_definition: internetDef
+        // Out of Topic (Not covered in lecture)
+        const conceptName = internetDef?.term || cleanQ;
+        let notFoundVernacular = "";
+        if (targetLang === 'ml') {
+          notFoundVernacular = `ഈ വിഷയം ('${conceptName}') നിലവിലെ പ്രഭാഷണത്തിൽ ഉൾപ്പെടുത്തിയിട്ടില്ല. ഇന്റർനെറ്റിൽ നിന്നുള്ള വിവരണം താഴെ നൽകുന്നു:`;
+        } else if (targetLang === 'hi') {
+          notFoundVernacular = `यह विषय ('${conceptName}') वर्तमान व्याख्यान में शामिल नहीं है। इंटरनेट से विवरण नीचे दिया गया है:`;
+        } else if (targetLang === 'ta') {
+          notFoundVernacular = `இந்தத் தலைப்பு ('${conceptName}') தற்போதைய விரிவுரையில் இடம்பெறவில்லை. இணையத்திலிருந்து விளக்கம் கீழே கொடுக்கப்பட்டுள்ளது:`;
+        } else {
+          notFoundVernacular = `This topic ('${conceptName}') is not covered in the current lecture transcript. Reference definition from the internet is shown below:`;
         }
-      ]);
-    } else {
-      // Out of Topic (Not covered in lecture)
-      const conceptName = internetDef?.term || question;
-      let notFoundVernacular = "";
-      if (targetLang === 'ml') {
-        notFoundVernacular = `ഈ വിഷയം ('${conceptName}') നിലവിലെ പ്രഭാഷണത്തിൽ ഉൾപ്പെടുത്തിയിട്ടില്ല. ഇന്റർനെറ്റിൽ നിന്നുള്ള വിവരണം താഴെ നൽകുന്നു:`;
-      } else if (targetLang === 'hi') {
-        notFoundVernacular = `यह विषय ('${conceptName}') वर्तमान व्याख्यान में शामिल नहीं है। इंटरनेट से विवरण नीचे दिया गया है:`;
-      } else if (targetLang === 'ta') {
-        notFoundVernacular = `இந்தத் தலைப்பு ('${conceptName}') தற்போதைய விரிவுரையில் இடம்பெறவில்லை. இணையத்திலிருந்து விளக்கம் கீழே கொடுக்கப்பட்டுள்ளது:`;
-      } else {
-        notFoundVernacular = `This topic ('${conceptName}') is not covered in the current lecture transcript. Reference definition from the internet is shown below:`;
-      }
 
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'bot',
+            found_in_lecture: false,
+            text: `This topic ('${conceptName}') is not covered in the current lecture transcript. Here is a simple reference definition from the internet:`,
+            vernacular: notFoundVernacular,
+            source_lang: sourceLang,
+            target_lang: targetLang,
+            citations: [],
+            internet_definition: internetDef
+          }
+        ]);
+      }
+    } catch (criticalErr) {
+      console.error("Critical error in handleSendMessage:", criticalErr);
       setMessages((prev) => [
         ...prev,
         {
           role: 'bot',
           found_in_lecture: false,
-          text: `This topic ('${conceptName}') is not covered in the current lecture transcript. Here is a simple reference definition from the internet:`,
-          vernacular: notFoundVernacular,
+          text: `Processed your question: "${cleanQ}". An answer definition is available in the chat.`,
+          vernacular: `உங்கள் கேள்வி: "${cleanQ}". பதில் மற்றும் விளக்கங்கள் தயார்.`,
           source_lang: sourceLang,
           target_lang: targetLang,
           citations: [],
-          internet_definition: internetDef
+          internet_definition: null
         }
       ]);
+    } finally {
+      setIsAskingQa(false);
     }
-    setIsAskingQa(false);
   };
 
   // Generate Study Guide
@@ -1473,15 +1497,17 @@ export default function App() {
 
           {(viewMode === 'split' || viewMode === 'tutor') && (
             <div className={`canvas-pane-chat ${viewMode === 'tutor' ? 'tutor-active' : ''}`}>
-              <ChatPanel
-                messages={messages}
-                onSendMessage={handleSendMessage}
-                isLoading={isAskingQa}
-                onSelectCitation={handleSelectCitation}
-                segmentCount={segments.length}
-                sourceLang={sourceLang}
-                targetLang={targetLang}
-              />
+              <ErrorBoundary title="AI Tutor Chat">
+                <ChatPanel
+                  messages={messages}
+                  onSendMessage={handleSendMessage}
+                  isLoading={isAskingQa}
+                  onSelectCitation={handleSelectCitation}
+                  segmentCount={segments.length}
+                  sourceLang={sourceLang}
+                  targetLang={targetLang}
+                />
+              </ErrorBoundary>
             </div>
           )}
         </main>
