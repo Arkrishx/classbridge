@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import Header, { SUPPORTED_LANGUAGES } from './components/Header';
-import AudioControls from './components/AudioControls';
+import StudioSidebar from './components/StudioSidebar';
+import WorkspaceHeader from './components/WorkspaceHeader';
+import { SUPPORTED_LANGUAGES } from './components/Header';
 import CaptionPane from './components/CaptionPane';
 import ChatPanel from './components/ChatPanel';
 import StudyGuideModal from './components/StudyGuideModal';
@@ -389,6 +390,8 @@ export default function App() {
   });
   const [isDeviceModalOpen, setIsDeviceModalOpen] = useState(false);
   const [mobileActiveTab, setMobileActiveTab] = useState('captions');
+  const [viewMode, setViewMode] = useState('split');
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const wsRef = useRef(null);
   const streamerRef = useRef(null);
@@ -1092,90 +1095,100 @@ export default function App() {
   const activeDeviceObj = audioDevices.find((d) => d.deviceId === selectedDeviceId) || audioDevices[0];
   const activeDeviceLabel = activeDeviceObj ? activeDeviceObj.label : 'Default Microphone';
   const isBluetoothDevice = Boolean(activeDeviceObj?.isBluetooth);
+  const detectedTermsCount = segments.reduce((acc, seg) => acc + (seg.domain_terms ? seg.domain_terms.length : 0), 0);
 
   return (
-    <div className="app-container">
-      <Header
+    <div className="studio-workspace-root">
+      {/* Studio Interactive Left Control Rail */}
+      <StudioSidebar
+        isRecording={isRecording}
+        onToggleRecord={toggleRecording}
+        audioLevel={audioLevel}
+        liveMicStatus={liveMicStatus}
         targetLang={targetLang}
         onLanguageChange={handleLanguageChange}
-        connectionStatus={connectionStatus}
         sessionSeconds={sessionSeconds}
+        segmentCount={segments.length}
+        onGenerateStudyGuide={handleGenerateStudyGuide}
+        isGeneratingGuide={isGeneratingGuide}
+        onLoadSample={handleLoadSample}
+        onClearSession={clearSession}
         onOpenGlossary={() => setIsGlossaryOpen(true)}
         onOpenArchitecture={() => setIsAboutOpen(true)}
         selectedDeviceLabel={activeDeviceLabel}
         isBluetoothDevice={isBluetoothDevice}
         onOpenAudioDevices={() => setIsDeviceModalOpen(true)}
+        detectedTermsCount={detectedTermsCount}
       />
 
-      <ErrorBanner
-        message={errorMessage}
-        type="warning"
-        onDismiss={() => setErrorMessage(null)}
-      />
-
-      <div className="left-pane" style={{ marginBottom: '16px' }}>
-        <AudioControls
-          isRecording={isRecording}
-          onToggleRecord={toggleRecording}
-          audioLevel={audioLevel}
-          liveMicStatus={liveMicStatus}
-          segmentCount={segments.length}
-          onGenerateStudyGuide={handleGenerateStudyGuide}
-          onLoadSample={handleLoadSample}
-          onClearSession={clearSession}
-          isGeneratingGuide={isGeneratingGuide}
-          interimSpeech={interimSpeech}
-          interimVernacular={interimVernacular}
+      {/* Main Interactive Stage */}
+      <div className="workspace-stage">
+        <WorkspaceHeader
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          connectionStatus={connectionStatus}
           onDirectSpeechSubmit={processSpeechText}
-          selectedDeviceLabel={activeDeviceLabel}
-          isBluetoothDevice={isBluetoothDevice}
-          onOpenAudioDevices={() => setIsDeviceModalOpen(true)}
-        />
-      </div>
-
-      {/* Responsive Mobile Screen Workspace Tabs (< 768px) */}
-      <div className="mobile-tab-bar">
-        <button
-          className={`mobile-tab-btn ${mobileActiveTab === 'captions' ? 'active' : ''}`}
-          onClick={() => setMobileActiveTab('captions')}
-        >
-          <Radio size={14} />
-          <span>Live Captions {segments.length > 0 && `(${segments.length})`}</span>
-        </button>
-
-        <button
-          className={`mobile-tab-btn ${mobileActiveTab === 'chat' ? 'active' : ''}`}
-          onClick={() => setMobileActiveTab('chat')}
-        >
-          <MessageSquare size={14} />
-          <span>AI Tutor & Q&A {messages.length > 0 && `(${messages.length})`}</span>
-        </button>
-      </div>
-
-      <main className={`main-grid mobile-${mobileActiveTab}`}>
-        <CaptionPane
-          segments={segments}
-          targetLangName={`${selectedLangMeta.name} (${selectedLangMeta.native})`}
-          targetLang={targetLang}
-          highlightedSegmentId={highlightedSegmentId}
-          autoScroll={autoScroll}
-          onToggleAutoScroll={() => setAutoScroll((prev) => !prev)}
-          isRecording={isRecording}
-          liveMicStatus={liveMicStatus}
-          interimSpeech={interimSpeech}
-          interimVernacular={interimVernacular}
-          glossary={glossary}
-          onClearCaptions={clearSession}
-        />
-
-        <ChatPanel
-          messages={messages}
-          onSendMessage={handleSendMessage}
-          isLoading={isAskingQa}
-          onSelectCitation={handleSelectCitation}
           segmentCount={segments.length}
         />
-      </main>
+
+        <ErrorBanner
+          message={errorMessage}
+          type="warning"
+          onDismiss={() => setErrorMessage(null)}
+        />
+
+        {/* Responsive Mobile Screen Workspace Tabs (< 820px) */}
+        <div className="mobile-tab-bar">
+          <button
+            className={`mobile-tab-btn ${mobileActiveTab === 'captions' ? 'active' : ''}`}
+            onClick={() => setMobileActiveTab('captions')}
+          >
+            <Radio size={14} />
+            <span>Live Captions {segments.length > 0 && `(${segments.length})`}</span>
+          </button>
+
+          <button
+            className={`mobile-tab-btn ${mobileActiveTab === 'chat' ? 'active' : ''}`}
+            onClick={() => setMobileActiveTab('chat')}
+          >
+            <MessageSquare size={14} />
+            <span>AI Tutor & Q&A {messages.length > 0 && `(${messages.length})`}</span>
+          </button>
+        </div>
+
+        <main className={`workspace-canvas view-${viewMode} mobile-${mobileActiveTab}`}>
+          {(viewMode === 'split' || viewMode === 'theater') && (
+            <div className={`canvas-pane-caption ${viewMode === 'theater' ? 'theater-active' : ''}`}>
+              <CaptionPane
+                segments={segments}
+                targetLangName={`${selectedLangMeta.name} (${selectedLangMeta.native})`}
+                targetLang={targetLang}
+                highlightedSegmentId={highlightedSegmentId}
+                autoScroll={autoScroll}
+                onToggleAutoScroll={() => setAutoScroll((prev) => !prev)}
+                isRecording={isRecording}
+                liveMicStatus={liveMicStatus}
+                interimSpeech={interimSpeech}
+                interimVernacular={interimVernacular}
+                glossary={glossary}
+                onClearCaptions={clearSession}
+              />
+            </div>
+          )}
+
+          {(viewMode === 'split' || viewMode === 'tutor') && (
+            <div className={`canvas-pane-chat ${viewMode === 'tutor' ? 'tutor-active' : ''}`}>
+              <ChatPanel
+                messages={messages}
+                onSendMessage={handleSendMessage}
+                isLoading={isAskingQa}
+                onSelectCitation={handleSelectCitation}
+                segmentCount={segments.length}
+              />
+            </div>
+          )}
+        </main>
+      </div>
 
       {/* Modals */}
       <StudyGuideModal
