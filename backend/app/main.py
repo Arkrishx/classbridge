@@ -2,6 +2,8 @@ import io
 import json
 import base64
 import logging
+import urllib.parse
+import urllib.request
 from typing import List, Dict, Any, Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -159,6 +161,47 @@ def translate_text(req: TranslateRequest):
             "domain_terms": []
         }
     return translator_service.translate_segment(req.text, target_lang=req.target_lang)
+
+tts_cache: Dict[str, bytes] = {}
+
+@app.get("/api/tts")
+def text_to_speech(text: str = Query(...), lang: str = Query(default="ta")):
+    """
+    Streams high-speed text-to-speech audio (MP3) for Indic and English text.
+    Uses in-memory cache so repeated phrases/words stream instantly (0ms).
+    """
+    clean_text = text.strip()
+    if not clean_text:
+        raise HTTPException(status_code=400, detail="Text cannot be empty.")
+
+    cache_key = f"{lang}:{clean_text}"
+    if cache_key in tts_cache:
+        return Response(content=tts_cache[cache_key], media_type="audio/mpeg")
+
+    tl = lang.lower()
+    if tl not in ["ta", "ml", "hi", "en"]:
+        tl = "en"
+
+    tts_text = clean_text[:200]
+    encoded_query = urllib.parse.quote(tts_text)
+    url = f"https://translate.google.com/translate_tts?ie=UTF-8&q={encoded_query}&tl={tl}&client=tw-ob"
+
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Referer": "https://translate.google.com/"
+            }
+        )
+        with urllib.request.urlopen(req, timeout=5.0) as resp:
+            audio_bytes = resp.read()
+            if len(tts_cache) < 500:
+                tts_cache[cache_key] = audio_bytes
+            return Response(content=audio_bytes, media_type="audio/mpeg")
+    except Exception as e:
+        logger.warning(f"Google TTS service error for '{tts_text}': {e}")
+        raise HTTPException(status_code=502, detail=f"TTS synthesis error: {str(e)}")
 
 @app.post("/api/qa")
 def ask_lecture_question(req: QuestionRequest):

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ShieldCheck, Tag, ArrowDown, Sparkles, Mic, Copy, Check, Download, Radio, Volume2 } from 'lucide-react';
+import { ShieldCheck, Tag, ArrowDown, Sparkles, Mic, Copy, Check, Download, Radio, Volume2, VolumeX } from 'lucide-react';
 import { detectDomainTermsClient } from '../utils/clientTranslator';
 
 export default function CaptionPane({
@@ -15,6 +15,11 @@ export default function CaptionPane({
   interimVernacular = '',
   glossary = {},
   onClearCaptions,
+  isReadAloud = false,
+  onToggleReadAloud,
+  isSpeakingAudio = false,
+  onSpeakSegment,
+  currentlySpeakingId = null,
 }) {
   const bottomRef = useRef(null);
   const [copied, setCopied] = useState(false);
@@ -123,6 +128,29 @@ export default function CaptionPane({
           )}
 
           <button
+            className={`chip-btn ${isReadAloud ? 'active' : ''}`}
+            style={{
+              padding: '3px 10px',
+              fontSize: '11.5px',
+              background: isReadAloud ? 'rgba(52, 211, 153, 0.15)' : 'rgba(255, 255, 255, 0.04)',
+              borderColor: isReadAloud ? 'rgba(52, 211, 153, 0.4)' : 'var(--border-subtle)',
+              color: isReadAloud ? '#6ee7b7' : 'var(--text-dim)',
+              fontWeight: isReadAloud ? 700 : 500,
+            }}
+            onClick={onToggleReadAloud}
+            title="Toggle automatic real-time Read Aloud of captions through your laptop speakers"
+          >
+            {isSpeakingAudio ? (
+              <Volume2 size={13} color="#6ee7b7" className="spin-icon" />
+            ) : isReadAloud ? (
+              <Volume2 size={13} color="#6ee7b7" />
+            ) : (
+              <VolumeX size={13} color="var(--text-muted)" />
+            )}
+            <span>{isReadAloud ? (isSpeakingAudio ? 'Speaking...' : 'Read Aloud: ON') : 'Read Aloud: OFF'}</span>
+          </button>
+
+          <button
             className="chip-btn"
             style={{ padding: '3px 10px', fontSize: '11.5px' }}
             onClick={onToggleAutoScroll}
@@ -150,17 +178,38 @@ export default function CaptionPane({
             {/* Finalized Segments */}
             {segments.map((seg) => {
               const isHighlighted = seg.id === highlightedSegmentId;
+              const isSpeakingThis = currentlySpeakingId === seg.id;
               return (
                 <div
                   key={seg.id}
                   id={`seg-${seg.id}`}
                   className={`segment-item ${isHighlighted ? 'highlighted' : ''}`}
                 >
-                  <div className="segment-meta">
-                    <span className="timestamp-pill">
-                      [{seg.timestamp || `${Math.floor(seg.start)}s - ${Math.floor(seg.end)}s`}]
-                    </span>
-                    {getConfidenceBadge(seg.confidence)}
+                  <div className="segment-meta" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span className="timestamp-pill">
+                        [{seg.timestamp || `${Math.floor(seg.start)}s - ${Math.floor(seg.end)}s`}]
+                      </span>
+                      {getConfidenceBadge(seg.confidence)}
+                    </div>
+
+                    <button
+                      className="chip-btn"
+                      style={{
+                        padding: '2px 8px',
+                        fontSize: '11px',
+                        gap: '4px',
+                        color: isSpeakingThis ? '#6ee7b7' : 'var(--text-muted)',
+                        borderColor: isSpeakingThis ? 'rgba(52, 211, 153, 0.4)' : 'transparent',
+                        background: isSpeakingThis ? 'rgba(52, 211, 153, 0.12)' : 'rgba(255, 255, 255, 0.03)',
+                        transition: 'all 0.15s ease'
+                      }}
+                      onClick={() => onSpeakSegment && onSpeakSegment(seg)}
+                      title="Read this translation aloud through laptop speaker"
+                    >
+                      <Volume2 size={11} color={isSpeakingThis ? '#6ee7b7' : 'var(--text-muted)'} />
+                      <span>{isSpeakingThis ? 'Playing...' : 'Read Aloud'}</span>
+                    </button>
                   </div>
 
                   <div className="caption-en">

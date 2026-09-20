@@ -10,6 +10,7 @@ import AboutModal from './components/AboutModal';
 import AudioDeviceModal from './components/AudioDeviceModal';
 import ErrorBanner from './components/ErrorBanner';
 import { AudioStreamer, getAudioInputDevices } from './utils/audioStreamer';
+import { globalTTS, getAudioOutputDevices } from './utils/ttsService';
 import { translateTextClient, translateInterimDebounced } from './utils/clientTranslator';
 import { Radio, MessageSquare } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -381,6 +382,7 @@ export default function App() {
   const [interimVernacular, setInterimVernacular] = useState('');
   const [liveMicStatus, setLiveMicStatus] = useState('idle');
   const [audioDevices, setAudioDevices] = useState([]);
+  const [outputDevices, setOutputDevices] = useState([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState(() => {
     try {
       return localStorage.getItem('classbridge_audio_device_id') || 'default';
@@ -388,6 +390,22 @@ export default function App() {
       return 'default';
     }
   });
+  const [selectedOutputDeviceId, setSelectedOutputDeviceId] = useState(() => {
+    try {
+      return localStorage.getItem('classbridge_speaker_device_id') || 'default';
+    } catch (e) {
+      return 'default';
+    }
+  });
+  const [isReadAloudEnabled, setIsReadAloudEnabled] = useState(() => {
+    try {
+      return localStorage.getItem('classbridge_read_aloud') === 'true';
+    } catch (e) {
+      return false;
+    }
+  });
+  const [isSpeakingAudio, setIsSpeakingAudio] = useState(false);
+  const [currentlySpeakingId, setCurrentlySpeakingId] = useState(null);
   const [isDeviceModalOpen, setIsDeviceModalOpen] = useState(false);
   const [mobileActiveTab, setMobileActiveTab] = useState('captions');
   const [viewMode, setViewMode] = useState('split');
@@ -403,6 +421,14 @@ export default function App() {
     loadGlossary();
     loadAudioDevices();
 
+    // Hook global TTS state
+    globalTTS.onStateChange = ({ isPlaying, state }) => {
+      setIsSpeakingAudio(isPlaying);
+      if (!isPlaying) {
+        setCurrentlySpeakingId(null);
+      }
+    };
+
     if (typeof navigator !== 'undefined' && navigator.mediaDevices?.addEventListener) {
       navigator.mediaDevices.addEventListener('devicechange', loadAudioDevices);
     }
@@ -411,6 +437,7 @@ export default function App() {
       if (wsRef.current) wsRef.current.close();
       if (streamerRef.current) streamerRef.current.stop();
       if (timerRef.current) clearInterval(timerRef.current);
+      globalTTS.stop();
       if (typeof navigator !== 'undefined' && navigator.mediaDevices?.removeEventListener) {
         navigator.mediaDevices.removeEventListener('devicechange', loadAudioDevices);
       }
@@ -419,6 +446,7 @@ export default function App() {
 
   const loadAudioDevices = async () => {
     try {
+      // 1. Microphone Inputs
       const devs = await getAudioInputDevices();
       if (devs && devs.length > 0) {
         setAudioDevices(devs);
@@ -444,6 +472,28 @@ export default function App() {
           }
         }
       }
+
+      // 2. Speaker Outputs (Laptop Speakers vs Headset)
+      const outDevs = await getAudioOutputDevices();
+      if (outDevs && outDevs.length > 0) {
+        setOutputDevices(outDevs);
+        const savedOut = localStorage.getItem('classbridge_speaker_device_id');
+        const savedOutValid = savedOut && outDevs.find((d) => d.deviceId === savedOut && !d.isVirtual);
+
+        if (savedOutValid) {
+          setSelectedOutputDeviceId(savedOutValid.deviceId);
+          globalTTS.setOutputDevice(savedOutValid.deviceId);
+        } else {
+          // Default to Laptop Speakers (user preference: Bluetooth mic + Laptop speaker playback)
+          const laptopSpeaker = outDevs.find((d) => d.isSpeaker && !d.isVirtual);
+          const defaultOut = outDevs.find((d) => d.isDefault && !d.isVirtual);
+          const chosen = laptopSpeaker || defaultOut || outDevs[0];
+          if (chosen) {
+            setSelectedOutputDeviceId(chosen.deviceId);
+            globalTTS.setOutputDevice(chosen.deviceId);
+          }
+        }
+      }
     } catch (e) {
       console.warn("Could not load audio devices:", e);
     }
@@ -457,6 +507,37 @@ export default function App() {
     if (streamerRef.current) {
       streamerRef.current.setAudioDevice(deviceId);
     }
+  };
+
+  const handleSelectOutputDevice = (deviceId) => {
+    setSelectedOutputDeviceId(deviceId);
+    globalTTS.setOutputDevice(deviceId);
+    try {
+      localStorage.setItem('classbridge_speaker_device_id', deviceId);
+    } catch (e) {}
+  };
+
+  const handleTestSpeaker = async (deviceId) => {
+    await globalTTS.testSpeaker(deviceId || selectedOutputDeviceId);
+  };
+
+  const toggleReadAloud = () => {
+    setIsReadAloudEnabled((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('classbridge_read_aloud', String(next));
+      } catch (e) {}
+      if (!next) {
+        globalTTS.stop();
+      }
+      return next;
+    });
+  };
+
+  const handleSpeakSegment = (seg) => {
+    setCurrentlySpeakingId(seg.id);
+    const textToSpeak = seg.text_vernacular || seg.text_en;
+    globalTTS.speakImmediate(textToSpeak, targetLang);
   };
 
   // Session duration timer
@@ -507,6 +588,10 @@ export default function App() {
               // Prevent duplicate if already committed optimistically
               if (prev.some((s) => s.text_en.trim().toLowerCase() === data.segment.text_en.trim().toLowerCase())) {
                 return prev;
+              }
+              if (isReadAloudEnabled) {
+                const textToRead = data.segment.text_vernacular || data.segment.text_en;
+                globalTTS.queueSentence(textToRead, targetLang);
               }
               return [...prev, data.segment];
             });
@@ -631,6 +716,12 @@ export default function App() {
           }
         ];
       });
+
+      // Real-time automatic Read Aloud through selected laptop speakers
+      if (isReadAloudEnabled) {
+        const textToRead = transResult.adapted_translation || cleanText;
+        globalTTS.queueSentence(textToRead, targetLang);
+      }
     } catch (err) {
       console.error("Error processing live speech segment:", err);
     }
@@ -1136,6 +1227,9 @@ export default function App() {
   const activeDeviceObj = audioDevices.find((d) => d.deviceId === selectedDeviceId) || audioDevices[0];
   const activeDeviceLabel = activeDeviceObj ? activeDeviceObj.label : 'Default Microphone';
   const isBluetoothDevice = Boolean(activeDeviceObj?.isBluetooth);
+
+  const activeOutputDeviceObj = outputDevices.find((d) => d.deviceId === selectedOutputDeviceId) || outputDevices[0];
+  const activeOutputDeviceLabel = activeOutputDeviceObj ? activeOutputDeviceObj.label : 'Laptop Speakers';
   const detectedTermsCount = segments.reduce((acc, seg) => acc + (seg.domain_terms ? seg.domain_terms.length : 0), 0);
 
   return (
@@ -1160,6 +1254,10 @@ export default function App() {
         isBluetoothDevice={isBluetoothDevice}
         onOpenAudioDevices={() => setIsDeviceModalOpen(true)}
         detectedTermsCount={detectedTermsCount}
+        isReadAloud={isReadAloudEnabled}
+        onToggleReadAloud={toggleReadAloud}
+        selectedOutputDeviceLabel={activeOutputDeviceLabel}
+        isSpeakingAudio={isSpeakingAudio}
       />
 
       {/* Main Interactive Stage */}
@@ -1213,6 +1311,11 @@ export default function App() {
                 interimVernacular={interimVernacular}
                 glossary={glossary}
                 onClearCaptions={clearSession}
+                isReadAloud={isReadAloudEnabled}
+                onToggleReadAloud={toggleReadAloud}
+                isSpeakingAudio={isSpeakingAudio}
+                onSpeakSegment={handleSpeakSegment}
+                currentlySpeakingId={currentlySpeakingId}
               />
             </div>
           )}
@@ -1257,6 +1360,10 @@ export default function App() {
         selectedDeviceId={selectedDeviceId}
         onSelectDevice={handleSelectAudioDevice}
         onRefreshDevices={loadAudioDevices}
+        outputDevices={outputDevices}
+        selectedOutputDeviceId={selectedOutputDeviceId}
+        onSelectOutputDevice={handleSelectOutputDevice}
+        onTestSpeaker={handleTestSpeaker}
       />
     </div>
   );

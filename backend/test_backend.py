@@ -100,6 +100,13 @@ def test_all():
     assert len(r.content) > 1000
     print(f"[OK] PDF Export generated successfully: {len(r.content)} bytes of PDF binary")
     
+    # 8. Real-Time Text-to-Speech (TTS)
+    r = client.get("/api/tts?text=வணக்கம்&lang=ta")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "audio/mpeg"
+    assert len(r.content) > 100
+    print(f"[OK] Indic TTS audio stream generated: {len(r.content)} bytes audio/mpeg")
+
     print("\n========================================================")
     print("   ALL CLASSBRIDGE BACKEND UNIT & INTEGRATION TESTS PASSED!")
     print("========================================================")

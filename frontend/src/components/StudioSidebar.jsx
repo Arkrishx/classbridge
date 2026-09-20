@@ -16,6 +16,8 @@ import {
   Activity,
   Cpu,
   Settings2,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 
 export default function StudioSidebar({
@@ -37,6 +39,10 @@ export default function StudioSidebar({
   isBluetoothDevice = false,
   onOpenAudioDevices,
   detectedTermsCount = 0,
+  isReadAloud = false,
+  onToggleReadAloud,
+  selectedOutputDeviceLabel = 'Laptop Speakers',
+  isSpeakingAudio = false,
 }) {
   const formatTime = (secs) => {
     const mins = Math.floor(secs / 60);
@@ -114,6 +120,48 @@ export default function StudioSidebar({
               </div>
             </div>
             <Settings2 size={13} color="var(--text-dim)" style={{ flexShrink: 0 }} />
+          </button>
+
+          {/* Speaker Output / Read Aloud Card */}
+          <button
+            className={`device-select-chip ${isReadAloud ? 'active-read-aloud' : ''}`}
+            onClick={onToggleReadAloud}
+            style={{
+              marginTop: '6px',
+              border: isReadAloud ? '1px solid rgba(52, 211, 153, 0.4)' : '1px solid var(--border-subtle)',
+              background: isReadAloud ? 'rgba(52, 211, 153, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+            title="Click to toggle Real-Time Read Aloud of live captions through your laptop speakers"
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+              {isReadAloud ? (
+                <Volume2 size={15} color="#6ee7b7" style={{ flexShrink: 0 }} />
+              ) : (
+                <VolumeX size={15} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+              )}
+              <div style={{ minWidth: 0, textAlign: 'left' }}>
+                <div style={{ fontSize: '11.5px', fontWeight: 700, color: isReadAloud ? '#6ee7b7' : 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {isReadAloud ? 'Read Aloud: ON' : 'Read Aloud: OFF'}
+                </div>
+                <div style={{ fontSize: '10px', color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  🔊 {selectedOutputDeviceLabel}
+                </div>
+              </div>
+            </div>
+            <div
+              style={{
+                fontSize: '10px',
+                fontWeight: 700,
+                padding: '2px 6px',
+                borderRadius: '4px',
+                background: isReadAloud ? 'rgba(52, 211, 153, 0.2)' : 'rgba(255, 255, 255, 0.06)',
+                color: isReadAloud ? '#6ee7b7' : 'var(--text-muted)'
+              }}
+            >
+              {isSpeakingAudio ? 'Speaking...' : isReadAloud ? 'Active' : 'Muted'}
+            </div>
           </button>
 
           {/* Organic Waveform Equalizer */}

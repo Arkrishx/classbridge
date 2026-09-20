@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Headphones, Mic, Volume2, Check, RefreshCw, Radio, Sparkles, AlertCircle } from 'lucide-react';
+import { X, Headphones, Mic, Volume2, Check, RefreshCw, Radio, Sparkles, AlertCircle, Laptop, Play, Square } from 'lucide-react';
 
 export default function AudioDeviceModal({
   isOpen,
@@ -8,20 +8,26 @@ export default function AudioDeviceModal({
   selectedDeviceId = '',
   onSelectDevice,
   onRefreshDevices,
+  outputDevices = [],
+  selectedOutputDeviceId = '',
+  onSelectOutputDevice,
+  onTestSpeaker,
 }) {
+  const [activeTab, setActiveTab] = useState('input'); // 'input' | 'output'
   const [testLevel, setTestLevel] = useState(0);
   const [isTesting, setIsTesting] = useState(true);
   const [testError, setTestError] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [isSpeakerTesting, setIsSpeakerTesting] = useState(false);
 
   const testStreamRef = useRef(null);
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
   const animFrameRef = useRef(null);
 
-  // Start live test when modal opens or selectedDeviceId changes
+  // Start live mic test when modal opens or selectedDeviceId changes
   useEffect(() => {
-    if (isOpen && isTesting) {
+    if (isOpen && isTesting && activeTab === 'input') {
       startDeviceTest(selectedDeviceId);
     } else {
       stopDeviceTest();
@@ -30,7 +36,7 @@ export default function AudioDeviceModal({
     return () => {
       stopDeviceTest();
     };
-  }, [isOpen, selectedDeviceId, isTesting]);
+  }, [isOpen, selectedDeviceId, isTesting, activeTab]);
 
   const stopDeviceTest = () => {
     if (animFrameRef.current) {
@@ -118,6 +124,25 @@ export default function AudioDeviceModal({
     } catch (e) {}
   };
 
+  const handleOutputDeviceClick = (deviceId) => {
+    if (onSelectOutputDevice) {
+      onSelectOutputDevice(deviceId);
+    }
+    try {
+      localStorage.setItem('classbridge_speaker_device_id', deviceId);
+    } catch (e) {}
+  };
+
+  const handleTestSpeakerClick = async (deviceId) => {
+    setIsSpeakerTesting(true);
+    if (onTestSpeaker) {
+      await onTestSpeaker(deviceId || selectedOutputDeviceId);
+    }
+    setTimeout(() => {
+      setIsSpeakerTesting(false);
+    }, 1800);
+  };
+
   const handleScan = async () => {
     setIsScanning(true);
     if (onRefreshDevices) {
@@ -130,7 +155,8 @@ export default function AudioDeviceModal({
 
   if (!isOpen) return null;
 
-  const activeDevice = devices.find((d) => d.deviceId === selectedDeviceId) || devices[0];
+  const activeInputDevice = devices.find((d) => d.deviceId === selectedDeviceId) || devices[0];
+  const activeOutputDevice = outputDevices.find((d) => d.deviceId === selectedOutputDeviceId) || outputDevices[0];
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -154,14 +180,18 @@ export default function AudioDeviceModal({
                 justifyContent: 'center',
               }}
             >
-              <Headphones size={20} color="var(--accent-cyan)" />
+              {activeTab === 'input' ? (
+                <Headphones size={20} color="var(--accent-cyan)" />
+              ) : (
+                <Volume2 size={20} color="var(--accent-emerald)" />
+              )}
             </div>
             <div>
               <div style={{ fontWeight: 700, fontSize: '17px', color: 'var(--text-main)', letterSpacing: '-0.01em' }}>
-                Microphone & Headset Settings
+                Audio Device & Speaker Control
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                Select your connected Bluetooth headset or internal laptop mic
+                Route mic input from Bluetooth headset and Read Aloud audio to laptop speakers
               </div>
             </div>
           </div>
@@ -170,157 +200,507 @@ export default function AudioDeviceModal({
           </button>
         </div>
 
-        {/* Live Audio Test Card */}
+        {/* Tab Selector: Input (Microphone) vs Output (Speaker) */}
         <div
           style={{
-            margin: '16px 24px 8px',
-            padding: '14px 18px',
-            background: 'rgba(10, 14, 26, 0.7)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: 'var(--radius-md)',
             display: 'flex',
-            flexDirection: 'column',
-            gap: '10px',
+            gap: '8px',
+            padding: '12px 24px 0',
+            borderBottom: '1px solid var(--border-subtle)',
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600 }}>
-              <Volume2 size={15} color={testLevel > 10 ? 'var(--accent-emerald)' : 'var(--accent-cyan)'} />
-              <span>Live Mic Test ({activeDevice?.label || 'Selected Microphone'})</span>
-            </div>
-            <span
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '11px',
-                fontWeight: 700,
-                padding: '2px 8px',
-                borderRadius: 'var(--radius-pill)',
-                background: testLevel > 15 ? 'rgba(52, 211, 153, 0.15)' : 'rgba(255, 255, 255, 0.05)',
-                color: testLevel > 15 ? 'var(--accent-emerald)' : 'var(--text-dim)',
-                border: testLevel > 15 ? '1px solid rgba(52, 211, 153, 0.3)' : '1px solid transparent',
-              }}
-            >
-              {testLevel > 15 ? `Level: ${testLevel}% (Signal Detected)` : 'Listening for audio...'}
-            </span>
-          </div>
-
-          {/* Equalizer Waveform Test Meter */}
-          <div
+          <button
+            onClick={() => setActiveTab('input')}
             style={{
-              height: '32px',
-              background: 'rgba(0, 0, 0, 0.3)',
-              borderRadius: 'var(--radius-sm)',
-              padding: '0 10px',
+              flex: 1,
+              padding: '10px 14px',
+              fontSize: '13px',
+              fontWeight: 600,
               display: 'flex',
               alignItems: 'center',
-              gap: '4px',
-              overflow: 'hidden',
+              justifyContent: 'center',
+              gap: '8px',
+              borderBottom: activeTab === 'input' ? '2px solid var(--accent-cyan)' : '2px solid transparent',
+              color: activeTab === 'input' ? 'var(--accent-cyan)' : 'var(--text-muted)',
+              background: activeTab === 'input' ? 'rgba(56, 189, 248, 0.08)' : 'transparent',
+              borderTopLeftRadius: 'var(--radius-sm)',
+              borderTopRightRadius: 'var(--radius-sm)',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
             }}
           >
-            {[...Array(24)].map((_, i) => {
-              const active = testLevel > i * 4;
-              const barHeight = active
-                ? Math.max(6, Math.min(26, (testLevel / 100) * 26 + Math.sin(i * 0.8) * 4))
-                : 3;
-              return (
-                <div
-                  key={i}
-                  style={{
-                    flex: 1,
-                    height: `${barHeight}px`,
-                    borderRadius: '2px',
-                    background: active
-                      ? 'linear-gradient(180deg, #38bdf8, #34d399)'
-                      : 'rgba(255, 255, 255, 0.08)',
-                    transition: 'height 0.08s ease, background 0.15s ease',
-                  }}
-                />
-              );
-            })}
-          </div>
+            <Mic size={15} />
+            <span>Microphone Input ({devices.length})</span>
+          </button>
 
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-            Speak into your microphone or Bluetooth headset now. The bars will dance green/cyan when sound is detected.
-          </div>
-
-          {testError && (
-            <div
-              style={{
-                fontSize: '12px',
-                color: '#f87171',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 10px',
-                background: 'rgba(239, 68, 68, 0.1)',
-                borderRadius: 'var(--radius-sm)',
-              }}
-            >
-              <AlertCircle size={14} />
-              <span>{testError}</span>
-            </div>
-          )}
+          <button
+            onClick={() => setActiveTab('output')}
+            style={{
+              flex: 1,
+              padding: '10px 14px',
+              fontSize: '13px',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              borderBottom: activeTab === 'output' ? '2px solid var(--accent-emerald)' : '2px solid transparent',
+              color: activeTab === 'output' ? 'var(--accent-emerald)' : 'var(--text-muted)',
+              background: activeTab === 'output' ? 'rgba(52, 211, 153, 0.08)' : 'transparent',
+              borderTopLeftRadius: 'var(--radius-sm)',
+              borderTopRightRadius: 'var(--radius-sm)',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Volume2 size={15} />
+            <span>Speaker Output ({outputDevices.length || 1})</span>
+          </button>
         </div>
 
-        {/* Device Selection List */}
-        <div style={{ padding: '12px 24px', flex: 1, overflowY: 'auto' }}>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '12px',
-            }}
-          >
-            <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-dim)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-              AVAILABLE AUDIO INPUT DEVICES ({devices.length})
-            </div>
-            <button
-              className="chip-btn"
-              onClick={handleScan}
-              disabled={isScanning}
-              style={{ padding: '3px 10px', fontSize: '11px' }}
-              title="Rescan for newly paired Bluetooth or USB microphones"
-            >
-              <RefreshCw size={11} className={isScanning ? 'spin-icon' : ''} />
-              <span>{isScanning ? 'Scanning...' : 'Rescan Devices'}</span>
-            </button>
-          </div>
-
-          {devices.length === 0 ? (
+        {/* TAB 1: MICROPHONE INPUT */}
+        {activeTab === 'input' && (
+          <>
+            {/* Live Audio Test Card */}
             <div
               style={{
-                padding: '24px',
-                textAlign: 'center',
-                color: 'var(--text-muted)',
-                fontSize: '13px',
-                background: 'rgba(255, 255, 255, 0.02)',
+                margin: '16px 24px 8px',
+                padding: '14px 18px',
+                background: 'rgba(10, 14, 26, 0.7)',
+                border: '1px solid var(--border-subtle)',
                 borderRadius: 'var(--radius-md)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
               }}
             >
-              No audio input devices detected yet. Click "Rescan Devices" or ensure browser microphone permissions are enabled.
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600 }}>
+                  <Volume2 size={15} color={testLevel > 10 ? 'var(--accent-emerald)' : 'var(--accent-cyan)'} />
+                  <span>Live Mic Test ({activeInputDevice?.label || 'Selected Microphone'})</span>
+                </div>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: 'var(--radius-pill)',
+                    background: testLevel > 15 ? 'rgba(52, 211, 153, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                    color: testLevel > 15 ? 'var(--accent-emerald)' : 'var(--text-dim)',
+                    border: testLevel > 15 ? '1px solid rgba(52, 211, 153, 0.3)' : '1px solid transparent',
+                  }}
+                >
+                  {testLevel > 15 ? `Level: ${testLevel}% (Signal Detected)` : 'Listening for audio...'}
+                </span>
+              </div>
+
+              {/* Equalizer Waveform Test Meter */}
+              <div
+                style={{
+                  height: '32px',
+                  background: 'rgba(0, 0, 0, 0.3)',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '0 10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  overflow: 'hidden',
+                }}
+              >
+                {[...Array(24)].map((_, i) => {
+                  const active = testLevel > i * 4;
+                  const barHeight = active
+                    ? Math.max(6, Math.min(26, (testLevel / 100) * 26 + Math.sin(i * 0.8) * 4))
+                    : 3;
+                  return (
+                    <div
+                      key={i}
+                      style={{
+                        flex: 1,
+                        height: `${barHeight}px`,
+                        borderRadius: '2px',
+                        background: active
+                          ? 'linear-gradient(180deg, #38bdf8, #34d399)'
+                          : 'rgba(255, 255, 255, 0.08)',
+                        transition: 'height 0.08s ease, background 0.15s ease',
+                      }}
+                    />
+                  );
+                })}
+              </div>
+
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                Speak into your Bluetooth headset or microphone. The bars will dance green/cyan when acoustic sound is detected.
+              </div>
+
+              {testError && (
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: '#f87171',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 10px',
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    borderRadius: 'var(--radius-sm)',
+                  }}
+                >
+                  <AlertCircle size={14} />
+                  <span>{testError}</span>
+                </div>
+              )}
             </div>
-          ) : (
+
+            {/* Input Device Selection List */}
+            <div style={{ padding: '12px 24px', flex: 1, overflowY: 'auto' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '12px',
+                }}
+              >
+                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-dim)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                  AVAILABLE MICROPHONES ({devices.length})
+                </div>
+                <button
+                  className="chip-btn"
+                  onClick={handleScan}
+                  disabled={isScanning}
+                  style={{ padding: '3px 10px', fontSize: '11px' }}
+                  title="Rescan for newly paired Bluetooth or USB microphones"
+                >
+                  <RefreshCw size={11} className={isScanning ? 'spin-icon' : ''} />
+                  <span>{isScanning ? 'Scanning...' : 'Rescan Devices'}</span>
+                </button>
+              </div>
+
+              {devices.length === 0 ? (
+                <div
+                  style={{
+                    padding: '24px',
+                    textAlign: 'center',
+                    color: 'var(--text-muted)',
+                    fontSize: '13px',
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    borderRadius: 'var(--radius-md)',
+                  }}
+                >
+                  No microphones detected yet. Click "Rescan Devices" or ensure browser microphone permissions are enabled.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {devices.map((device, idx) => {
+                    const isSelected = selectedDeviceId
+                      ? device.deviceId === selectedDeviceId
+                      : idx === 0;
+
+                    return (
+                      <div
+                        key={device.deviceId || idx}
+                        onClick={() => handleDeviceClick(device.deviceId)}
+                        style={{
+                          padding: '12px 16px',
+                          borderRadius: 'var(--radius-md)',
+                          background: isSelected
+                            ? 'rgba(56, 189, 248, 0.12)'
+                            : 'rgba(255, 255, 255, 0.03)',
+                          border: isSelected
+                            ? '1.5px solid var(--accent-cyan)'
+                            : '1px solid var(--border-subtle)',
+                          boxShadow: isSelected ? '0 0 16px rgba(56, 189, 248, 0.18)' : 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
+                          <div
+                            style={{
+                              width: 34,
+                              height: 34,
+                              borderRadius: '8px',
+                              background: device.isBluetooth
+                                ? 'rgba(52, 211, 153, 0.15)'
+                                : 'rgba(255, 255, 255, 0.06)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {device.isBluetooth ? (
+                              <Headphones size={17} color="var(--accent-emerald)" />
+                            ) : (
+                              <Mic size={17} color="var(--accent-cyan)" />
+                            )}
+                          </div>
+
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div
+                              style={{
+                                fontWeight: isSelected ? 700 : 500,
+                                fontSize: '13.5px',
+                                color: isSelected ? '#fff' : 'var(--text-main)',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }}
+                            >
+                              {device.label || `Microphone ${idx + 1}`}
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px' }}>
+                              {device.isBluetooth && (
+                                <span
+                                  style={{
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                    padding: '1px 6px',
+                                    borderRadius: 'var(--radius-pill)',
+                                    background: 'rgba(52, 211, 153, 0.2)',
+                                    color: '#6ee7b7',
+                                    border: '1px solid rgba(52, 211, 153, 0.4)',
+                                  }}
+                                >
+                                  🎧 Bluetooth Headset
+                                </span>
+                              )}
+
+                              {device.isUsb && (
+                                <span
+                                  style={{
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                    padding: '1px 6px',
+                                    borderRadius: 'var(--radius-pill)',
+                                    background: 'rgba(168, 85, 247, 0.2)',
+                                    color: '#c084fc',
+                                  }}
+                                >
+                                  🎙️ USB Audio
+                                </span>
+                              )}
+
+                              {device.isVirtual && (
+                                <span
+                                  style={{
+                                    fontSize: '10px',
+                                    fontWeight: 600,
+                                    padding: '1px 6px',
+                                    borderRadius: 'var(--radius-pill)',
+                                    background: 'rgba(239, 68, 68, 0.15)',
+                                    color: '#fca5a5',
+                                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                                  }}
+                                >
+                                  ⚠️ Virtual Audio (May be silent)
+                                </span>
+                              )}
+
+                              {device.isDefault && !device.isVirtual && (
+                                <span
+                                  style={{
+                                    fontSize: '10px',
+                                    fontWeight: 600,
+                                    padding: '1px 6px',
+                                    borderRadius: 'var(--radius-pill)',
+                                    background: 'rgba(56, 189, 248, 0.15)',
+                                    color: 'var(--accent-cyan)',
+                                  }}
+                                >
+                                  System Default
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ marginLeft: '12px', flexShrink: 0 }}>
+                          {isSelected ? (
+                            <div
+                              style={{
+                                width: 22,
+                                height: 22,
+                                borderRadius: '50%',
+                                background: 'var(--accent-cyan)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}
+                            >
+                              <Check size={14} color="#0a0e1a" strokeWidth={3} />
+                            </div>
+                          ) : (
+                            <div
+                              style={{
+                                width: 20,
+                                height: 20,
+                                borderRadius: '50%',
+                                border: '1.5px solid rgba(255, 255, 255, 0.2)',
+                              }}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Bluetooth Guidance Note */}
+              <div
+                style={{
+                  marginTop: '16px',
+                  padding: '12px 14px',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'rgba(56, 189, 248, 0.06)',
+                  border: '1px solid rgba(56, 189, 248, 0.2)',
+                  fontSize: '11.5px',
+                  color: 'var(--text-muted)',
+                  lineHeight: 1.5,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-cyan)', fontWeight: 700 }}>
+                  <Sparkles size={14} />
+                  <span>Windows & Bluetooth Headset Pro-Tip</span>
+                </div>
+                <div>
+                  When using a Bluetooth headset (like Harmonics Y3), verify in <b>Windows Settings &gt; System &gt; Sound</b> that your headset microphone is selected as the <b>Default Input Device</b>.
+                </div>
+              </div>
+
+              {devices.some((d) => d.isVirtual) && (
+                <div
+                  style={{
+                    marginTop: '10px',
+                    padding: '10px 14px',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'rgba(239, 68, 68, 0.08)',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                    fontSize: '11.5px',
+                    color: '#fca5a5',
+                    lineHeight: 1.5,
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '8px',
+                  }}
+                >
+                  <AlertCircle size={15} style={{ flexShrink: 0, marginTop: '2px', color: '#f87171' }} />
+                  <div>
+                    <b>Virtual Mic Detected (AudioRelay):</b> If your laptop has AudioRelay installed, Windows may have set Virtual Mic as the default recording device which delivers silence. Please select your <b>Bluetooth Headset (Harmonics Y3)</b> or <b>Microphone</b> above and ensure it is set as default in Windows Sound Settings.
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* TAB 2: SPEAKER OUTPUT (READ ALOUD) */}
+        {activeTab === 'output' && (
+          <div style={{ padding: '16px 24px', flex: 1, overflowY: 'auto' }}>
+            {/* Speaker Test Banner */}
+            <div
+              style={{
+                padding: '14px 18px',
+                background: 'rgba(52, 211, 153, 0.08)',
+                border: '1px solid rgba(52, 211, 153, 0.25)',
+                borderRadius: 'var(--radius-md)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+                marginBottom: '16px',
+              }}
+            >
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#6ee7b7', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Volume2 size={16} />
+                  <span>Test Active Speaker</span>
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  {activeOutputDevice?.label || 'Laptop Speaker'}
+                </div>
+              </div>
+              <button
+                className="chip-btn"
+                onClick={() => handleTestSpeakerClick(selectedOutputDeviceId)}
+                disabled={isSpeakerTesting}
+                style={{
+                  background: isSpeakerTesting ? 'rgba(52, 211, 153, 0.3)' : 'rgba(52, 211, 153, 0.18)',
+                  borderColor: 'rgba(52, 211, 153, 0.5)',
+                  color: '#6ee7b7',
+                  padding: '7px 16px',
+                  fontWeight: 700,
+                  fontSize: '12px',
+                }}
+              >
+                {isSpeakerTesting ? (
+                  <>
+                    <Square size={12} className="spin-icon" />
+                    <span>Playing Sound...</span>
+                  </>
+                ) : (
+                  <>
+                    <Play size={12} />
+                    <span>Play Test Sound</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Speaker Device List */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '12px',
+              }}
+            >
+              <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-dim)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                SELECT SPEAKER FOR READ ALOUD ({outputDevices.length || 1})
+              </div>
+              <button
+                className="chip-btn"
+                onClick={handleScan}
+                disabled={isScanning}
+                style={{ padding: '3px 10px', fontSize: '11px' }}
+                title="Rescan audio output devices"
+              >
+                <RefreshCw size={11} className={isScanning ? 'spin-icon' : ''} />
+                <span>{isScanning ? 'Scanning...' : 'Rescan Speakers'}</span>
+              </button>
+            </div>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {devices.map((device, idx) => {
-                const isSelected = selectedDeviceId
-                  ? device.deviceId === selectedDeviceId
-                  : idx === 0;
+              {(outputDevices.length > 0 ? outputDevices : [{ deviceId: 'default', label: 'Default Laptop Speakers', isSpeaker: true }]).map((device, idx) => {
+                const isSelected = selectedOutputDeviceId
+                  ? device.deviceId === selectedOutputDeviceId
+                  : (device.isSpeaker || idx === 0);
 
                 return (
                   <div
                     key={device.deviceId || idx}
-                    onClick={() => handleDeviceClick(device.deviceId)}
+                    onClick={() => handleOutputDeviceClick(device.deviceId)}
                     style={{
                       padding: '12px 16px',
                       borderRadius: 'var(--radius-md)',
                       background: isSelected
-                        ? 'rgba(56, 189, 248, 0.12)'
+                        ? 'rgba(52, 211, 153, 0.12)'
                         : 'rgba(255, 255, 255, 0.03)',
                       border: isSelected
-                        ? '1.5px solid var(--accent-cyan)'
+                        ? '1.5px solid var(--accent-emerald)'
                         : '1px solid var(--border-subtle)',
-                      boxShadow: isSelected ? '0 0 16px rgba(56, 189, 248, 0.18)' : 'none',
+                      boxShadow: isSelected ? '0 0 16px rgba(52, 211, 153, 0.15)' : 'none',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
@@ -334,7 +714,7 @@ export default function AudioDeviceModal({
                           width: 34,
                           height: 34,
                           borderRadius: '8px',
-                          background: device.isBluetooth
+                          background: device.isSpeaker
                             ? 'rgba(52, 211, 153, 0.15)'
                             : 'rgba(255, 255, 255, 0.06)',
                           display: 'flex',
@@ -343,10 +723,12 @@ export default function AudioDeviceModal({
                           flexShrink: 0,
                         }}
                       >
-                        {device.isBluetooth ? (
-                          <Headphones size={17} color="var(--accent-emerald)" />
+                        {device.isSpeaker ? (
+                          <Laptop size={17} color="var(--accent-emerald)" />
+                        ) : device.isBluetooth ? (
+                          <Headphones size={17} color="var(--accent-cyan)" />
                         ) : (
-                          <Mic size={17} color="var(--accent-cyan)" />
+                          <Volume2 size={17} color="var(--accent-emerald)" />
                         )}
                       </div>
 
@@ -361,11 +743,11 @@ export default function AudioDeviceModal({
                             textOverflow: 'ellipsis',
                           }}
                         >
-                          {device.label || `Microphone ${idx + 1}`}
+                          {device.label || `Speaker Output ${idx + 1}`}
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px' }}>
-                          {device.isBluetooth && (
+                          {device.isSpeaker && (
                             <span
                               style={{
                                 fontSize: '10px',
@@ -377,38 +759,22 @@ export default function AudioDeviceModal({
                                 border: '1px solid rgba(52, 211, 153, 0.4)',
                               }}
                             >
-                              🎧 Bluetooth Headset
+                              💻 Laptop Speaker (Recommended for Read Aloud)
                             </span>
                           )}
 
-                          {device.isUsb && (
-                            <span
-                              style={{
-                                fontSize: '10px',
-                                fontWeight: 700,
-                                padding: '1px 6px',
-                                borderRadius: 'var(--radius-pill)',
-                                background: 'rgba(168, 85, 247, 0.2)',
-                                color: '#c084fc',
-                              }}
-                            >
-                              🎙️ USB Audio
-                            </span>
-                          )}
-
-                          {device.isVirtual && (
+                          {device.isBluetooth && (
                             <span
                               style={{
                                 fontSize: '10px',
                                 fontWeight: 600,
                                 padding: '1px 6px',
                                 borderRadius: 'var(--radius-pill)',
-                                background: 'rgba(239, 68, 68, 0.15)',
-                                color: '#fca5a5',
-                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                background: 'rgba(56, 189, 248, 0.15)',
+                                color: 'var(--accent-cyan)',
                               }}
                             >
-                              ⚠️ Virtual Audio (May be silent)
+                              🎧 Bluetooth Headset Output
                             </span>
                           )}
 
@@ -420,31 +786,43 @@ export default function AudioDeviceModal({
                                 padding: '1px 6px',
                                 borderRadius: 'var(--radius-pill)',
                                 background: 'rgba(255, 255, 255, 0.08)',
-                                color: 'var(--text-muted)',
+                                color: 'var(--text-dim)',
                               }}
                             >
-                              System Default
+                              Default Output
                             </span>
                           )}
                         </div>
                       </div>
                     </div>
 
-                    <div style={{ marginLeft: '12px', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <button
+                        className="chip-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleTestSpeakerClick(device.deviceId);
+                        }}
+                        style={{ padding: '3px 8px', fontSize: '11px' }}
+                        title="Test sound on this specific speaker"
+                      >
+                        <Play size={10} />
+                        <span>Test</span>
+                      </button>
+
                       {isSelected ? (
                         <div
                           style={{
-                            width: 24,
-                            height: 24,
+                            width: 22,
+                            height: 22,
                             borderRadius: '50%',
-                            background: 'var(--accent-cyan)',
+                            background: 'var(--accent-emerald)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            boxShadow: '0 0 10px rgba(56, 189, 248, 0.5)',
                           }}
                         >
-                          <Check size={14} color="#08090d" strokeWidth={3} />
+                          <Check size={14} color="#0a0e1a" strokeWidth={3} />
                         </div>
                       ) : (
                         <div
@@ -461,56 +839,33 @@ export default function AudioDeviceModal({
                 );
               })}
             </div>
-          )}
 
-          {/* Bluetooth & Windows Routing Guidance */}
-          <div
-            style={{
-              marginTop: '16px',
-              padding: '12px 14px',
-              borderRadius: 'var(--radius-md)',
-              background: 'rgba(56, 189, 248, 0.06)',
-              border: '1px solid rgba(56, 189, 248, 0.2)',
-              fontSize: '11.5px',
-              color: 'var(--text-muted)',
-              lineHeight: 1.5,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-cyan)', fontWeight: 700 }}>
-              <Sparkles size={14} />
-              <span>Windows & Bluetooth Headset Pro-Tip</span>
-            </div>
-            <div>
-              When using a Bluetooth headset (like Harmonics Y3), verify in <b>Windows Settings &gt; System &gt; Sound</b> that your headset microphone is selected as the <b>Default Input Device</b>. This ensures browser speech recognition receives your voice directly with crystal-clear clarity.
-            </div>
-          </div>
-
-          {devices.some((d) => d.isVirtual) && (
+            {/* Read Aloud Routing Guidance */}
             <div
               style={{
-                marginTop: '10px',
-                padding: '10px 14px',
+                marginTop: '16px',
+                padding: '12px 14px',
                 borderRadius: 'var(--radius-md)',
-                background: 'rgba(239, 68, 68, 0.08)',
-                border: '1px solid rgba(239, 68, 68, 0.25)',
+                background: 'rgba(52, 211, 153, 0.06)',
+                border: '1px solid rgba(52, 211, 153, 0.25)',
                 fontSize: '11.5px',
-                color: '#fca5a5',
+                color: 'var(--text-muted)',
                 lineHeight: 1.5,
                 display: 'flex',
-                alignItems: 'flex-start',
-                gap: '8px',
+                flexDirection: 'column',
+                gap: '6px',
               }}
             >
-              <AlertCircle size={15} style={{ flexShrink: 0, marginTop: '2px', color: '#f87171' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6ee7b7', fontWeight: 700 }}>
+                <Sparkles size={14} />
+                <span>Dual-Audio Routing Setup</span>
+              </div>
               <div>
-                <b>Virtual Mic Detected (AudioRelay):</b> If your laptop has AudioRelay installed, Windows may have set Virtual Mic as the default recording device which delivers silence. Please select your <b>Bluetooth Headset (Harmonics Y3)</b> or <b>Microphone</b> above and ensure it is set as default in Windows Sound Settings.
+                With <b>Laptop Speakers</b> selected here, live captions are spoken out loud to everyone in the room via your laptop speakers, while your <b>Bluetooth headset</b> captures your voice without acoustic feedback or echo.
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Footer */}
         <div
@@ -523,8 +878,9 @@ export default function AudioDeviceModal({
             background: 'rgba(10, 14, 26, 0.5)',
           }}
         >
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-            Active: <b>{activeDevice?.label || 'Default Microphone'}</b>
+          <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <div>🎙️ Mic: <b style={{ color: 'var(--text-main)' }}>{activeInputDevice?.label || 'Bluetooth Headset'}</b></div>
+            <div>🔊 Speaker: <b style={{ color: '#6ee7b7' }}>{activeOutputDevice?.label || 'Laptop Speakers'}</b></div>
           </div>
           <button
             className="btn-record idle"
