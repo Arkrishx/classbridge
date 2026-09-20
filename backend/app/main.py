@@ -47,7 +47,9 @@ active_session = {
 # Request / Response Schemas
 class QuestionRequest(BaseModel):
     question: str
+    source_lang: Optional[str] = "en"
     target_lang: Optional[str] = "ta"
+    segments: Optional[List[Dict[str, Any]]] = None
 
 class StudyGuideRequest(BaseModel):
     target_lang: Optional[str] = "ta"
@@ -222,7 +224,15 @@ def ask_lecture_question(req: QuestionRequest):
     if not req.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
     
-    result = qa_service.answer_question(req.question, target_lang=req.target_lang or active_session["target_lang"])
+    source_lang = req.source_lang or active_session.get("source_lang", "en")
+    target_lang = req.target_lang or active_session.get("target_lang", "ta")
+    segs = req.segments if req.segments is not None else active_session.get("segments", [])
+    result = qa_service.answer_question(
+        question=req.question,
+        source_lang=source_lang,
+        target_lang=target_lang,
+        segments=segs
+    )
     return result
 
 @app.post("/api/study-guide")

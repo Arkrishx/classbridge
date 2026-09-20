@@ -15,6 +15,7 @@ import { translateTextClient, translateInterimDebounced } from './utils/clientTr
 import { Radio, MessageSquare } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { exportCaptionsAsTxt, exportCaptionsAsPdf } from './utils/captionExport';
+import { fetchInternetReference } from './utils/internetReference';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
@@ -953,7 +954,7 @@ export default function App() {
     }
   };
 
-  // Grounded Q&A
+  // Grounded Q&A with Caption Grounding & Internet Definition
   const handleSendMessage = async (question) => {
     const userMsg = { role: 'user', text: question };
     setMessages((prev) => [...prev, userMsg]);
@@ -964,7 +965,12 @@ export default function App() {
       const res = await fetch(`${API_BASE_URL}/api/qa`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, target_lang: targetLang })
+        body: JSON.stringify({
+          question,
+          source_lang: sourceLang,
+          target_lang: targetLang,
+          segments
+        })
       });
 
       if (res.ok) {
@@ -973,9 +979,13 @@ export default function App() {
           ...prev,
           {
             role: 'bot',
+            found_in_lecture: data.found_in_lecture,
             text: data.answer,
             vernacular: data.vernacular_answer,
-            citations: data.citations || []
+            source_lang: sourceLang,
+            target_lang: targetLang,
+            citations: data.citations || [],
+            internet_definition: data.internet_definition || null
           }
         ]);
         setIsAskingQa(false);
@@ -985,16 +995,16 @@ export default function App() {
       console.log("Backend Q&A unavailable, using client-side grounded RAG fallback.");
     }
 
-    // Client-side Grounded RAG Fallback
-    const qTokens = question.toLowerCase().split(/\s+/);
+    // Client-side Grounded RAG + Internet Reference Fallback
+    const qTokens = question.toLowerCase().split(/\s+/).filter((t) => t.length > 2);
     let bestMatch = null;
     let maxScore = -1;
 
     segments.forEach((seg) => {
-      const text = (seg.text_en + " " + (seg.text_vernacular || '')).toLowerCase();
+      const text = ((seg.text_source || seg.text_en || '') + " " + (seg.text_vernacular || '')).toLowerCase();
       let score = 0;
       qTokens.forEach((tok) => {
-        if (tok.length > 2 && text.includes(tok)) score += 1;
+        if (text.includes(tok)) score += 1;
       });
       if (score > maxScore) {
         maxScore = score;
@@ -1002,49 +1012,75 @@ export default function App() {
       }
     });
 
+    // Fetch simple internet reference definition in parallel
+    let internetDef = null;
+    try {
+      internetDef = await fetchInternetReference(question, sourceLang, targetLang, FALLBACK_GLOSSARY);
+    } catch (e) {
+      console.info("Client-side internet reference fetch fallback:", e);
+    }
+
     if (bestMatch && maxScore > 0) {
+      const actualSource = bestMatch.text_source || bestMatch.text_en;
+      const actualVernacular = bestMatch.text_vernacular;
+
       let botVernacular = "";
       if (targetLang === 'ml') {
-        botVernacular = `ഭാഗം #${bestMatch.id} [${bestMatch.timestamp}] പ്രകാരം: "${bestMatch.text_vernacular}"`;
+        botVernacular = `ഭാഗം #${bestMatch.id} [${bestMatch.timestamp}] പ്രകാരം: "${actualVernacular}"`;
       } else if (targetLang === 'hi') {
-        botVernacular = `खंड #${bestMatch.id} [${bestMatch.timestamp}] के अनुसार: "${bestMatch.text_vernacular}"`;
+        botVernacular = `खंड #${bestMatch.id} [${bestMatch.timestamp}] के अनुसार: "${actualVernacular}"`;
+      } else if (targetLang === 'ta') {
+        botVernacular = `பகுதி #${bestMatch.id} [${bestMatch.timestamp}] இன் படி: "${actualVernacular}"`;
       } else {
-        botVernacular = `பகுதி #${bestMatch.id} [${bestMatch.timestamp}] இன் படி: "${bestMatch.text_vernacular}"`;
+        botVernacular = `Based on segment #${bestMatch.id} [${bestMatch.timestamp}]: "${actualVernacular}"`;
       }
 
       setMessages((prev) => [
         ...prev,
         {
           role: 'bot',
-          text: `Based on segment #${bestMatch.id} at [${bestMatch.timestamp}], the lecture explains: "${bestMatch.text_en}"`,
+          found_in_lecture: true,
+          text: `Based on segment #${bestMatch.id} at [${bestMatch.timestamp}], the lecture explains: "${actualSource}"`,
           vernacular: botVernacular,
+          source_lang: sourceLang,
+          target_lang: targetLang,
           citations: [
             {
               segment_id: bestMatch.id,
               timestamp: bestMatch.timestamp,
-              text_en: bestMatch.text_en,
-              text_vernacular: bestMatch.text_vernacular
+              text_source: actualSource,
+              text_vernacular: actualVernacular,
+              relevance_score: 0.95
             }
-          ]
+          ],
+          internet_definition: internetDef
         }
       ]);
     } else {
+      // Out of Topic (Not covered in lecture)
+      const conceptName = internetDef?.term || question;
       let notFoundVernacular = "";
       if (targetLang === 'ml') {
-        notFoundVernacular = `ഈ പ്രഭാഷണത്തിൽ ഈ ചോദ്യത്തിനുള്ള വിവരങ്ങൾ ഇതുവരെ ലഭ്യമായിട്ടില്ല.`;
+        notFoundVernacular = `ഈ വിഷയം ('${conceptName}') നിലവിലെ പ്രഭാഷണത്തിൽ ഉൾപ്പെടുത്തിയിട്ടില്ല. ഇന്റർനെറ്റിൽ നിന്നുള്ള വിവരണം താഴെ നൽകുന്നു:`;
       } else if (targetLang === 'hi') {
-        notFoundVernacular = `इस व्याख्यान में इस प्रश्न की जानकारी अभी उपलब्ध नहीं है।`;
+        notFoundVernacular = `यह विषय ('${conceptName}') वर्तमान व्याख्यान में शामिल नहीं है। इंटरनेट से विवरण नीचे दिया गया है:`;
+      } else if (targetLang === 'ta') {
+        notFoundVernacular = `இந்தத் தலைப்பு ('${conceptName}') தற்போதைய விரிவுரையில் இடம்பெறவில்லை. இணையத்திலிருந்து விளக்கம் கீழே கொடுக்கப்பட்டுள்ளது:`;
       } else {
-        notFoundVernacular = `விரிவுரையில் இந்தக் கேள்விக்கான தகவல் இன்னும் இடம்பெறவில்லை.`;
+        notFoundVernacular = `This topic ('${conceptName}') is not covered in the current lecture transcript. Reference definition from the internet is shown below:`;
       }
 
       setMessages((prev) => [
         ...prev,
         {
           role: 'bot',
-          text: `I could not find information directly addressing "${question}" in this lecture transcript yet. Try asking about the formulas, eigenvalues, or gradient descent mentioned in the captions.`,
+          found_in_lecture: false,
+          text: `This topic ('${conceptName}') is not covered in the current lecture transcript. Here is a simple reference definition from the internet:`,
           vernacular: notFoundVernacular,
-          citations: []
+          source_lang: sourceLang,
+          target_lang: targetLang,
+          citations: [],
+          internet_definition: internetDef
         }
       ]);
     }
@@ -1443,6 +1479,8 @@ export default function App() {
                 isLoading={isAskingQa}
                 onSelectCitation={handleSelectCitation}
                 segmentCount={segments.length}
+                sourceLang={sourceLang}
+                targetLang={targetLang}
               />
             </div>
           )}

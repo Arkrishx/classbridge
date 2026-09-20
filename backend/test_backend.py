@@ -69,8 +69,7 @@ def test_all():
     assert len(samples) > 0
     print(f"[OK] Sample lecture endpoint returned {len(samples)} segments")
     
-    # 5. Q&A (RAG)
-    # Add a segment to RAG index first
+    # 5. Q&A (RAG) — In-Lecture and Out-of-Topic Grounded Testing
     from backend.app.rag import rag_index, TranscriptSegment
     rag_index.clear()
     rag_index.add_segment(TranscriptSegment(
@@ -83,12 +82,29 @@ def test_all():
         domain_terms=[{"en": "Gradient Descent", "term": "gradient descent"}]
     ))
     
-    r = client.post("/api/qa", json={"question": "What is gradient descent?", "target_lang": "ta"})
+    # 5a. In-Lecture Question
+    r = client.post("/api/qa", json={"question": "What is gradient descent?", "source_lang": "en", "target_lang": "ta"})
     assert r.status_code == 200
     qa_res = r.json()
+    assert qa_res["found_in_lecture"] is True
     assert len(qa_res["citations"]) > 0
     assert qa_res["citations"][0]["segment_id"] == 1
-    print("[OK] Grounded Q&A passed. Citation:", qa_res["citations"][0]["timestamp"])
+    assert "timestamp" in qa_res["citations"][0]
+    assert "text_source" in qa_res["citations"][0]
+    assert "internet_definition" in qa_res
+    assert len(qa_res["internet_definition"]["text_source"]) > 0
+    print(f"[OK] In-Lecture Grounded Q&A passed. Citation: {qa_res['citations'][0]['timestamp']} | Def: {qa_res['internet_definition']['term']}")
+
+    # 5b. Out-of-Topic Question
+    r = client.post("/api/qa", json={"question": "Explain photosynthesis in plants", "source_lang": "en", "target_lang": "ta"})
+    assert r.status_code == 200
+    oot_res = r.json()
+    assert oot_res["found_in_lecture"] is False
+    assert len(oot_res["citations"]) == 0
+    assert "not covered" in oot_res["answer"].lower()
+    assert "internet_definition" in oot_res
+    assert len(oot_res["internet_definition"]["text_source"]) > 0
+    print(f"[OK] Out-of-Topic Q&A passed: Detected out-of-lecture with Internet Def: {oot_res['internet_definition']['term']}")
     
     # 6. Study Guide Generation
     r = client.post("/api/study-guide", json={

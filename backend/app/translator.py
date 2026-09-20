@@ -21,6 +21,14 @@ class TranslationService:
             self._translators[key] = GoogleTranslator(source=source_lang, target=target_lang)
         return self._translators[key]
 
+    def translate(
+        self,
+        text: str,
+        target_lang: Optional[str] = None,
+        source_lang: Optional[str] = "en"
+    ) -> Dict[str, Any]:
+        return self.translate_segment(text, target_lang=target_lang, source_lang=source_lang)
+
     def translate_segment(
         self,
         text: str,
