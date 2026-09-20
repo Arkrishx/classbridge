@@ -2,14 +2,18 @@
  * Production-Grade Continuous Live Audio Streamer
  * 
  * Key Engineering Highlights:
- * 1. Zero Hardware Contention: Avoids simultaneous getUserMedia and SpeechRecognition
- *    collision that starves microphone capture on mobile (Android/iOS) and Windows.
- * 2. Real-Time Speech Equalizer: Seamlessly drives 16-bar organic audio equalizer via
- *    speech activity detection without locking the audio hardware.
- * 3. Continuous Utterance Processing: Dispatches interim vernacular translations on every
- *    word and commits finalized sentences with zero dropouts.
- * 4. Self-Healing Cross-Browser Loop: Re-binds gracefully on browser audio-cycle ends
- *    without killing the session or popping repeated permission prompts.
+ * 1. Real Hardware Audio Capture on Selected Device: Opens physical getUserMedia
+ *    track bound to selectedDeviceId (Bluetooth headset Harmonics Y3 or laptop mic)
+ *    so the 16-bar equalizer responds in real-time to physical acoustic energy.
+ * 2. Edge & Windows Resilient Speech Recognition: Defaults to universal 'en-US',
+ *    recovering automatically from Edge regional 'network' and 'language-not-supported'
+ *    dropouts without killing the dictation loop.
+ * 3. 350ms Debounced Edge Lifecycle: Prevents InvalidStateError on Microsoft Edge
+ *    continuous restarts, preserving seamless continuous transcription.
+ * 4. Zero-Collision Dual Engine: AudioContext analyser operates concurrently with
+ *    SpeechRecognition on Windows desktop without locking device handles.
+ * 5. Smart Device Detection: Identifies Bluetooth headsets, USB mics, internal mics,
+ *    and flags virtual audio cables (AudioRelay, VB-Cable).
  */
 
 export class AudioStreamer {
@@ -20,7 +24,7 @@ export class AudioStreamer {
     onInterimSpeech,
     onError,
     onStatusChange,
-    selectedDeviceId = ''
+    selectedDeviceId = 'default'
   }) {
     this.onAudioData = onAudioData;
     this.onVolumeChange = onVolumeChange;
@@ -38,7 +42,7 @@ export class AudioStreamer {
     this.audioContext = null;
     this.analyser = null;
 
-    // Buffers and timers
+    // Buffers, timers, and state
     this.currentInterimText = '';
     this.lastCommittedText = '';
     this.pauseTimer = null;
@@ -47,6 +51,8 @@ export class AudioStreamer {
     this.currentSimVolume = 0;
     this.targetSimVolume = 0;
     this.isSpeaking = false;
+    this.consecutiveErrors = 0;
+    this.recLang = 'en-US';
   }
 
   commitFinalText(text, confidence = 96) {
@@ -109,25 +115,123 @@ export class AudioStreamer {
     }, 1400);
   }
 
-  start() {
+  /**
+   * Initializes real physical audio capture on the selected device (Bluetooth or internal mic)
+   * Feeds the Web Audio RMS Analyser for the live visualizer and MediaRecorder for streaming
+   */
+  async initPhysicalAudioStream() {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) return;
+
+    // Tear down any existing physical stream
+    if (this.mediaStream) {
+      this.mediaStream.getTracks().forEach((t) => t.stop());
+      this.mediaStream = null;
+    }
+    if (this.audioContext && this.audioContext.state !== 'closed') {
+      try {
+        await this.audioContext.close();
+      } catch (e) {}
+      this.audioContext = null;
+      this.analyser = null;
+    }
+
+    const buildConstraints = (devId) => {
+      const audioConstraints = {
+        channelCount: 1,
+        sampleRate: 16000,
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      };
+      if (devId && devId !== 'default') {
+        audioConstraints.deviceId = { exact: devId };
+      }
+      return { audio: audioConstraints };
+    };
+
+    let stream = null;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(buildConstraints(this.selectedDeviceId));
+    } catch (err) {
+      console.warn("Could not capture with exact deviceId, falling back to default device:", err);
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (fallbackErr) {
+        console.warn("getUserMedia failed completely:", fallbackErr);
+        return;
+      }
+    }
+
+    if (!this.isRecording) {
+      stream.getTracks().forEach((t) => t.stop());
+      return;
+    }
+
+    this.mediaStream = stream;
+
+    // Initialize Web Audio RMS Analyser for real-time equalizer bars
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      this.audioContext = new AudioCtx({ sampleRate: 16000 });
+      const source = this.audioContext.createMediaStreamSource(this.mediaStream);
+      this.analyser = this.audioContext.createAnalyser();
+      this.analyser.fftSize = 256;
+      this.analyser.smoothingTimeConstant = 0.2;
+      source.connect(this.analyser);
+    } catch (ctxErr) {
+      console.warn("AudioContext setup notice:", ctxErr);
+    }
+
+    // Initialize MediaRecorder for streaming to backend if WebSocket is connected
+    try {
+      let mimeType = 'audio/webm;codecs=opus';
+      if (typeof MediaRecorder !== 'undefined') {
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          mimeType = 'audio/webm';
+          if (!MediaRecorder.isTypeSupported(mimeType)) {
+            mimeType = '';
+          }
+        }
+        const options = mimeType ? { mimeType } : {};
+        this.mediaRecorder = new MediaRecorder(this.mediaStream, options);
+        this.mediaRecorder.ondataavailable = async (e) => {
+          if (e.data && e.data.size > 0 && this.onAudioData) {
+            const buffer = await e.data.arrayBuffer();
+            this.onAudioData(buffer);
+          }
+        };
+        this.mediaRecorder.start(3000);
+      }
+    } catch (recErr) {
+      // Non-fatal if browser speech recognition is active
+    }
+  }
+
+  async start() {
     this.isRecording = true;
     this.currentInterimText = '';
     this.lastCommittedText = '';
     this.isSpeaking = false;
     this.targetSimVolume = 0;
+    this.consecutiveErrors = 0;
+    this.recLang = 'en-US';
 
-    // Start volume animation ticker for the equalizer
+    // 1. ALWAYS initialize real physical audio capture on selected device
+    await this.initPhysicalAudioStream();
+
+    // 2. Start volume animation ticker for the 16-bar visualizer
     this.startVolumeTicker();
 
+    // 3. Initialize Speech Recognition engine
     const SpeechRec = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
 
     if (SpeechRec) {
-      // PRIMARY: Web Speech API with zero audio device collision
       this.initSpeechRecognition(SpeechRec);
     } else {
-      // FALLBACK: MediaRecorder + WebSockets (Firefox / legacy browsers)
-      console.warn("Web Speech API not supported; falling back to MediaStream recording.");
-      this.initMediaStreamFallback();
+      console.warn("Web Speech API not supported; relying on fallback.");
+      if (this.onError) {
+        this.onError(new Error("Your browser does not natively support speech recognition (e.g. Mozilla Firefox). Please use Microsoft Edge or Google Chrome for live voice dictation."));
+      }
     }
 
     return true;
@@ -151,12 +255,12 @@ export class AudioStreamer {
       rec.interimResults = true;
       rec.maxAlternatives = 1;
 
-      // Detect user language preference, default to en-US or en-IN for Indian STEM accents
-      const browserLang = (typeof navigator !== 'undefined' && navigator.language) || 'en-US';
-      rec.lang = browserLang.startsWith('en') ? browserLang : 'en-US';
+      // Microsoft Edge on Windows requires en-US for 100% reliable speech recognition
+      rec.lang = this.recLang || 'en-US';
 
       rec.onstart = () => {
         this.isStarting = false;
+        this.consecutiveErrors = 0;
         if (this.onStatusChange) {
           this.onStatusChange('listening');
         }
@@ -210,17 +314,37 @@ export class AudioStreamer {
       };
 
       rec.onerror = (e) => {
+        const err = e.error;
         // 'no-speech' or 'aborted' are normal quiet pauses, not fatal errors
-        if (e.error === 'not-allowed') {
-          console.warn("Speech recognition mic permission not allowed:", e.error);
-          if (this.onError) {
+        if (err === 'no-speech' || err === 'aborted') {
+          return;
+        }
+
+        if (err === 'not-allowed') {
+          console.warn("Speech recognition mic permission not allowed:", err);
+          if (this.consecutiveErrors > 0 && this.onError) {
             this.onError(new Error("Microphone permission denied. Please allow microphone access in your browser settings."));
           }
-        } else if (e.error === 'network') {
-          console.warn("Speech recognition network glitch; scheduling recovery...");
-        } else {
-          console.warn("Speech recognition event note:", e.error);
+          this.consecutiveErrors += 1;
+          return;
         }
+
+        if (err === 'network' || err === 'language-not-supported') {
+          console.warn(`Speech recognition ${err} error; switching language to universal en-US...`);
+          this.recLang = 'en-US';
+          this.consecutiveErrors += 1;
+          return;
+        }
+
+        if (err === 'audio-capture') {
+          console.warn("Audio capture error on device:", err);
+          if (this.onError) {
+            this.onError(new Error("Could not capture audio from the selected device. Please verify your Bluetooth headset is connected or select Laptop Internal Mic."));
+          }
+          return;
+        }
+
+        console.warn("Speech recognition event note:", err);
       };
 
       rec.onend = () => {
@@ -231,14 +355,14 @@ export class AudioStreamer {
           this.commitFinalText(textToCommit, 94);
         }
 
-        // Resilient self-healing loop: keep recognition active while user has recording enabled
+        // Resilient self-healing loop: 350ms delay gives Edge's audio endpoint time to cleanly recycle
         if (this.isRecording) {
           if (this.restartTimer) clearTimeout(this.restartTimer);
           this.restartTimer = setTimeout(() => {
             if (this.isRecording) {
               this.initSpeechRecognition(SpeechRec);
             }
-          }, 180);
+          }, 350);
         }
       };
 
@@ -248,75 +372,15 @@ export class AudioStreamer {
     } catch (err) {
       this.isStarting = false;
       console.warn("Speech recognition start note:", err);
-      // Retry safely after brief backoff
       if (this.isRecording) {
         if (this.restartTimer) clearTimeout(this.restartTimer);
         this.restartTimer = setTimeout(() => {
           if (this.isRecording) {
             this.initSpeechRecognition(SpeechRec);
           }
-        }, 300);
+        }, 400);
       }
     }
-  }
-
-  initMediaStreamFallback() {
-    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) return;
-
-    const audioConstraints = {
-      channelCount: 1,
-      sampleRate: 16000,
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
-    };
-
-    if (this.selectedDeviceId && this.selectedDeviceId !== 'default') {
-      audioConstraints.deviceId = { exact: this.selectedDeviceId };
-    }
-
-    navigator.mediaDevices.getUserMedia({ audio: audioConstraints })
-      .then((stream) => {
-        if (!this.isRecording) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-
-        this.mediaStream = stream;
-
-        // Web Audio RMS Analyser
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        this.audioContext = new AudioCtx({ sampleRate: 16000 });
-        const source = this.audioContext.createMediaStreamSource(this.mediaStream);
-        this.analyser = this.audioContext.createAnalyser();
-        this.analyser.fftSize = 256;
-        source.connect(this.analyser);
-
-        let mimeType = 'audio/webm;codecs=opus';
-        if (!MediaRecorder.isTypeSupported(mimeType)) {
-          mimeType = 'audio/webm';
-          if (!MediaRecorder.isTypeSupported(mimeType)) {
-            mimeType = '';
-          }
-        }
-
-        const options = mimeType ? { mimeType } : {};
-        try {
-          this.mediaRecorder = new MediaRecorder(this.mediaStream, options);
-          this.mediaRecorder.ondataavailable = async (e) => {
-            if (e.data && e.data.size > 0 && this.onAudioData) {
-              const buffer = await e.data.arrayBuffer();
-              this.onAudioData(buffer);
-            }
-          };
-          this.mediaRecorder.start(3000);
-        } catch (mErr) {
-          console.warn("MediaRecorder fallback note:", mErr);
-        }
-      })
-      .catch((err) => {
-        console.warn("getUserMedia fallback error:", err);
-      });
   }
 
   startVolumeTicker() {
@@ -325,7 +389,7 @@ export class AudioStreamer {
       if (!this.isRecording) return;
 
       if (this.analyser) {
-        // Fallback mode using actual analyser
+        // Real Physical Microphone RMS Volume Level
         const timeData = new Float32Array(this.analyser.fftSize);
         this.analyser.getFloatTimeDomainData(timeData);
         let sum = 0;
@@ -333,12 +397,27 @@ export class AudioStreamer {
           sum += timeData[i] * timeData[i];
         }
         const rms = Math.sqrt(sum / timeData.length);
-        const volumePercent = Math.min(100, Math.round(rms * 450));
+        // Amplify subtle speech levels so quiet headset mics register clearly
+        const volumePercent = Math.min(100, Math.round(rms * 480));
+
         if (this.onVolumeChange) {
           this.onVolumeChange(volumePercent);
         }
+
+        // Keep speaking status synced to physical acoustic energy
+        if (volumePercent > 18) {
+          if (!this.isSpeaking && this.onStatusChange) {
+            this.onStatusChange('speaking');
+          }
+          this.isSpeaking = true;
+        } else if (volumePercent < 8 && !this.currentInterimText) {
+          if (this.isSpeaking && this.onStatusChange) {
+            this.onStatusChange('listening');
+          }
+          this.isSpeaking = false;
+        }
       } else {
-        // Primary mode: smooth organic speech-responsive volume animation
+        // Fallback simulation mode
         tick += 0.2;
         if (this.isSpeaking) {
           const oscillation = Math.sin(tick) * 15 + Math.sin(tick * 2.3) * 8;
@@ -416,6 +495,8 @@ export class AudioStreamer {
       this.audioContext = null;
     }
 
+    this.analyser = null;
+
     if (this.onVolumeChange) {
       this.onVolumeChange(0);
     }
@@ -429,13 +510,16 @@ export class AudioStreamer {
     }
   }
 
-  setAudioDevice(deviceId) {
+  async setAudioDevice(deviceId) {
     this.selectedDeviceId = deviceId;
+    if (this.isRecording) {
+      await this.initPhysicalAudioStream();
+    }
   }
 }
 
 /**
- * Enumerate all available audio input devices (detecting Bluetooth headsets, internal mics, USB)
+ * Enumerate all available audio input devices (detecting Bluetooth headsets, internal mics, USB, virtual)
  */
 export async function getAudioInputDevices() {
   if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
@@ -466,7 +550,7 @@ export async function getAudioInputDevices() {
 }
 
 function parseAudioDevices(devices) {
-  return devices.map((d, index) => {
+  const parsed = devices.map((d, index) => {
     const label = d.label || `Microphone ${index + 1}`;
     const lower = label.toLowerCase();
     const isBluetooth =
@@ -485,7 +569,8 @@ function parseAudioDevices(devices) {
       lower.includes('jabra') ||
       lower.includes('jabber') ||
       lower.includes('plantronics') ||
-      lower.includes('sennheiser');
+      lower.includes('sennheiser') ||
+      lower.includes('harmonics');
 
     const isUsb =
       lower.includes('usb') ||
@@ -496,11 +581,21 @@ function parseAudioDevices(devices) {
       lower.includes('hyperx') ||
       lower.includes('samson');
 
+    const isVirtual =
+      lower.includes('audiorelay') ||
+      lower.includes('virtual') ||
+      lower.includes('vb-audio') ||
+      lower.includes('cable') ||
+      lower.includes('voicemeeter') ||
+      lower.includes('stereo mix') ||
+      lower.includes('wave out');
+
     const isDefault = d.deviceId === 'default' || lower.includes('default');
 
     let type = 'internal';
     if (isBluetooth) type = 'bluetooth';
     else if (isUsb) type = 'usb';
+    else if (isVirtual) type = 'virtual';
     else if (isDefault) type = 'default';
 
     return {
@@ -510,8 +605,17 @@ function parseAudioDevices(devices) {
       type: type,
       isBluetooth: isBluetooth,
       isUsb: isUsb,
+      isVirtual: isVirtual,
       isDefault: isDefault
     };
   });
-}
 
+  // Sort devices: Bluetooth headsets first, then physical mics/USB, then default, virtual last
+  return parsed.sort((a, b) => {
+    if (a.isBluetooth && !b.isBluetooth) return -1;
+    if (!a.isBluetooth && b.isBluetooth) return 1;
+    if (!a.isVirtual && b.isVirtual) return -1;
+    if (a.isVirtual && !b.isVirtual) return 1;
+    return 0;
+  });
+}

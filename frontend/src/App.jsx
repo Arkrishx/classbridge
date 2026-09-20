@@ -423,13 +423,25 @@ export default function App() {
       if (devs && devs.length > 0) {
         setAudioDevices(devs);
         const saved = localStorage.getItem('classbridge_audio_device_id');
-        if (saved && devs.some((d) => d.deviceId === saved)) {
-          setSelectedDeviceId(saved);
-        } else if (devs.some((d) => d.isBluetooth)) {
-          const bt = devs.find((d) => d.isBluetooth);
-          setSelectedDeviceId(bt.deviceId);
-        } else if (!devs.some((d) => d.deviceId === selectedDeviceId)) {
-          setSelectedDeviceId(devs[0].deviceId);
+        const savedValid = saved && devs.find((d) => d.deviceId === saved && !d.isVirtual);
+
+        if (savedValid) {
+          setSelectedDeviceId(savedValid.deviceId);
+        } else {
+          // Prefer Bluetooth headset first (e.g. Harmonics Y3), then physical mic, avoid virtual
+          const bt = devs.find((d) => d.isBluetooth && !d.isVirtual);
+          const physical = devs.find((d) => !d.isVirtual && d.deviceId !== 'default');
+          const nonVirtual = devs.find((d) => !d.isVirtual);
+
+          if (bt) {
+            setSelectedDeviceId(bt.deviceId);
+          } else if (physical) {
+            setSelectedDeviceId(physical.deviceId);
+          } else if (nonVirtual) {
+            setSelectedDeviceId(nonVirtual.deviceId);
+          } else {
+            setSelectedDeviceId(devs[0].deviceId);
+          }
         }
       }
     } catch (e) {
@@ -612,7 +624,7 @@ export default function App() {
   };
 
   // Toggle Microphone
-  const toggleRecording = () => {
+  const toggleRecording = async () => {
     if (isRecording) {
       if (streamerRef.current) {
         streamerRef.current.stop();
@@ -653,7 +665,7 @@ export default function App() {
           setLiveMicStatus(status);
         },
         onError: (err) => {
-          setErrorMessage(`Microphone note: ${err.message}. You can also type or paste speech in the box below to test without a microphone.`);
+          setErrorMessage(`Audio note: ${err.message}. If using a Bluetooth headset, verify that it is connected and selected in Windows Sound settings.`);
           setIsRecording(false);
           setAudioLevel(0);
           setInterimSpeech('');
@@ -662,11 +674,17 @@ export default function App() {
         }
       });
 
-      streamer.start();
-      streamerRef.current = streamer;
-      setIsRecording(true);
-      setLiveMicStatus('listening');
-      setErrorMessage(null);
+      try {
+        await streamer.start();
+        streamerRef.current = streamer;
+        setIsRecording(true);
+        setLiveMicStatus('listening');
+        setErrorMessage(null);
+      } catch (err) {
+        setErrorMessage(`Could not start live mic: ${err.message}.`);
+        setIsRecording(false);
+        setLiveMicStatus('idle');
+      }
     }
   };
 

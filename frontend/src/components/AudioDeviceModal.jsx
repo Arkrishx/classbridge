@@ -396,7 +396,23 @@ export default function AudioDeviceModal({
                             </span>
                           )}
 
-                          {device.isDefault && (
+                          {device.isVirtual && (
+                            <span
+                              style={{
+                                fontSize: '10px',
+                                fontWeight: 600,
+                                padding: '1px 6px',
+                                borderRadius: 'var(--radius-pill)',
+                                background: 'rgba(239, 68, 68, 0.15)',
+                                color: '#fca5a5',
+                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                              }}
+                            >
+                              ⚠️ Virtual Audio (May be silent)
+                            </span>
+                          )}
+
+                          {device.isDefault && !device.isVirtual && (
                             <span
                               style={{
                                 fontSize: '10px',
@@ -447,26 +463,29 @@ export default function AudioDeviceModal({
             </div>
           )}
 
-          {/* Bluetooth Help Note */}
+          {/* Bluetooth & Windows Routing Guidance */}
           <div
             style={{
               marginTop: '16px',
-              padding: '10px 14px',
+              padding: '12px 14px',
               borderRadius: 'var(--radius-md)',
-              background: 'rgba(56, 189, 248, 0.05)',
-              border: '1px solid rgba(56, 189, 248, 0.15)',
+              background: 'rgba(56, 189, 248, 0.06)',
+              border: '1px solid rgba(56, 189, 248, 0.2)',
               fontSize: '11.5px',
               color: 'var(--text-muted)',
               lineHeight: 1.5,
               display: 'flex',
-              alignItems: 'flex-start',
-              gap: '8px',
+              flexDirection: 'column',
+              gap: '6px',
             }}
           >
-            <Sparkles size={14} color="var(--accent-cyan)" style={{ flexShrink: 0, marginTop: '2px' }} />
-            <span>
-              <b>Tip:</b> If your Bluetooth headset does not appear, make sure it is connected in your laptop's Bluetooth settings and click <b>"Rescan Devices"</b>.
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-cyan)', fontWeight: 700 }}>
+              <Sparkles size={14} />
+              <span>Windows & Bluetooth Headset Pro-Tip</span>
+            </div>
+            <div>
+              When using a Bluetooth headset (like Harmonics Y3), verify in <b>Windows Settings &gt; System &gt; Sound</b> that your headset microphone is selected as the <b>Default Input Device</b>. This ensures browser speech recognition receives your voice directly with crystal-clear clarity.
+            </div>
           </div>
         </div>
 
