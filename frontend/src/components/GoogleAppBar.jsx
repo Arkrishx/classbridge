@@ -42,6 +42,14 @@ export default function GoogleAppBar({
   const sourceLangMeta = SUPPORTED_LANGUAGES.find((l) => l.code === sourceLang) || SUPPORTED_LANGUAGES[0];
   const targetLangMeta = SUPPORTED_LANGUAGES.find((l) => l.code === targetLang) || SUPPORTED_LANGUAGES[1];
 
+  const [isSwapping, setIsSwapping] = React.useState(false);
+
+  const handleSwapClick = () => {
+    setIsSwapping(true);
+    if (onSwapLanguages) onSwapLanguages();
+    setTimeout(() => setIsSwapping(false), 500);
+  };
+
   return (
     <header className="google-app-bar">
       {/* 1. Left: Official Brand & Logo */}
@@ -54,7 +62,7 @@ export default function GoogleAppBar({
       </div>
 
       {/* 2. Center: Prominent Google Translate-Style Bilingual Selector */}
-      <div className="google-translate-bar" title="Google Translate-Style Bidirectional Language Pair">
+      <div className={`google-translate-bar ${isSwapping ? 'bar-swapping' : ''}`} title="Google Translate-Style Bidirectional Language Pair">
         <div className="google-lang-pill source-pill">
           <span className="lang-flag">{sourceLangMeta.flag}</span>
           <select
@@ -72,8 +80,8 @@ export default function GoogleAppBar({
         </div>
 
         <button
-          className="google-swap-circle-btn"
-          onClick={onSwapLanguages}
+          className={`google-swap-circle-btn ${isSwapping ? 'is-swapping' : ''}`}
+          onClick={handleSwapClick}
           title={`Click to swap languages (${sourceLang.toUpperCase()} ⇄ ${targetLang.toUpperCase()})`}
           type="button"
         >

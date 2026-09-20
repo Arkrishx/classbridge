@@ -60,12 +60,16 @@ export default function GoogleBottomDock({
             {isRecording && <span className="google-mic-ripple" />}
           </button>
 
-          {/* Mini Speech Equalizer Indicator */}
+          {/* Dynamic 5-Bar Google Color Audio Waveform Visualizer */}
           {isRecording && (
-            <div className="dock-audio-indicator" title={`Audio Level: ${audioLevel}%`}>
-              <span className={`dock-dot dot-1 ${audioLevel > 15 ? 'active' : ''}`} />
-              <span className={`dock-dot dot-2 ${audioLevel > 30 ? 'active' : ''}`} />
-              <span className={`dock-dot dot-3 ${audioLevel > 50 ? 'active' : ''}`} />
+            <div className="dock-audio-indicator animated-waveform" title={`Live Audio Level: ${audioLevel}%`}>
+              <div className="dock-soundwave-bars">
+                <span className="wave-bar bar-blue" style={{ transform: `scaleY(${Math.max(0.25, Math.min(1.8, audioLevel / 28))})` }} />
+                <span className="wave-bar bar-red" style={{ transform: `scaleY(${Math.max(0.35, Math.min(2.0, audioLevel / 22))})` }} />
+                <span className="wave-bar bar-yellow" style={{ transform: `scaleY(${Math.max(0.2, Math.min(2.2, audioLevel / 18))})` }} />
+                <span className="wave-bar bar-green" style={{ transform: `scaleY(${Math.max(0.3, Math.min(1.9, audioLevel / 24))})` }} />
+                <span className="wave-bar bar-blue-2" style={{ transform: `scaleY(${Math.max(0.25, Math.min(1.7, audioLevel / 30))})` }} />
+              </div>
               <span className="dock-status-text">
                 {liveMicStatus === 'speaking' ? 'Speaking' : 'Listening'}
               </span>
@@ -120,7 +124,7 @@ export default function GoogleBottomDock({
           <button
             className={`view-btn ${viewMode === 'split' ? 'active' : ''}`}
             onClick={() => onViewModeChange('split')}
-            title="Split View: Dual Subtitles + Gemini AI Tutor Copilot"
+            title="Split View: Dual Subtitles + BridgeAI Tutor Copilot"
             type="button"
           >
             <Columns size={14} />
@@ -130,11 +134,11 @@ export default function GoogleBottomDock({
           <button
             className={`view-btn ${viewMode === 'tutor' ? 'active' : ''}`}
             onClick={() => onViewModeChange('tutor')}
-            title="Gemini AI Tutor: Focus mode for grounded Q&A and research"
+            title="BridgeAI Tutor: Focus mode for grounded Q&A and research"
             type="button"
           >
             <MessageSquare size={14} />
-            <span className="view-btn-label">Gemini Tutor</span>
+            <span className="view-btn-label">BridgeAI Tutor</span>
           </button>
         </div>
 

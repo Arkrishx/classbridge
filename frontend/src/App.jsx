@@ -1521,11 +1521,11 @@ export default function App() {
           type="button"
         >
           <Sparkles size={14} color="var(--google-blue)" />
-          <span>Gemini Tutor {messages.length > 0 && `(${messages.length})`}</span>
+          <span>BridgeAI Tutor {messages.length > 0 && `(${messages.length})`}</span>
         </button>
       </div>
 
-      {/* 3. Main Center Stage: Live Bilingual Subtitles + Gemini AI Copilot */}
+      {/* 3. Main Center Stage: Live Bilingual Subtitles + BridgeAI Tutor */}
       <main className={`google-main-stage view-${viewMode} mobile-${mobileActiveTab}`}>
         {(viewMode === 'split' || viewMode === 'theater') && (
           <section className={`google-stage-caption ${viewMode === 'theater' ? 'theater-mode' : ''}`}>
@@ -1556,8 +1556,8 @@ export default function App() {
         )}
 
         {(viewMode === 'split' || viewMode === 'tutor') && (
-          <aside className={`google-stage-gemini ${viewMode === 'tutor' ? 'tutor-mode' : ''}`}>
-            <ErrorBoundary title="Gemini AI Tutor">
+          <aside className={`google-stage-gemini google-stage-tutor ${viewMode === 'tutor' ? 'tutor-mode' : ''}`}>
+            <ErrorBoundary title="BridgeAI Tutor">
               <ChatPanel
                 messages={messages}
                 onSendMessage={handleSendMessage}

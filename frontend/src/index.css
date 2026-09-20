@@ -2610,7 +2610,8 @@ body {
 }
 
 /* ==========================================================================
-   OFFICIAL GOOGLE WEB APP ARCHITECTURE & MATERIAL DESIGN 3
+   OFFICIAL GOOGLE WEB APP ARCHITECTURE & MATERIAL DESIGN 3 (ENHANCED)
+   Animations, BridgeAI Copilot, and Complete Multi-Device Responsiveness
    ========================================================================== */
 
 .google-workspace-root {
@@ -2622,6 +2623,7 @@ body {
   color: var(--text-main);
   position: relative;
   padding-bottom: 96px;
+  overflow-x: hidden;
 }
 
 /* 1. Official Google Top App Bar */
@@ -2632,13 +2634,16 @@ body {
   height: 64px;
   min-height: 64px;
   padding: 0 24px;
-  background: #202124;
+  background: rgba(32, 33, 36, 0.96);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border-subtle);
   position: sticky;
   top: 0;
   z-index: 100;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
   gap: 16px;
+  transition: all 0.25s ease;
 }
 
 .google-bar-left {
@@ -2656,9 +2661,12 @@ body {
 
 .google-app-title {
   font-size: 19px;
-  font-weight: 500;
+  font-weight: 600;
   color: #e8eaed;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
+  background: linear-gradient(135deg, #ffffff 40%, #8ab4f8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .google-tag-pill {
@@ -2670,6 +2678,7 @@ body {
   padding: 1px 7px;
   border-radius: 9999px;
   letter-spacing: 0.04em;
+  transition: all 0.2s ease;
 }
 
 /* Google Translate-Style Bilingual Selector */
@@ -2681,12 +2690,19 @@ body {
   border-radius: 9999px;
   padding: 3px 8px;
   gap: 4px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .google-translate-bar:hover {
   border-color: #5f6368;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  transform: translateY(-1px);
+}
+
+.google-translate-bar.bar-swapping {
+  border-color: #8ab4f8;
+  box-shadow: 0 0 16px rgba(138, 180, 248, 0.35);
 }
 
 .google-lang-pill {
@@ -2698,6 +2714,11 @@ body {
   font-size: 13px;
   font-weight: 500;
   color: #e8eaed;
+  transition: background-color 0.2s;
+}
+
+.google-lang-pill:hover {
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .google-lang-dropdown {
@@ -2708,6 +2729,7 @@ body {
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
+  padding-right: 4px;
 }
 
 .google-lang-dropdown option {
@@ -2716,8 +2738,8 @@ body {
 }
 
 .google-swap-circle-btn {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -2726,13 +2748,25 @@ body {
   border: none;
   color: #9aa0a6;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.2s, box-shadow 0.2s;
 }
 
 .google-swap-circle-btn:hover {
   background: #3c4043;
-  color: #e8eaed;
-  transform: rotate(180deg);
+  color: #8ab4f8;
+  transform: rotate(180deg) scale(1.1);
+  box-shadow: 0 0 12px rgba(138, 180, 248, 0.3);
+}
+
+.google-swap-circle-btn.is-swapping {
+  transform: rotate(180deg) scale(1.15);
+  background: rgba(138, 180, 248, 0.2);
+  color: #8ab4f8;
+  box-shadow: 0 0 16px rgba(138, 180, 248, 0.4);
+}
+
+.google-swap-circle-btn:active {
+  transform: rotate(180deg) scale(0.92);
 }
 
 .google-bar-right {
@@ -2754,12 +2788,13 @@ body {
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .google-chip-action:hover {
   background: #35373a;
   border-color: #5f6368;
+  transform: translateY(-1px);
 }
 
 .google-chip-text {
@@ -2776,13 +2811,15 @@ body {
   padding: 4px 10px;
   border-radius: 9999px;
   font-size: 11.5px;
-  font-weight: 500;
+  font-weight: 600;
+  transition: all 0.2s ease;
 }
 
 .google-status-pill.live {
   background: rgba(52, 168, 83, 0.15);
   color: #81c995;
   border: 1px solid rgba(52, 168, 83, 0.3);
+  box-shadow: 0 0 10px rgba(52, 168, 83, 0.15);
 }
 
 .google-status-pill.browser {
@@ -2818,12 +2855,23 @@ body {
   border: none;
   color: #9aa0a6;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .google-icon-btn:hover {
   background: #35373a;
   color: #e8eaed;
+  transform: translateY(-1px) scale(1.05);
+}
+
+.google-icon-btn:active {
+  transform: scale(0.92);
+}
+
+.google-bar-export-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 /* 2. Responsive Mobile Switcher Tabs (< 860px) */
@@ -2831,8 +2879,11 @@ body {
   display: none;
   background: #202124;
   border-bottom: 1px solid var(--border-subtle);
-  padding: 6px 16px;
+  padding: 8px 16px;
   gap: 8px;
+  position: sticky;
+  top: 64px;
+  z-index: 90;
 }
 
 .google-mobile-tab-btn {
@@ -2843,29 +2894,38 @@ body {
   gap: 8px;
   padding: 10px 14px;
   border-radius: 9999px;
-  border: none;
-  background: transparent;
+  border: 1px solid transparent;
+  background: #282a2d;
   color: #9aa0a6;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.google-mobile-tab-btn:hover {
+  color: #e8eaed;
+  background: #35373a;
 }
 
 .google-mobile-tab-btn.active {
   background: rgba(138, 180, 248, 0.15);
   color: #8ab4f8;
-  border: 1px solid rgba(138, 180, 248, 0.3);
+  border-color: rgba(138, 180, 248, 0.35);
+  box-shadow: 0 0 12px rgba(138, 180, 248, 0.2);
 }
 
-/* 3. Main Stage: Subtitle Stage + Gemini Side Panel */
+/* 3. Main Stage: Subtitle Stage + BridgeAI Tutor Side Panel */
 .google-main-stage {
   display: grid;
-  grid-template-columns: 1fr 430px;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) 420px;
+  gap: 20px;
   padding: 18px 24px;
   flex: 1;
   min-height: 0;
+  max-width: 1720px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .google-main-stage.view-theater {
@@ -2877,30 +2937,112 @@ body {
 }
 
 .google-stage-caption,
-.google-stage-gemini {
+.google-stage-gemini,
+.google-stage-tutor {
   min-height: 0;
   display: flex;
   flex-direction: column;
 }
 
 .google-stage-caption .caption-card,
-.google-stage-gemini .chat-card {
-  height: calc(100vh - 190px);
+.google-stage-gemini .chat-card,
+.google-stage-tutor .chat-card {
+  height: calc(100vh - 180px);
   min-height: 520px;
   max-height: none;
   background: #282a2d;
   border: 1px solid var(--border-subtle);
   border-radius: 16px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* Gemini Side Panel Styling */
-.google-gemini-header {
+/* Subtitle Card Animation */
+@keyframes subtitleCardEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.segment-item {
+  animation: subtitleCardEnter 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition: background-color 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.segment-item:hover {
+  border-color: rgba(138, 180, 248, 0.3);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.segment-item.highlighted {
+  border-color: #fbbc04;
+  background: rgba(251, 188, 4, 0.08);
+  box-shadow: 0 0 24px rgba(251, 188, 4, 0.25);
+  animation: highlightPulse 2s ease-in-out infinite;
+}
+
+@keyframes highlightPulse {
+  0%, 100% { box-shadow: 0 0 16px rgba(251, 188, 4, 0.2); }
+  50% { box-shadow: 0 0 28px rgba(251, 188, 4, 0.4); }
+}
+
+/* Active Live Teleprompter Card Glow */
+.live-stream-card {
+  border: 1px solid rgba(138, 180, 248, 0.4);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(40, 42, 45, 0.95), rgba(32, 33, 36, 0.95));
+  box-shadow: 0 0 24px rgba(138, 180, 248, 0.15);
+  animation: activeTeleprompterGlow 3s ease-in-out infinite;
+}
+
+@keyframes activeTeleprompterGlow {
+  0%, 100% {
+    border-color: rgba(138, 180, 248, 0.4);
+    box-shadow: 0 0 20px rgba(138, 180, 248, 0.12);
+  }
+  50% {
+    border-color: rgba(138, 180, 248, 0.8);
+    box-shadow: 0 0 32px rgba(138, 180, 248, 0.28);
+  }
+}
+
+.live-stream-cursor {
+  display: inline-block;
+  color: var(--google-blue);
+  font-weight: 700;
+  margin-left: 2px;
+  animation: liveCursorBlink 0.9s infinite;
+}
+
+@keyframes liveCursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* BridgeAI Tutor Side Panel Styling */
+.google-gemini-header,
+.bridge-tutor-header {
   background: #282a2d;
   border-bottom: 1px solid var(--border-subtle);
 }
 
-.gemini-pill-tag {
+.gemini-sparkle-icon,
+.tutor-sparkle-icon {
+  animation: softSparkleFloat 3s ease-in-out infinite;
+}
+
+@keyframes softSparkleFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-2px) rotate(8deg); }
+}
+
+.gemini-pill-tag,
+.tutor-pill-tag {
   font-size: 10.5px;
   font-weight: 600;
   color: #8ab4f8;
@@ -2920,10 +3062,26 @@ body {
   border: 1px solid rgba(52, 168, 83, 0.3);
 }
 
+/* Chat Message Entrance */
+@keyframes chatMsgEnter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.msg-bubble {
+  animation: chatMsgEnter 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 /* 4. Google Meet Floating Bottom Dock */
 .google-meet-dock-wrapper {
   position: fixed;
-  bottom: 18px;
+  bottom: 20px;
   left: 0;
   right: 0;
   display: flex;
@@ -2937,14 +3095,20 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: rgba(32, 33, 36, 0.95);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: rgba(32, 33, 36, 0.94);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid #3c4043;
   border-radius: 48px;
-  padding: 8px 14px;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6), 0 1px 3px rgba(0, 0, 0, 0.4);
+  padding: 8px 16px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.35);
   max-width: 95vw;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.google-meet-dock:hover {
+  box-shadow: 0 14px 42px rgba(0, 0, 0, 0.7), 0 3px 8px rgba(0, 0, 0, 0.45);
+  transform: translateY(-2px);
 }
 
 /* Dock Mic Button */
@@ -2964,8 +3128,12 @@ body {
   justify-content: center;
   border: none;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
   position: relative;
+}
+
+.google-circle-btn:active {
+  transform: scale(0.92);
 }
 
 .mic-btn.idle {
@@ -2975,43 +3143,82 @@ body {
 
 .mic-btn.idle:hover {
   background: #484b4f;
-  transform: scale(1.05);
+  transform: scale(1.08);
 }
 
 .mic-btn.active-recording {
   background: #ea4335;
   color: white;
-  box-shadow: 0 0 20px rgba(234, 67, 53, 0.6);
-  animation: googleMeetPulse 1.8s infinite;
+  box-shadow: 0 0 22px rgba(234, 67, 53, 0.7);
+  animation: googleMeetPulse 1.6s infinite;
 }
 
 @keyframes googleMeetPulse {
   0%, 100% {
-    box-shadow: 0 0 0 0 rgba(234, 67, 53, 0.5);
+    box-shadow: 0 0 0 0 rgba(234, 67, 53, 0.6);
   }
   50% {
-    box-shadow: 0 0 0 12px rgba(234, 67, 53, 0);
+    box-shadow: 0 0 0 14px rgba(234, 67, 53, 0);
   }
 }
 
+/* Dynamic 5-Bar Google Color Audio Waveform Visualizer */
 .dock-audio-indicator {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   padding: 0 6px;
 }
 
-.dock-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #5f6368;
-  transition: background-color 0.15s;
+.dock-soundwave-bars {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 20px;
+  padding: 0 2px;
 }
 
-.dock-dot.active {
+.wave-bar {
+  width: 3px;
+  height: 14px;
+  border-radius: 9999px;
+  transform-origin: bottom;
+  transition: transform 0.08s ease-out;
+  animation: soundWaveBreath 1.4s ease-in-out infinite alternate;
+}
+
+.wave-bar.bar-blue {
+  background: #8ab4f8;
+  animation-delay: 0s;
+}
+
+.wave-bar.bar-red {
   background: #ea4335;
-  box-shadow: 0 0 6px #ea4335;
+  animation-delay: 0.25s;
+}
+
+.wave-bar.bar-yellow {
+  background: #fbbc04;
+  animation-delay: 0.1s;
+}
+
+.wave-bar.bar-green {
+  background: #34a853;
+  animation-delay: 0.35s;
+}
+
+.wave-bar.bar-blue-2 {
+  background: #8ab4f8;
+  animation-delay: 0.18s;
+}
+
+@keyframes soundWaveBreath {
+  0% {
+    height: 5px;
+  }
+  100% {
+    height: 18px;
+  }
 }
 
 .dock-status-text {
@@ -3035,36 +3242,55 @@ body {
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   white-space: nowrap;
 }
 
 .google-pill-btn:hover:not(:disabled) {
   background: #484b4f;
   border-color: #5f6368;
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+}
+
+.google-pill-btn:active:not(:disabled) {
+  transform: scale(0.95);
 }
 
 .speaker-btn.active-read {
   background: rgba(52, 168, 83, 0.2);
   border-color: rgba(52, 168, 83, 0.5);
   color: #81c995;
+  box-shadow: 0 0 12px rgba(52, 168, 83, 0.2);
 }
 
+/* Study Guide Shimmer Effect */
 .guide-btn {
-  background: linear-gradient(135deg, rgba(251, 188, 4, 0.15), rgba(234, 67, 53, 0.15));
+  background: linear-gradient(90deg, #3c4043 0%, #4a4e54 40%, #5a5f66 50%, #4a4e54 60%, #3c4043 100%);
+  background-size: 250% 100%;
   border-color: rgba(251, 188, 4, 0.4);
   color: #fdd663;
+  animation: guideShimmerSweep 4s ease-in-out infinite;
+}
+
+@keyframes guideShimmerSweep {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
 }
 
 .guide-btn:hover:not(:disabled) {
   background: linear-gradient(135deg, rgba(251, 188, 4, 0.25), rgba(234, 67, 53, 0.25));
-  box-shadow: 0 0 16px rgba(251, 188, 4, 0.3);
+  box-shadow: 0 0 18px rgba(251, 188, 4, 0.35);
+  border-color: #fbbc04;
 }
 
 .guide-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+  animation: none;
 }
 
 /* Dock Quick Dictation Input */
@@ -3078,6 +3304,12 @@ body {
   padding: 4px 12px;
   min-width: 240px;
   max-width: 320px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.google-dock-input-bar:focus-within {
+  border-color: #8ab4f8;
+  box-shadow: 0 0 12px rgba(138, 180, 248, 0.25);
 }
 
 .dock-quick-input {
@@ -3104,7 +3336,12 @@ body {
   border: none;
   color: #202124;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.dock-send-btn:hover:not(:disabled) {
+  transform: scale(1.1);
+  background: #7dd3fc;
 }
 
 .dock-send-btn:disabled {
@@ -3135,7 +3372,7 @@ body {
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   white-space: nowrap;
 }
 
@@ -3167,6 +3404,7 @@ body {
 .utility-btn:hover {
   background: #484b4f;
   color: #e8eaed;
+  transform: translateY(-1px) scale(1.06);
 }
 
 .utility-btn.danger-hover:hover {
@@ -3175,27 +3413,68 @@ body {
 }
 
 /* ==========================================================================
-   MULTI-DEVICE RESPONSIVE BREAKPOINTS
+   MULTI-DEVICE RESPONSIVE BREAKPOINTS (ALL DISPLAY SIZES)
    ========================================================================== */
 
-/* Laptops & Tablets (max-width: 1100px) */
-@media (max-width: 1100px) {
+/* 1. Ultra-wide & 4K Displays (> 1600px) */
+@media (min-width: 1600px) {
   .google-main-stage {
-    grid-template-columns: 1fr 360px;
-    padding: 14px 16px;
+    max-width: 1720px;
+    gap: 24px;
+    padding: 24px 32px;
   }
-  .google-dock-input-bar {
-    max-width: 200px;
-    min-width: 180px;
+  .google-stage-caption .caption-card,
+  .google-stage-gemini .chat-card,
+  .google-stage-tutor .chat-card {
+    height: calc(100vh - 170px);
+  }
+  .segment-item .vernacular-text {
+    font-size: 18px;
+    line-height: 1.6;
   }
 }
 
-/* Mobile Devices & Small Tablets (max-width: 860px) */
-@media (max-width: 860px) {
+/* 2. Standard Laptops & Tablets Landscape (992px - 1200px) */
+@media (max-width: 1200px) {
+  .google-main-stage {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 16px;
+    padding: 16px 20px;
+  }
+  .google-dock-input-bar {
+    max-width: 220px;
+    min-width: 160px;
+  }
+  .google-chip-text {
+    max-width: 90px;
+  }
+}
+
+/* 3. Tablets in Portrait & Compact Laptops (768px - 992px) */
+@media (max-width: 992px) {
+  .google-main-stage {
+    grid-template-columns: minmax(0, 1fr) 330px;
+    gap: 12px;
+    padding: 14px 16px;
+  }
+  .google-dock-input-bar {
+    display: none;
+  }
+  .google-chip-action.device-chip {
+    padding: 6px 8px;
+  }
+}
+
+/* 4. Mobile Phones & Small Tablets (max-width: 768px) */
+@media (max-width: 768px) {
+  .google-workspace-root {
+    padding-bottom: 84px;
+  }
+
   .google-app-bar {
     padding: 0 12px;
-    height: 58px;
-    min-height: 58px;
+    height: 56px;
+    min-height: 56px;
   }
 
   .google-brand-meta {
@@ -3219,12 +3498,20 @@ body {
     padding: 12px 10px;
   }
 
-  .google-main-stage.mobile-captions .google-stage-gemini {
+  .google-main-stage.mobile-captions .google-stage-gemini,
+  .google-main-stage.mobile-captions .google-stage-tutor {
     display: none !important;
   }
 
   .google-main-stage.mobile-chat .google-stage-caption {
     display: none !important;
+  }
+
+  .google-stage-caption .caption-card,
+  .google-stage-gemini .chat-card,
+  .google-stage-tutor .chat-card {
+    height: calc(100vh - 200px);
+    min-height: 420px;
   }
 
   .google-dock-input-bar {
@@ -3240,20 +3527,27 @@ body {
   }
 
   .google-pill-btn {
-    padding: 8px;
+    padding: 8px 10px;
+    min-width: 44px;
+    justify-content: center;
   }
 
   .google-meet-dock {
-    padding: 6px 10px;
-    gap: 8px;
+    padding: 6px 12px;
+    gap: 10px;
+    bottom: max(14px, env(safe-area-inset-bottom));
+  }
+
+  .dock-audio-indicator .dock-status-text {
+    display: none;
   }
 }
 
-/* Small Smart Phones (max-width: 480px) */
+/* 5. Small Smartphones (< 480px) */
 @media (max-width: 480px) {
-  .google-lang-pill {
-    padding: 3px 6px;
-    font-size: 12px;
+  .google-app-bar {
+    padding: 0 8px;
+    gap: 6px;
   }
 
   .google-translate-bar {
@@ -3261,14 +3555,58 @@ body {
     gap: 2px;
   }
 
-  .google-app-bar {
-    padding: 0 8px;
+  .google-lang-pill {
+    padding: 2px 6px;
+    font-size: 12px;
+  }
+
+  .google-lang-dropdown {
+    font-size: 12px;
+  }
+
+  .google-swap-circle-btn {
+    width: 26px;
+    height: 26px;
   }
 
   .google-meet-dock-wrapper {
-    bottom: 10px;
+    bottom: max(10px, env(safe-area-inset-bottom));
+  }
+
+  .google-meet-dock {
+    padding: 5px 8px;
+    gap: 6px;
+  }
+
+  .google-circle-btn {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+  }
+
+  .segment-item {
+    padding: 10px 12px;
+  }
+
+  .segment-item .source-text {
+    font-size: 13.5px;
+  }
+
+  .segment-item .vernacular-text {
+    font-size: 15px;
   }
 }
+
+/* 6. Accessibility & Reduced Motion Preferences */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 
 
 
