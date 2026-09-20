@@ -16,6 +16,13 @@
  *    and flags virtual audio cables (AudioRelay, VB-Cable).
  */
 
+export const BCP47_MAP = {
+  en: 'en-US',
+  ta: 'ta-IN',
+  ml: 'ml-IN',
+  hi: 'hi-IN'
+};
+
 export class AudioStreamer {
   constructor({
     onAudioData,
@@ -24,7 +31,8 @@ export class AudioStreamer {
     onInterimSpeech,
     onError,
     onStatusChange,
-    selectedDeviceId = 'default'
+    selectedDeviceId = 'default',
+    sourceLang = 'en'
   }) {
     this.onAudioData = onAudioData;
     this.onVolumeChange = onVolumeChange;
@@ -33,6 +41,7 @@ export class AudioStreamer {
     this.onError = onError;
     this.onStatusChange = onStatusChange;
     this.selectedDeviceId = selectedDeviceId;
+    this.sourceLang = sourceLang || 'en';
 
     this.recognition = null;
     this.isRecording = false;
@@ -52,8 +61,40 @@ export class AudioStreamer {
     this.targetSimVolume = 0;
     this.isSpeaking = false;
     this.consecutiveErrors = 0;
-    this.recLang = 'en-US';
+    this.recLang = BCP47_MAP[this.sourceLang] || 'en-US';
     this.recentCommitted = [];
+  }
+
+  setSourceLanguage(sourceLang) {
+    if (!sourceLang) return;
+    this.sourceLang = sourceLang;
+    this.recLang = BCP47_MAP[sourceLang] || 'en-US';
+    console.log(`[AudioStreamer] Language set to: ${sourceLang} (${this.recLang})`);
+
+    // If currently recording, restart SpeechRecognition with the new language cleanly
+    if (this.isRecording) {
+      const SpeechRec = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
+      if (SpeechRec) {
+        try {
+          if (this.restartTimer) {
+            clearTimeout(this.restartTimer);
+            this.restartTimer = null;
+          }
+          if (this.recognition) {
+            this.recognition.onend = null;
+            this.recognition.onerror = null;
+            this.recognition.stop();
+            this.recognition = null;
+          }
+        } catch (e) {}
+
+        this.restartTimer = setTimeout(() => {
+          if (this.isRecording) {
+            this.initSpeechRecognition(SpeechRec);
+          }
+        }, 150);
+      }
+    }
   }
 
   commitFinalText(text, confidence = 96) {
@@ -260,7 +301,7 @@ export class AudioStreamer {
     this.isSpeaking = false;
     this.targetSimVolume = 0;
     this.consecutiveErrors = 0;
-    this.recLang = 'en-US';
+    this.recLang = BCP47_MAP[this.sourceLang] || 'en-US';
 
     // Start volume animation ticker for the 16-bar visualizer
     this.startVolumeTicker();
@@ -386,9 +427,12 @@ export class AudioStreamer {
         }
 
         if (err === 'network' || err === 'language-not-supported') {
-          console.warn(`Speech recognition ${err} error; switching language to universal en-US...`);
-          this.recLang = 'en-US';
+          console.warn(`Speech recognition ${err} error on language ${this.recLang}`);
           this.consecutiveErrors += 1;
+          if (err === 'language-not-supported' && this.recLang !== 'en-US') {
+            console.warn(`Browser speech engine does not support ${this.recLang}, falling back to en-US`);
+            this.recLang = 'en-US';
+          }
           if (this.consecutiveErrors > 2 && this.onError) {
             this.onError(new Error("Browser speech recognition encountered a network/privacy restriction. In Windows Settings > Privacy > Speech, turn ON 'Online speech recognition', or open ClassBridge in Google Chrome."));
           }

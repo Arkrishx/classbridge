@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ShieldCheck, Tag, ArrowDown, Sparkles, Mic, Copy, Check, Download, Radio, Volume2, VolumeX } from 'lucide-react';
+import { ShieldCheck, Tag, ArrowDown, Sparkles, Mic, Copy, Check, Download, Radio, Volume2, VolumeX, ArrowLeftRight } from 'lucide-react';
 import { detectDomainTermsClient } from '../utils/clientTranslator';
 
 export default function CaptionPane({
   segments = [],
+  sourceLang = 'en',
+  sourceLangName = 'English',
   targetLangName = 'Tamil',
   targetLang = 'ta',
+  onSwapLanguages,
   highlightedSegmentId = null,
   autoScroll = true,
   onToggleAutoScroll,
@@ -35,7 +38,7 @@ export default function CaptionPane({
     const text = segments
       .map(
         (s) =>
-          `[${s.timestamp || `${Math.floor(s.start)}s - ${Math.floor(s.end)}s`}]\nEN: ${s.text_en}\n${targetLangName}: ${s.text_vernacular}\n`
+          `[${s.timestamp || `${Math.floor(s.start)}s - ${Math.floor(s.end)}s`}]\n${(s.source_lang || sourceLang).toUpperCase()}: ${s.text_source || s.text_en}\n${(s.target_lang || targetLang).toUpperCase()}: ${s.text_vernacular}\n`
       )
       .join('\n');
     try {
@@ -52,7 +55,7 @@ export default function CaptionPane({
     const text = segments
       .map(
         (s, i) =>
-          `${i + 1}\n${s.timestamp || `00:${i * 4}`}\nEN: ${s.text_en}\n${targetLangName}: ${s.text_vernacular}\n`
+          `${i + 1}\n${s.timestamp || `00:${i * 4}`}\n${(s.source_lang || sourceLang).toUpperCase()}: ${s.text_source || s.text_en}\n${(s.target_lang || targetLang).toUpperCase()}: ${s.text_vernacular}\n`
       )
       .join('\n');
     const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
@@ -91,9 +94,17 @@ export default function CaptionPane({
           <span style={{ fontWeight: 700, fontSize: '14.5px', letterSpacing: '-0.01em' }}>
             Live Dual Captions
           </span>
-          <span className="brand-tag">
-            EN ➔ {targetLangName}
-          </span>
+          <div className="caption-pair-badge" title="Active Language Pair (Click ⇄ to swap)">
+            <span>{sourceLang.toUpperCase()}</span>
+            <button
+              className="caption-swap-inline-btn"
+              onClick={onSwapLanguages}
+              title={`Swap languages (${sourceLang.toUpperCase()} ⇄ ${targetLang.toUpperCase()})`}
+            >
+              ⇄
+            </button>
+            <span>{targetLang.toUpperCase()}</span>
+          </div>
           {isRecording && (
             <span className="live-indicator-pill">
               <span className="live-dot-pulse" />
@@ -213,10 +224,12 @@ export default function CaptionPane({
                   </div>
 
                   <div className="caption-en">
-                    {seg.text_en}
+                    <span className="caption-lang-tag">{(seg.source_lang || sourceLang).toUpperCase()}</span>
+                    {seg.text_source || seg.text_en}
                   </div>
 
                   <div className="caption-vernacular">
+                    <span className="caption-lang-tag target">{(seg.target_lang || targetLang).toUpperCase()}</span>
                     {seg.text_vernacular}
                   </div>
 
@@ -255,9 +268,9 @@ export default function CaptionPane({
                   </span>
                 </div>
 
-                {/* English Streaming Line */}
+                {/* Speech Streaming Line */}
                 <div className="live-stream-body">
-                  <div className="live-stream-label">ENGLISH SPEECH</div>
+                  <div className="live-stream-label">{(sourceLangName || 'ORIGINAL').toUpperCase()} SPEECH</div>
                   <div className={`live-stream-en ${!interimSpeech ? 'placeholder' : ''}`}>
                     {interimSpeech ? (
                       <>
@@ -266,14 +279,14 @@ export default function CaptionPane({
                       </>
                     ) : (
                       <span style={{ color: 'var(--text-dim)', fontStyle: 'italic' }}>
-                        Start speaking into the mic (e.g. "We compute eigenvalues and backpropagation in neural networks")...
+                        Start speaking into the mic...
                       </span>
                     )}
                   </div>
 
-                  {/* Real-time Vernacular Translation Line */}
+                  {/* Real-time Translation Line */}
                   <div className="live-stream-label" style={{ marginTop: '10px' }}>
-                    {targetLangName.toUpperCase()} TRANSLATION
+                    {(targetLangName || 'TARGET').toUpperCase()} TRANSLATION
                   </div>
                   <div className="live-stream-vernacular">
                     {interimVernacular ? (

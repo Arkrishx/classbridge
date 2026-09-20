@@ -2,14 +2,18 @@ import React from 'react';
 import { BookOpen, Clock, Sparkles, Languages, Headphones, Mic } from 'lucide-react';
 
 export const SUPPORTED_LANGUAGES = [
-  { code: 'ta', name: 'Tamil', native: 'தமிழ்' },
-  { code: 'ml', name: 'Malayalam', native: 'മലയാളം' },
-  { code: 'hi', name: 'Hindi', native: 'हिन्दी' },
+  { code: 'en', name: 'English', native: 'English', bcp47: 'en-US', flag: '🇬🇧' },
+  { code: 'ta', name: 'Tamil', native: 'தமிழ்', bcp47: 'ta-IN', flag: '🇮🇳' },
+  { code: 'ml', name: 'Malayalam', native: 'മലയാളം', bcp47: 'ml-IN', flag: '🇮🇳' },
+  { code: 'hi', name: 'Hindi', native: 'हिन्दी', bcp47: 'hi-IN', flag: '🇮🇳' },
 ];
 
 export default function Header({
-  targetLang,
+  sourceLang = 'en',
+  targetLang = 'ta',
+  onSourceLanguageChange,
   onLanguageChange,
+  onSwapLanguages,
   connectionStatus,
   sessionSeconds,
   onOpenGlossary,
@@ -41,21 +45,41 @@ export default function Header({
         </div>
       </div>
 
-      {/* Tactile Segmented Language Selector (Tamil, Malayalam, Hindi ONLY) */}
-      <div className="lang-segmented" title="Select Vernacular Caption Language">
-        {SUPPORTED_LANGUAGES.map((lang) => {
-          const isActive = targetLang === lang.code;
-          return (
-            <button
-              key={lang.code}
-              className={`lang-pill-btn ${isActive ? 'active' : ''}`}
-              onClick={() => onLanguageChange(lang.code)}
-            >
-              <span>{lang.native}</span>
-              <span style={{ fontSize: '11px', opacity: 0.7 }}>{lang.name}</span>
-            </button>
-          );
-        })}
+      {/* Bidirectional Language Pair Bar with 1-Click Swap */}
+      <div className="header-lang-hub" title="Bidirectional Language Pair (Click ⇄ to swap)">
+        <select
+          className="header-lang-select"
+          value={sourceLang}
+          onChange={(e) => onSourceLanguageChange && onSourceLanguageChange(e.target.value)}
+          title="Microphone Voice Recognition Language"
+        >
+          {SUPPORTED_LANGUAGES.map((l) => (
+            <option key={l.code} value={l.code} disabled={l.code === targetLang}>
+              {l.flag} {l.name}
+            </option>
+          ))}
+        </select>
+
+        <button
+          className="header-swap-btn"
+          onClick={onSwapLanguages}
+          title={`Swap languages: ${sourceLang.toUpperCase()} ⇄ ${targetLang.toUpperCase()}`}
+        >
+          ⇄
+        </button>
+
+        <select
+          className="header-lang-select"
+          value={targetLang}
+          onChange={(e) => onLanguageChange && onLanguageChange(e.target.value)}
+          title="Translation & Read Aloud Output Language"
+        >
+          {SUPPORTED_LANGUAGES.map((l) => (
+            <option key={l.code} value={l.code} disabled={l.code === sourceLang}>
+              {l.flag} {l.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="header-actions">

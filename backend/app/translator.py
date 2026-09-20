@@ -8,29 +8,31 @@ logger = logging.getLogger("classbridge.translator")
 
 class TranslationService:
     """
-    Config-driven Machine Translation service for Indic languages.
-    Translates English ASR segments into target vernacular (default Tamil)
-    and passes output through the STEM Domain Adaptation layer.
+    Config-driven Machine Translation service supporting any-to-any bidirectional
+    translation across English, Tamil, Malayalam, and Hindi, with STEM domain adaptation.
     """
     def __init__(self, default_target: str = settings.DEFAULT_TARGET_LANG):
         self.default_target = default_target
         self._translators: Dict[str, GoogleTranslator] = {}
 
-    def _get_translator(self, target_lang: str) -> GoogleTranslator:
-        if target_lang not in self._translators:
-            self._translators[target_lang] = GoogleTranslator(source="en", target=target_lang)
-        return self._translators[target_lang]
+    def _get_translator(self, source_lang: str, target_lang: str) -> GoogleTranslator:
+        key = f"{source_lang}->{target_lang}"
+        if key not in self._translators:
+            self._translators[key] = GoogleTranslator(source=source_lang, target=target_lang)
+        return self._translators[key]
 
     def translate_segment(
         self,
         text: str,
-        target_lang: Optional[str] = None
+        target_lang: Optional[str] = None,
+        source_lang: Optional[str] = "en"
     ) -> Dict[str, Any]:
         """
-        Translates English text to target Indic language and applies
-        domain adaptation post-processing.
+        Translates text between any supported language pair (e.g. en->ta, ta->en, ml->en, hi->en)
+        and applies domain adaptation post-processing.
         """
-        lang = target_lang or self.default_target
+        tgt = (target_lang or self.default_target).lower()
+        src = (source_lang or "en").lower()
         clean_text = text.strip()
         
         if not clean_text:
@@ -38,30 +40,47 @@ class TranslationService:
                 "original": text,
                 "raw_translation": "",
                 "adapted_translation": "",
-                "target_lang": lang,
+                "source_lang": src,
+                "target_lang": tgt,
+                "domain_terms": []
+            }
+
+        # If source and target language are identical, return identity directly
+        if src == tgt:
+            return {
+                "original": clean_text,
+                "raw_translation": clean_text,
+                "adapted_translation": clean_text,
+                "source_lang": src,
+                "target_lang": tgt,
                 "domain_terms": []
             }
 
         raw_translation = ""
         try:
-            translator = self._get_translator(lang)
+            translator = self._get_translator(src, tgt)
             raw_translation = translator.translate(clean_text)
         except Exception as e:
-            logger.warning(f"Translation failed for '{clean_text}': {e}. Using fallback transliteration/identity.")
+            logger.warning(f"Translation failed for '{clean_text}' ({src}->{tgt}): {e}. Using fallback identity.")
             raw_translation = clean_text
 
         # Domain Adaptation pass:
-        adapted_translation, domain_terms = glossary_engine.apply_domain_adaptation(
-            en_text=clean_text,
-            vernacular_text=raw_translation,
-            target_lang=lang
-        )
+        if src == "en":
+            adapted_translation, domain_terms = glossary_engine.apply_domain_adaptation(
+                en_text=clean_text,
+                vernacular_text=raw_translation,
+                target_lang=tgt
+            )
+        else:
+            adapted_translation = raw_translation
+            domain_terms = []
 
         return {
             "original": clean_text,
             "raw_translation": raw_translation,
             "adapted_translation": adapted_translation,
-            "target_lang": lang,
+            "source_lang": src,
+            "target_lang": tgt,
             "domain_terms": domain_terms
         }
 

@@ -19,6 +19,9 @@ export default function WorkspaceHeader({
   onDirectSpeechSubmit,
   segmentCount = 0,
   onToggleMobileSidebar,
+  sourceLang = 'en',
+  targetLang = 'ta',
+  onSwapLanguages,
 }) {
   const [quickInput, setQuickInput] = React.useState('');
 
@@ -52,6 +55,18 @@ export default function WorkspaceHeader({
               <span className="status-pulse-dot" />
               <span>{connectionStatus === 'connected' ? 'Live Stream' : 'Browser Engine'}</span>
             </div>
+
+            {onSwapLanguages && (
+              <button
+                className="workspace-lang-swap-badge"
+                onClick={onSwapLanguages}
+                title={`Active Direction: ${sourceLang.toUpperCase()} ➔ ${targetLang.toUpperCase()}. Click to swap ⇄`}
+              >
+                <span className="lang-tag-src">{sourceLang.toUpperCase()}</span>
+                <span className="lang-tag-arrow">⇄</span>
+                <span className="lang-tag-tgt">{targetLang.toUpperCase()}</span>
+              </button>
+            )}
           </div>
           <div className="workspace-subheading">
             Dual-language real-time speech synthesis & grounded AI knowledge companion

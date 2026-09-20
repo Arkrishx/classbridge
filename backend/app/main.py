@@ -39,6 +39,7 @@ app.add_middleware(
 # In-memory session state
 active_session = {
     "segments": [],
+    "source_lang": "en",
     "target_lang": settings.DEFAULT_TARGET_LANG,
     "current_time_offset": 0.0
 }
@@ -54,6 +55,7 @@ class StudyGuideRequest(BaseModel):
 
 class LangSwitchRequest(BaseModel):
     target_lang: str
+    source_lang: Optional[str] = "en"
 
 
 # REST Endpoints
@@ -149,6 +151,7 @@ def reset_session():
 class TranslateRequest(BaseModel):
     text: str
     target_lang: Optional[str] = "ta"
+    source_lang: Optional[str] = "en"
 
 @app.post("/api/translate")
 def translate_text(req: TranslateRequest):
@@ -157,10 +160,15 @@ def translate_text(req: TranslateRequest):
             "original": "",
             "raw_translation": "",
             "adapted_translation": "",
+            "source_lang": req.source_lang or "en",
             "target_lang": req.target_lang or "ta",
             "domain_terms": []
         }
-    return translator_service.translate_segment(req.text, target_lang=req.target_lang)
+    return translator_service.translate_segment(
+        req.text,
+        target_lang=req.target_lang or "ta",
+        source_lang=req.source_lang or "en"
+    )
 
 tts_cache: Dict[str, bytes] = {}
 
@@ -236,16 +244,22 @@ def export_study_guide_pdf(req: StudyGuideRequest):
 
 # WebSocket Streaming Endpoint
 @app.websocket("/ws/lecture")
-async def websocket_lecture_endpoint(websocket: WebSocket, target_lang: str = Query(default="ta")):
+async def websocket_lecture_endpoint(
+    websocket: WebSocket,
+    target_lang: str = Query(default="ta"),
+    source_lang: str = Query(default="en")
+):
     await websocket.accept()
-    logger.info(f"WebSocket client connected with target language: {target_lang}")
+    logger.info(f"WebSocket client connected with source: {source_lang}, target: {target_lang}")
     active_session["target_lang"] = target_lang
+    active_session["source_lang"] = source_lang
 
     try:
         # Send initial connection handshake
         await websocket.send_json({
             "type": "handshake",
             "status": "connected",
+            "source_lang": source_lang,
             "target_lang": target_lang,
             "message": "ClassBridge Live Caption Server Ready."
         })
@@ -270,7 +284,7 @@ async def websocket_lecture_endpoint(websocket: WebSocket, target_lang: str = Qu
 
                     if asr_results:
                         for item in asr_results:
-                            en_text = item["text"]
+                            spoken_text = item["text"]
                             conf = item["confidence"]
                             start_t = item["start"]
                             end_t = item["end"]
@@ -280,8 +294,9 @@ async def websocket_lecture_endpoint(websocket: WebSocket, target_lang: str = Qu
 
                             # Translate & Apply STEM Domain Adaptation
                             trans_res = translator_service.translate_segment(
-                                en_text,
-                                target_lang=active_session["target_lang"]
+                                spoken_text,
+                                target_lang=active_session["target_lang"],
+                                source_lang=active_session.get("source_lang", "en")
                             )
 
                             seg_id = len(active_session["segments"]) + 1
@@ -294,11 +309,13 @@ async def websocket_lecture_endpoint(websocket: WebSocket, target_lang: str = Qu
                                 "start": start_t,
                                 "end": end_t,
                                 "timestamp": timestamp_str,
-                                "text_en": en_text,
+                                "text_en": spoken_text,
+                                "text_source": spoken_text,
                                 "text_vernacular": trans_res["adapted_translation"],
                                 "raw_translation": trans_res["raw_translation"],
                                 "confidence": conf,
                                 "domain_terms": trans_res["domain_terms"],
+                                "source_lang": active_session.get("source_lang", "en"),
                                 "target_lang": active_session["target_lang"]
                             }
 
@@ -308,7 +325,7 @@ async def websocket_lecture_endpoint(websocket: WebSocket, target_lang: str = Qu
                                 segment_id=seg_id,
                                 start=start_t,
                                 end=end_t,
-                                text_en=en_text,
+                                text_en=spoken_text,
                                 text_vernacular=trans_res["adapted_translation"],
                                 confidence=conf,
                                 domain_terms=trans_res["domain_terms"]
@@ -337,23 +354,47 @@ async def websocket_lecture_endpoint(websocket: WebSocket, target_lang: str = Qu
                         logger.info(f"Switched target language to {new_lang}")
                         await websocket.send_json({
                             "type": "language_updated",
+                            "source_lang": active_session.get("source_lang", "en"),
                             "target_lang": new_lang
+                        })
+
+                    elif action == "set_source_language":
+                        new_src = payload.get("language", "en")
+                        active_session["source_lang"] = new_src
+                        logger.info(f"Switched source language to {new_src}")
+                        await websocket.send_json({
+                            "type": "source_language_updated",
+                            "source_lang": new_src,
+                            "target_lang": active_session.get("target_lang", "ta")
+                        })
+
+                    elif action == "swap_languages":
+                        old_source = active_session.get("source_lang", "en")
+                        old_target = active_session.get("target_lang", "ta")
+                        active_session["source_lang"] = old_target
+                        active_session["target_lang"] = old_source
+                        logger.info(f"Swapped languages: source={old_target}, target={old_source}")
+                        await websocket.send_json({
+                            "type": "languages_swapped",
+                            "source_lang": old_target,
+                            "target_lang": old_source
                         })
 
                     elif action == "process_text_segment":
                         # Direct text segment (e.g. from browser Web Speech API or sample lecture feeder)
-                        en_text = payload.get("text", "").strip()
+                        spoken_text = payload.get("text", "").strip()
                         conf = float(payload.get("confidence", 95.0))
                         duration = float(payload.get("duration", 4.0))
 
-                        if en_text:
+                        if spoken_text:
                             start_t = active_session["current_time_offset"]
                             end_t = start_t + duration
                             active_session["current_time_offset"] = end_t
 
                             trans_res = translator_service.translate_segment(
-                                en_text,
-                                target_lang=active_session["target_lang"]
+                                spoken_text,
+                                target_lang=active_session["target_lang"],
+                                source_lang=active_session.get("source_lang", "en")
                             )
 
                             seg_id = len(active_session["segments"]) + 1
@@ -366,11 +407,13 @@ async def websocket_lecture_endpoint(websocket: WebSocket, target_lang: str = Qu
                                 "start": start_t,
                                 "end": end_t,
                                 "timestamp": timestamp_str,
-                                "text_en": en_text,
+                                "text_en": spoken_text,
+                                "text_source": spoken_text,
                                 "text_vernacular": trans_res["adapted_translation"],
                                 "raw_translation": trans_res["raw_translation"],
                                 "confidence": conf,
                                 "domain_terms": trans_res["domain_terms"],
+                                "source_lang": active_session.get("source_lang", "en"),
                                 "target_lang": active_session["target_lang"]
                             }
 
@@ -379,7 +422,7 @@ async def websocket_lecture_endpoint(websocket: WebSocket, target_lang: str = Qu
                                 segment_id=seg_id,
                                 start=start_t,
                                 end=end_t,
-                                text_en=en_text,
+                                text_en=spoken_text,
                                 text_vernacular=trans_res["adapted_translation"],
                                 confidence=conf,
                                 domain_terms=trans_res["domain_terms"]

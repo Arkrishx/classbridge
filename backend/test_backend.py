@@ -1,6 +1,8 @@
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 
 import json
 from fastapi.testclient import TestClient
@@ -20,9 +22,9 @@ def test_all():
     r = client.get("/api/languages")
     assert r.status_code == 200
     langs = r.json()["supported"]
-    assert "ta" in langs and "ml" in langs and "hi" in langs
-    assert len(langs) == 3
-    print(f"[OK] Languages check passed: {len(langs)} supported Indic languages")
+    assert "en" in langs and "ta" in langs and "ml" in langs and "hi" in langs
+    assert len(langs) == 4
+    print(f"[OK] Languages check passed: {len(langs)} supported languages (en, ta, ml, hi)")
     
     # 3. Glossary
     r = client.get("/api/glossary?search=gradient")
@@ -31,12 +33,34 @@ def test_all():
     assert glossary_data["count"] > 0
     print(f"[OK] Glossary search passed: found {glossary_data['count']} terms for 'gradient'")
 
-    # 4. Direct Translation
-    r = client.post("/api/translate", json={"text": "Gradient descent optimizes the loss function.", "target_lang": "ta"})
+    # 4. Bidirectional Translation Across All 4 Languages
+    # Test en -> ta
+    r = client.post("/api/translate", json={"text": "Gradient descent optimizes the loss function.", "source_lang": "en", "target_lang": "ta"})
     assert r.status_code == 200
     trans_res = r.json()
-    assert "adapted_translation" in trans_res
-    print(f"[OK] Translation endpoint passed (length: {len(trans_res['adapted_translation'])})")
+    assert len(trans_res["adapted_translation"]) > 0
+    print(f"[OK] en -> ta translation passed: {trans_res['adapted_translation'][:30]}...")
+
+    # Test ta -> en
+    r = client.post("/api/translate", json={"text": "வணக்கம் மாணவர்களே", "source_lang": "ta", "target_lang": "en"})
+    assert r.status_code == 200
+    trans_res = r.json()
+    assert len(trans_res["adapted_translation"]) > 0
+    print(f"[OK] ta -> en translation passed: {trans_res['adapted_translation']}")
+
+    # Test ml -> en
+    r = client.post("/api/translate", json={"text": "നമസ്കാരം", "source_lang": "ml", "target_lang": "en"})
+    assert r.status_code == 200
+    trans_res = r.json()
+    assert len(trans_res["adapted_translation"]) > 0
+    print(f"[OK] ml -> en translation passed: {trans_res['adapted_translation']}")
+
+    # Test hi -> en
+    r = client.post("/api/translate", json={"text": "नमस्ते छात्रों", "source_lang": "hi", "target_lang": "en"})
+    assert r.status_code == 200
+    trans_res = r.json()
+    assert len(trans_res["adapted_translation"]) > 0
+    print(f"[OK] hi -> en translation passed: {trans_res['adapted_translation']}")
 
     # 5. Sample Lecture
     r = client.get("/api/sample-lecture")

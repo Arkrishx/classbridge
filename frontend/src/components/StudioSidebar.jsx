@@ -18,6 +18,8 @@ import {
   Settings2,
   Volume2,
   VolumeX,
+  Languages,
+  ArrowLeftRight,
 } from 'lucide-react';
 
 export default function StudioSidebar({
@@ -25,8 +27,11 @@ export default function StudioSidebar({
   onToggleRecord,
   audioLevel,
   liveMicStatus = 'idle',
-  targetLang,
+  sourceLang = 'en',
+  targetLang = 'ta',
+  onSourceLanguageChange,
   onLanguageChange,
+  onSwapLanguages,
   sessionSeconds,
   segmentCount,
   onGenerateStudyGuide,
@@ -187,30 +192,82 @@ export default function StudioSidebar({
           </div>
         </div>
 
-        {/* 2. Tactile Indic Language Selector */}
+        {/* 2. Interactive Bidirectional Language Pair & 1-Click Swap Hub */}
         <div className="sidebar-card">
           <div className="card-mini-head">
-            <span className="card-label-title">TARGET VERNACULAR</span>
-            <span className="badge-dim">Indic STEM</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Languages size={13} color="var(--accent-cyan)" />
+              <span className="card-label-title">LANGUAGE PAIR HUB</span>
+            </div>
+            <span className="badge-dim">4-Lang ⇄ Any</span>
           </div>
 
-          <div className="lang-vertical-deck">
-            {SUPPORTED_LANGUAGES.map((lang) => {
-              const isActive = targetLang === lang.code;
+          {/* Interactive Source & Target Selector with 1-Click Swap */}
+          <div className="sidebar-lang-pair-container">
+            <div className="sidebar-lang-select-box">
+              <label className="sidebar-lang-mini-label">🎙️ Spoken (Mic)</label>
+              <select
+                value={sourceLang}
+                onChange={(e) => onSourceLanguageChange && onSourceLanguageChange(e.target.value)}
+                className="sidebar-lang-select"
+                title="Microphone Spoken Language"
+              >
+                {SUPPORTED_LANGUAGES.map((l) => (
+                  <option key={l.code} value={l.code} disabled={l.code === targetLang}>
+                    {l.flag} {l.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              className="btn-swap-sidebar"
+              onClick={onSwapLanguages}
+              title={`1-Click Swap: Switch ${sourceLang.toUpperCase()} ⇄ ${targetLang.toUpperCase()}`}
+            >
+              <ArrowLeftRight size={15} />
+            </button>
+
+            <div className="sidebar-lang-select-box">
+              <label className="sidebar-lang-mini-label">📝 Captions & Voice</label>
+              <select
+                value={targetLang}
+                onChange={(e) => onLanguageChange && onLanguageChange(e.target.value)}
+                className="sidebar-lang-select"
+                title="Caption & Read Aloud Language"
+              >
+                {SUPPORTED_LANGUAGES.map((l) => (
+                  <option key={l.code} value={l.code} disabled={l.code === sourceLang}>
+                    {l.flag} {l.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Quick Preset Directional Chips */}
+          <div className="quick-presets-header">Quick Presets (1-Click)</div>
+          <div className="lang-preset-grid">
+            {[
+              { src: 'en', tgt: 'ta', label: 'ENG ➔ TAM' },
+              { src: 'ta', tgt: 'en', label: 'TAM ➔ ENG' },
+              { src: 'en', tgt: 'ml', label: 'ENG ➔ MAL' },
+              { src: 'ml', tgt: 'en', label: 'MAL ➔ ENG' },
+              { src: 'en', tgt: 'hi', label: 'ENG ➔ HIN' },
+              { src: 'hi', tgt: 'en', label: 'HIN ➔ ENG' },
+            ].map((preset) => {
+              const isCurrent = sourceLang === preset.src && targetLang === preset.tgt;
               return (
                 <button
-                  key={lang.code}
-                  className={`lang-card-btn ${isActive ? 'active' : ''}`}
-                  onClick={() => onLanguageChange(lang.code)}
+                  key={`${preset.src}-${preset.tgt}`}
+                  className={`preset-chip-btn ${isCurrent ? 'active' : ''}`}
+                  onClick={() => {
+                    if (onSourceLanguageChange) onSourceLanguageChange(preset.src);
+                    if (onLanguageChange) onLanguageChange(preset.tgt);
+                  }}
+                  title={`Switch to ${preset.label}`}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span className="lang-script-avatar">{lang.native.slice(0, 1)}</span>
-                    <div style={{ textAlign: 'left' }}>
-                      <div className="lang-native-text">{lang.native}</div>
-                      <div className="lang-name-text">{lang.name}</div>
-                    </div>
-                  </div>
-                  {isActive && <div className="active-glow-dot" />}
+                  {preset.label}
                 </button>
               );
             })}

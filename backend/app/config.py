@@ -18,6 +18,7 @@ class Settings(BaseModel):
     # Translation Settings (Config-driven, defaults to Tamil 'ta')
     DEFAULT_TARGET_LANG: str = os.getenv("DEFAULT_TARGET_LANG", "ta")
     SUPPORTED_LANGUAGES: dict = {
+        "en": {"name": "English", "native": "English", "nllb": "eng_Latn"},
         "ta": {"name": "Tamil", "native": "தமிழ்", "nllb": "tam_Taml"},
         "ml": {"name": "Malayalam", "native": "മലയാളം", "nllb": "mal_Mlym"},
         "hi": {"name": "Hindi", "native": "हिन्दी", "nllb": "hin_Deva"}

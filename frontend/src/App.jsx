@@ -361,7 +361,20 @@ const SAMPLE_LECTURES = {
 };
 
 export default function App() {
-  const [targetLang, setTargetLang] = useState('ta');
+  const [sourceLang, setSourceLang] = useState(() => {
+    try {
+      return localStorage.getItem('classbridge_source_lang') || 'en';
+    } catch (e) {
+      return 'en';
+    }
+  });
+  const [targetLang, setTargetLang] = useState(() => {
+    try {
+      return localStorage.getItem('classbridge_target_lang') || 'ta';
+    } catch (e) {
+      return 'ta';
+    }
+  });
   const [segments, setSegments] = useState([]);
   const [messages, setMessages] = useState([]);
   const [isRecording, setIsRecording] = useState(false);
@@ -536,8 +549,9 @@ export default function App() {
 
   const handleSpeakSegment = (seg) => {
     setCurrentlySpeakingId(seg.id);
-    const textToSpeak = seg.text_vernacular || seg.text_en;
-    globalTTS.speakImmediate(textToSpeak, targetLang);
+    const textToSpeak = seg.text_vernacular || seg.text_source || seg.text_en;
+    const langToSpeak = seg.target_lang || targetLang;
+    globalTTS.speakImmediate(textToSpeak, langToSpeak);
   };
 
   // Session duration timer
@@ -571,7 +585,7 @@ export default function App() {
 
   const connectWebSocket = () => {
     try {
-      const wsUrl = `${WS_BASE_URL}/ws/lecture?target_lang=${targetLang}`;
+      const wsUrl = `${WS_BASE_URL}/ws/lecture?target_lang=${targetLang}&source_lang=${sourceLang}`;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
@@ -586,12 +600,12 @@ export default function App() {
           if (data.type === 'caption' && data.segment) {
             setSegments((prev) => {
               // Prevent duplicate if already committed optimistically
-              if (prev.some((s) => s.text_en.trim().toLowerCase() === data.segment.text_en.trim().toLowerCase())) {
+              if (prev.some((s) => (s.text_source || s.text_en).trim().toLowerCase() === (data.segment.text_source || data.segment.text_en).trim().toLowerCase())) {
                 return prev;
               }
               if (isReadAloudEnabled) {
-                const textToRead = data.segment.text_vernacular || data.segment.text_en;
-                globalTTS.queueSentence(textToRead, targetLang);
+                const textToRead = data.segment.text_vernacular || data.segment.text_source || data.segment.text_en;
+                globalTTS.queueSentence(textToRead, data.segment.target_lang || targetLang);
               }
               return [...prev, data.segment];
             });
@@ -617,34 +631,102 @@ export default function App() {
     }
   };
 
-  const handleLanguageChange = (newLang) => {
-    setTargetLang(newLang);
+  const handleLanguageChange = (newTarget) => {
+    if (!newTarget) return;
+    setTargetLang(newTarget);
+    try {
+      localStorage.setItem('classbridge_target_lang', newTarget);
+    } catch (e) {}
+
+    // If target matches source, automatically alter source
+    if (newTarget === sourceLang) {
+      const altSource = newTarget === 'en' ? 'ta' : 'en';
+      setSourceLang(altSource);
+      try {
+        localStorage.setItem('classbridge_source_lang', altSource);
+      } catch (e) {}
+      if (streamerRef.current) {
+        streamerRef.current.setSourceLanguage(altSource);
+      }
+    }
+
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ action: 'set_language', language: newLang }));
+      wsRef.current.send(JSON.stringify({ action: 'set_language', language: newTarget }));
     }
     // If there is active live interim speech, translate it immediately to the new language
     if (interimSpeech) {
-      translateInterimDebounced(interimSpeech, newLang, glossary, (vern) => {
+      translateInterimDebounced(interimSpeech, newTarget, glossary, (vern) => {
         setInterimVernacular(vern);
-      });
+      }, sourceLang);
     }
     // Dynamically update existing segments that have multi-language translations
     setSegments((prev) =>
       prev.map((seg) => {
-        if (seg.translations && seg.translations[newLang]) {
+        if (seg.translations && seg.translations[newTarget]) {
           return {
             ...seg,
-            target_lang: newLang,
-            text_vernacular: seg.translations[newLang],
+            target_lang: newTarget,
+            text_vernacular: seg.translations[newTarget],
             domain_terms: (seg.domain_terms || []).map((dt) => ({
               ...dt,
-              adapted_vernacular: (dt.translations && dt.translations[newLang]) || dt.adapted_vernacular || dt.en
+              adapted_vernacular: (dt.translations && dt.translations[newTarget]) || dt.adapted_vernacular || dt.en
             }))
           };
         }
         return seg;
       })
     );
+  };
+
+  const handleSourceLanguageChange = (newSource) => {
+    if (!newSource) return;
+    setSourceLang(newSource);
+    try {
+      localStorage.setItem('classbridge_source_lang', newSource);
+    } catch (e) {}
+
+    // If source matches target, automatically alter target
+    if (newSource === targetLang) {
+      const altTarget = newSource === 'en' ? 'ta' : 'en';
+      setTargetLang(altTarget);
+      try {
+        localStorage.setItem('classbridge_target_lang', altTarget);
+      } catch (e) {}
+    }
+
+    if (streamerRef.current) {
+      streamerRef.current.setSourceLanguage(newSource);
+    }
+
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ action: 'set_source_language', language: newSource }));
+    }
+  };
+
+  const handleSwapLanguages = () => {
+    const prevSrc = sourceLang;
+    const prevTgt = targetLang;
+    setSourceLang(prevTgt);
+    setTargetLang(prevSrc);
+
+    try {
+      localStorage.setItem('classbridge_source_lang', prevTgt);
+      localStorage.setItem('classbridge_target_lang', prevSrc);
+    } catch (e) {}
+
+    if (streamerRef.current) {
+      streamerRef.current.setSourceLanguage(prevTgt);
+    }
+
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ action: 'swap_languages' }));
+    }
+
+    if (interimSpeech) {
+      translateInterimDebounced(interimSpeech, prevSrc, glossary, (vern) => {
+        setInterimVernacular(vern);
+      }, prevTgt);
+    }
   };
 
   const processSpeechText = async (spokenText, confidence = 95) => {
@@ -658,12 +740,12 @@ export default function App() {
 
     // Instant optimistic client translation & commit for 0ms lag
     try {
-      const transResult = await translateTextClient(cleanText, targetLang, glossary);
+      const transResult = await translateTextClient(cleanText, targetLang, glossary, sourceLang);
       setSegments((prev) => {
         // Prevent duplicate commits & collapse
         if (prev.length > 0) {
           const last = prev[prev.length - 1];
-          const lastEn = last.text_en.trim().toLowerCase();
+          const lastEn = (last.text_source || last.text_en).trim().toLowerCase();
           const currEn = cleanText.toLowerCase();
 
           // If exact duplicate of last segment, skip
@@ -677,10 +759,13 @@ export default function App() {
             updated[updated.length - 1] = {
               ...last,
               text_en: cleanText,
+              text_source: cleanText,
               text_vernacular: transResult.adapted_translation,
               raw_translation: transResult.raw_translation,
               confidence: confidence,
-              domain_terms: transResult.domain_terms
+              domain_terms: transResult.domain_terms,
+              source_lang: sourceLang,
+              target_lang: targetLang
             };
             return updated;
           }
@@ -708,10 +793,12 @@ export default function App() {
             end: endT,
             timestamp: timestampStr,
             text_en: cleanText,
+            text_source: cleanText,
             text_vernacular: transResult.adapted_translation,
             raw_translation: transResult.raw_translation,
             confidence: confidence,
             domain_terms: transResult.domain_terms,
+            source_lang: sourceLang,
             target_lang: targetLang
           }
         ];
@@ -752,6 +839,7 @@ export default function App() {
     } else {
       const streamer = new AudioStreamer({
         selectedDeviceId: selectedDeviceId,
+        sourceLang: sourceLang,
         onAudioData: (buffer) => {
           if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             wsRef.current.send(buffer);
@@ -766,7 +854,7 @@ export default function App() {
             setLiveMicStatus('speaking');
             translateInterimDebounced(text.trim(), targetLang, glossary, (vern) => {
               setInterimVernacular(vern);
-            });
+            }, sourceLang);
           } else {
             setInterimVernacular('');
             setLiveMicStatus('listening');
@@ -1223,7 +1311,8 @@ export default function App() {
     }, 4000);
   };
 
-  const selectedLangMeta = SUPPORTED_LANGUAGES.find((l) => l.code === targetLang) || { name: 'Tamil', native: 'தமிழ்' };
+  const sourceLangMeta = SUPPORTED_LANGUAGES.find((l) => l.code === sourceLang) || { name: 'English', native: 'English', flag: '🇬🇧' };
+  const targetLangMeta = SUPPORTED_LANGUAGES.find((l) => l.code === targetLang) || { name: 'Tamil', native: 'தமிழ்', flag: '🇮🇳' };
   const activeDeviceObj = audioDevices.find((d) => d.deviceId === selectedDeviceId) || audioDevices[0];
   const activeDeviceLabel = activeDeviceObj ? activeDeviceObj.label : 'Default Microphone';
   const isBluetoothDevice = Boolean(activeDeviceObj?.isBluetooth);
@@ -1240,8 +1329,11 @@ export default function App() {
         onToggleRecord={toggleRecording}
         audioLevel={audioLevel}
         liveMicStatus={liveMicStatus}
+        sourceLang={sourceLang}
         targetLang={targetLang}
+        onSourceLanguageChange={handleSourceLanguageChange}
         onLanguageChange={handleLanguageChange}
+        onSwapLanguages={handleSwapLanguages}
         sessionSeconds={sessionSeconds}
         segmentCount={segments.length}
         onGenerateStudyGuide={handleGenerateStudyGuide}
@@ -1268,6 +1360,9 @@ export default function App() {
           connectionStatus={connectionStatus}
           onDirectSpeechSubmit={processSpeechText}
           segmentCount={segments.length}
+          sourceLang={sourceLang}
+          targetLang={targetLang}
+          onSwapLanguages={handleSwapLanguages}
         />
 
         <ErrorBanner
@@ -1300,8 +1395,11 @@ export default function App() {
             <div className={`canvas-pane-caption ${viewMode === 'theater' ? 'theater-active' : ''}`}>
               <CaptionPane
                 segments={segments}
-                targetLangName={`${selectedLangMeta.name} (${selectedLangMeta.native})`}
+                sourceLang={sourceLang}
+                sourceLangName={`${sourceLangMeta.name} (${sourceLangMeta.native})`}
+                targetLangName={`${targetLangMeta.name} (${targetLangMeta.native})`}
                 targetLang={targetLang}
+                onSwapLanguages={handleSwapLanguages}
                 highlightedSegmentId={highlightedSegmentId}
                 autoScroll={autoScroll}
                 onToggleAutoScroll={() => setAutoScroll((prev) => !prev)}

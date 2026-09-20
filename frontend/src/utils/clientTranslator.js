@@ -120,18 +120,41 @@ const OFFLINE_INDIC_DICTIONARY = {
   "values": { ta: "மதிப்புகள்", ml: "മൂല്യങ്ങൾ", hi: "मानों" }
 };
 
-export async function translateTextClient(text, targetLang = 'ta', glossary = {}) {
+// Automatically build reverse offline dictionary for Indic -> English translation
+const OFFLINE_REVERSE_DICTIONARY = { ta: {}, ml: {}, hi: {} };
+for (const [enWord, transObj] of Object.entries(OFFLINE_INDIC_DICTIONARY)) {
+  for (const [lang, indicWord] of Object.entries(transObj)) {
+    if (OFFLINE_REVERSE_DICTIONARY[lang]) {
+      OFFLINE_REVERSE_DICTIONARY[lang][indicWord.toLowerCase()] = enWord;
+    }
+  }
+}
+
+export async function translateTextClient(text, targetLang = 'ta', glossary = {}, sourceLang = 'en') {
   if (!text || !text.trim()) {
     return {
       original: text,
       raw_translation: '',
       adapted_translation: '',
+      source_lang: sourceLang,
+      target_lang: targetLang,
       domain_terms: []
     };
   }
 
   const cleanText = text.trim();
-  const cacheKey = `${targetLang}:${cleanText.toLowerCase()}`;
+  if (sourceLang === targetLang) {
+    return {
+      original: cleanText,
+      raw_translation: cleanText,
+      adapted_translation: cleanText,
+      source_lang: sourceLang,
+      target_lang: targetLang,
+      domain_terms: []
+    };
+  }
+
+  const cacheKey = `${sourceLang}:${targetLang}:${cleanText.toLowerCase()}`;
 
   // 1. Check in-memory session cache (0ms)
   if (translationCache.has(cacheKey)) {
@@ -145,7 +168,7 @@ export async function translateTextClient(text, targetLang = 'ta', glossary = {}
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-    const c5Url = `https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=auto&tl=${targetLang}&q=${encodeURIComponent(cleanText)}`;
+    const c5Url = `https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=${sourceLang}&tl=${targetLang}&q=${encodeURIComponent(cleanText)}`;
     const c5Res = await fetch(c5Url, { signal: controller.signal });
     clearTimeout(timeoutId);
 
@@ -165,7 +188,7 @@ export async function translateTextClient(text, targetLang = 'ta', glossary = {}
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-      const gUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(cleanText)}`;
+      const gUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sourceLang}&tl=${targetLang}&dt=t&q=${encodeURIComponent(cleanText)}`;
       const gRes = await fetch(gUrl, { signal: controller.signal });
       clearTimeout(timeoutId);
 
@@ -196,7 +219,7 @@ export async function translateTextClient(text, targetLang = 'ta', glossary = {}
       const bRes = await fetch(`${API_BASE_URL}/api/translate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: cleanText, target_lang: targetLang }),
+        body: JSON.stringify({ text: cleanText, source_lang: sourceLang, target_lang: targetLang }),
         signal: controller.signal
       });
       clearTimeout(timeoutId);
@@ -208,6 +231,8 @@ export async function translateTextClient(text, targetLang = 'ta', glossary = {}
             original: cleanText,
             raw_translation: bData.raw_translation || cleanText,
             adapted_translation: bData.adapted_translation,
+            source_lang: sourceLang,
+            target_lang: targetLang,
             domain_terms: bData.domain_terms || []
           };
           translationCache.set(cacheKey, result);
@@ -225,7 +250,7 @@ export async function translateTextClient(text, targetLang = 'ta', glossary = {}
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-      const langPair = `en|${targetLang}`;
+      const langPair = `${sourceLang}|${targetLang}`;
       const mUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(cleanText)}&langpair=${langPair}`;
       const mRes = await fetch(mUrl, { signal: controller.signal });
       clearTimeout(timeoutId);
@@ -245,18 +270,22 @@ export async function translateTextClient(text, targetLang = 'ta', glossary = {}
     }
   }
 
-  // 6. Tier 5: High-Coverage Indic Lexicon Fallback (Ensures output is NEVER in raw English!)
+  // 6. Tier 5: High-Coverage Indic Lexicon Fallback
   if (!rawTranslation || rawTranslation.toLowerCase() === cleanText.toLowerCase()) {
-    rawTranslation = translateWithOfflineDictionary(cleanText, targetLang);
+    rawTranslation = translateWithOfflineDictionary(cleanText, targetLang, sourceLang);
   }
 
-  // 7. Apply STEM Domain Adaptation Layer (Preserving canonical technical accuracy)
-  const { adaptedText, domainTerms } = applyDomainAdaptationClient(cleanText, rawTranslation, targetLang, glossary);
+  // 7. Apply STEM Domain Adaptation Layer (if English source)
+  const { adaptedText, domainTerms } = (sourceLang === 'en')
+    ? applyDomainAdaptationClient(cleanText, rawTranslation, targetLang, glossary)
+    : { adaptedText: rawTranslation || cleanText, domainTerms: [] };
 
   const finalResult = {
     original: cleanText,
-    raw_translation: rawTranslation,
-    adapted_translation: adaptedText,
+    raw_translation: rawTranslation || cleanText,
+    adapted_translation: adaptedText || cleanText,
+    source_lang: sourceLang,
+    target_lang: targetLang,
     domain_terms: domainTerms
   };
 
@@ -268,37 +297,52 @@ export async function translateTextClient(text, targetLang = 'ta', glossary = {}
 /**
  * Fallback token-based translator using our comprehensive Indic dictionary
  */
-function translateWithOfflineDictionary(text, targetLang = 'ta') {
+function translateWithOfflineDictionary(text, targetLang = 'ta', sourceLang = 'en') {
   if (!text) return '';
-  const tokens = text.split(/(\s+|[.,!?;:()]+)/);
-
-  const translatedTokens = tokens.map((tok) => {
-    const cleanTok = tok.trim().toLowerCase();
-    if (!cleanTok || !/^[a-zA-Z]+$/.test(cleanTok)) {
+  if (sourceLang === 'en') {
+    const tokens = text.split(/(\s+|[.,!?;:()]+)/);
+    const translatedTokens = tokens.map((tok) => {
+      const cleanTok = tok.trim().toLowerCase();
+      if (!cleanTok || !/^[a-zA-Z]+$/.test(cleanTok)) {
+        return tok;
+      }
+      if (OFFLINE_INDIC_DICTIONARY[cleanTok] && OFFLINE_INDIC_DICTIONARY[cleanTok][targetLang]) {
+        return OFFLINE_INDIC_DICTIONARY[cleanTok][targetLang];
+      }
       return tok;
-    }
-    if (OFFLINE_INDIC_DICTIONARY[cleanTok] && OFFLINE_INDIC_DICTIONARY[cleanTok][targetLang]) {
-      return OFFLINE_INDIC_DICTIONARY[cleanTok][targetLang];
-    }
-    return tok;
-  });
-
-  const assembled = translatedTokens.join('');
-  return assembled.trim() || text;
+    });
+    return translatedTokens.join('').trim() || text;
+  } else if (targetLang === 'en' && OFFLINE_REVERSE_DICTIONARY[sourceLang]) {
+    const tokens = text.split(/(\s+|[.,!?;:()]+)/);
+    const translatedTokens = tokens.map((tok) => {
+      const cleanTok = tok.trim().toLowerCase();
+      if (OFFLINE_REVERSE_DICTIONARY[sourceLang][cleanTok]) {
+        return OFFLINE_REVERSE_DICTIONARY[sourceLang][cleanTok];
+      }
+      return tok;
+    });
+    return translatedTokens.join('').trim() || text;
+  }
+  return text;
 }
 
 // Debounced Interim Translator for live subtitle preview as user speaks
 let interimDebounceTimer = null;
 let lastInterimRequest = '';
 
-export function translateInterimDebounced(text, targetLang = 'ta', glossary = {}, onResult) {
+export function translateInterimDebounced(text, targetLang = 'ta', glossary = {}, onResult, sourceLang = 'en') {
   if (!text || !text.trim()) {
     onResult('');
     return;
   }
 
   const clean = text.trim();
-  const cacheKey = `${targetLang}:${clean.toLowerCase()}`;
+  if (sourceLang === targetLang) {
+    onResult(clean);
+    return;
+  }
+
+  const cacheKey = `${sourceLang}:${targetLang}:${clean.toLowerCase()}`;
   if (translationCache.has(cacheKey)) {
     onResult(translationCache.get(cacheKey).adapted_translation);
     return;
@@ -311,14 +355,16 @@ export function translateInterimDebounced(text, targetLang = 'ta', glossary = {}
   lastInterimRequest = clean;
   interimDebounceTimer = setTimeout(async () => {
     try {
-      const res = await translateTextClient(clean, targetLang, glossary);
+      const res = await translateTextClient(clean, targetLang, glossary, sourceLang);
       if (lastInterimRequest === clean) {
         onResult(res.adapted_translation);
       }
     } catch (e) {
       // Fallback: apply offline dictionary directly
-      const fallbackTrans = translateWithOfflineDictionary(clean, targetLang);
-      const { adaptedText } = applyDomainAdaptationClient(clean, fallbackTrans, targetLang, glossary);
+      const fallbackTrans = translateWithOfflineDictionary(clean, targetLang, sourceLang);
+      const { adaptedText } = (sourceLang === 'en')
+        ? applyDomainAdaptationClient(clean, fallbackTrans, targetLang, glossary)
+        : { adaptedText: fallbackTrans };
       onResult(adaptedText);
     }
   }, 100);
