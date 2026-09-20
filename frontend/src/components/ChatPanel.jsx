@@ -44,16 +44,17 @@ export default function ChatPanel({
   ];
 
   return (
-    <div className="chat-card">
-      <div className="chat-header">
+    <div className="chat-card gemini-side-panel">
+      <div className="chat-header google-gemini-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <MessageSquare size={15} color="var(--accent-cyan)" />
-          <span style={{ fontWeight: 700, fontSize: '14.5px', letterSpacing: '-0.01em' }}>
-            AI Tutor Focus
+          <Sparkles size={16} color="var(--google-blue)" className="gemini-sparkle-icon" />
+          <span style={{ fontWeight: 700, fontSize: '15px', letterSpacing: '-0.01em', color: 'var(--text-main)' }}>
+            Gemini AI Tutor
           </span>
+          <span className="gemini-pill-tag">Lecture Copilot</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span className="brand-tag">Grounded RAG + Web</span>
+          <span className="google-rag-status-badge">Grounded RAG</span>
         </div>
       </div>
 

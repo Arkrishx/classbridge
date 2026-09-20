@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import GoogleAppBar from './components/GoogleAppBar';
+import GoogleBottomDock from './components/GoogleBottomDock';
 import StudioSidebar from './components/StudioSidebar';
 import WorkspaceHeader from './components/WorkspaceHeader';
 import { SUPPORTED_LANGUAGES } from './components/Header';
@@ -1474,122 +1476,118 @@ export default function App() {
   const detectedTermsCount = segments.reduce((acc, seg) => acc + (seg.domain_terms ? seg.domain_terms.length : 0), 0);
 
   return (
-    <div className="studio-workspace-root">
-      {/* Studio Interactive Left Control Rail */}
-      <StudioSidebar
-        isRecording={isRecording}
-        onToggleRecord={toggleRecording}
-        audioLevel={audioLevel}
-        liveMicStatus={liveMicStatus}
+    <div className="google-workspace-root">
+      {/* 1. Official Google Top App Bar (Google Translate-Style Language Hub & Actions) */}
+      <GoogleAppBar
         sourceLang={sourceLang}
         targetLang={targetLang}
         onSourceLanguageChange={handleSourceLanguageChange}
         onLanguageChange={handleLanguageChange}
         onSwapLanguages={handleSwapLanguages}
+        connectionStatus={connectionStatus}
         sessionSeconds={sessionSeconds}
-        segmentCount={segments.length}
+        selectedDeviceLabel={activeDeviceLabel}
+        isBluetoothDevice={isBluetoothDevice}
+        onOpenAudioDevices={() => setIsDeviceModalOpen(true)}
+        onOpenGlossary={() => setIsGlossaryOpen(true)}
+        onOpenArchitecture={() => setIsAboutOpen(true)}
+        isRecording={isRecording}
+      />
+
+      {/* Error & Warning Notification Toast */}
+      <ErrorBanner
+        message={errorMessage}
+        type="warning"
+        onDismiss={() => setErrorMessage(null)}
+      />
+
+      {/* 2. Responsive Mobile Tabs (< 860px) */}
+      <div className="google-mobile-tab-bar">
+        <button
+          className={`google-mobile-tab-btn ${mobileActiveTab === 'captions' ? 'active' : ''}`}
+          onClick={() => setMobileActiveTab('captions')}
+          type="button"
+        >
+          <Radio size={14} />
+          <span>Live Captions {segments.length > 0 && `(${segments.length})`}</span>
+        </button>
+
+        <button
+          className={`google-mobile-tab-btn ${mobileActiveTab === 'chat' ? 'active' : ''}`}
+          onClick={() => setMobileActiveTab('chat')}
+          type="button"
+        >
+          <Sparkles size={14} color="var(--google-blue)" />
+          <span>Gemini Tutor {messages.length > 0 && `(${messages.length})`}</span>
+        </button>
+      </div>
+
+      {/* 3. Main Center Stage: Live Bilingual Subtitles + Gemini AI Copilot */}
+      <main className={`google-main-stage view-${viewMode} mobile-${mobileActiveTab}`}>
+        {(viewMode === 'split' || viewMode === 'theater') && (
+          <section className={`google-stage-caption ${viewMode === 'theater' ? 'theater-mode' : ''}`}>
+            <CaptionPane
+              segments={segments}
+              sourceLang={sourceLang}
+              sourceLangName={`${sourceLangMeta.name} (${sourceLangMeta.native})`}
+              targetLangName={`${targetLangMeta.name} (${targetLangMeta.native})`}
+              targetLang={targetLang}
+              onSwapLanguages={handleSwapLanguages}
+              highlightedSegmentId={highlightedSegmentId}
+              autoScroll={autoScroll}
+              onToggleAutoScroll={() => setAutoScroll((prev) => !prev)}
+              isRecording={isRecording}
+              liveMicStatus={liveMicStatus}
+              interimSpeech={interimSpeech}
+              interimVernacular={interimVernacular}
+              glossary={glossary}
+              onClearCaptions={clearSession}
+              isReadAloud={isReadAloudEnabled}
+              onToggleReadAloud={toggleReadAloud}
+              isSpeakingAudio={isSpeakingAudio}
+              onSpeakSegment={handleSpeakSegment}
+              currentlySpeakingId={currentlySpeakingId}
+              apiBaseUrl={API_BASE_URL}
+            />
+          </section>
+        )}
+
+        {(viewMode === 'split' || viewMode === 'tutor') && (
+          <aside className={`google-stage-gemini ${viewMode === 'tutor' ? 'tutor-mode' : ''}`}>
+            <ErrorBoundary title="Gemini AI Tutor">
+              <ChatPanel
+                messages={messages}
+                onSendMessage={handleSendMessage}
+                isLoading={isAskingQa}
+                onSelectCitation={handleSelectCitation}
+                segmentCount={segments.length}
+                sourceLang={sourceLang}
+                targetLang={targetLang}
+              />
+            </ErrorBoundary>
+          </aside>
+        )}
+      </main>
+
+      {/* 4. Official Google Meet-Style Floating Bottom Dock */}
+      <GoogleBottomDock
+        isRecording={isRecording}
+        onToggleRecord={toggleRecording}
+        audioLevel={audioLevel}
+        liveMicStatus={liveMicStatus}
+        isReadAloud={isReadAloudEnabled}
+        onToggleReadAloud={toggleReadAloud}
+        selectedOutputDeviceLabel={activeOutputDeviceLabel}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        onDirectSpeechSubmit={processSpeechText}
         onGenerateStudyGuide={handleGenerateStudyGuide}
         isGeneratingGuide={isGeneratingGuide}
         onLoadSample={handleLoadSample}
         onClearSession={clearSession}
-        onOpenGlossary={() => setIsGlossaryOpen(true)}
-        onOpenArchitecture={() => setIsAboutOpen(true)}
-        selectedDeviceLabel={activeDeviceLabel}
-        isBluetoothDevice={isBluetoothDevice}
         onOpenAudioDevices={() => setIsDeviceModalOpen(true)}
-        detectedTermsCount={detectedTermsCount}
-        isReadAloud={isReadAloudEnabled}
-        onToggleReadAloud={toggleReadAloud}
-        selectedOutputDeviceLabel={activeOutputDeviceLabel}
-        isSpeakingAudio={isSpeakingAudio}
-        onExportTxt={handleExportCaptionsTxt}
-        onExportPdf={handleExportCaptionsPdf}
+        segmentCount={segments.length}
       />
-
-      {/* Main Interactive Stage */}
-      <div className="workspace-stage">
-        <WorkspaceHeader
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          connectionStatus={connectionStatus}
-          onDirectSpeechSubmit={processSpeechText}
-          segmentCount={segments.length}
-          sourceLang={sourceLang}
-          targetLang={targetLang}
-          onSwapLanguages={handleSwapLanguages}
-        />
-
-        <ErrorBanner
-          message={errorMessage}
-          type="warning"
-          onDismiss={() => setErrorMessage(null)}
-        />
-
-        {/* Responsive Mobile Screen Workspace Tabs (< 820px) */}
-        <div className="mobile-tab-bar">
-          <button
-            className={`mobile-tab-btn ${mobileActiveTab === 'captions' ? 'active' : ''}`}
-            onClick={() => setMobileActiveTab('captions')}
-          >
-            <Radio size={14} />
-            <span>Live Captions {segments.length > 0 && `(${segments.length})`}</span>
-          </button>
-
-          <button
-            className={`mobile-tab-btn ${mobileActiveTab === 'chat' ? 'active' : ''}`}
-            onClick={() => setMobileActiveTab('chat')}
-          >
-            <MessageSquare size={14} />
-            <span>AI Tutor & Q&A {messages.length > 0 && `(${messages.length})`}</span>
-          </button>
-        </div>
-
-        <main className={`workspace-canvas view-${viewMode} mobile-${mobileActiveTab}`}>
-          {(viewMode === 'split' || viewMode === 'theater') && (
-            <div className={`canvas-pane-caption ${viewMode === 'theater' ? 'theater-active' : ''}`}>
-              <CaptionPane
-                segments={segments}
-                sourceLang={sourceLang}
-                sourceLangName={`${sourceLangMeta.name} (${sourceLangMeta.native})`}
-                targetLangName={`${targetLangMeta.name} (${targetLangMeta.native})`}
-                targetLang={targetLang}
-                onSwapLanguages={handleSwapLanguages}
-                highlightedSegmentId={highlightedSegmentId}
-                autoScroll={autoScroll}
-                onToggleAutoScroll={() => setAutoScroll((prev) => !prev)}
-                isRecording={isRecording}
-                liveMicStatus={liveMicStatus}
-                interimSpeech={interimSpeech}
-                interimVernacular={interimVernacular}
-                glossary={glossary}
-                onClearCaptions={clearSession}
-                isReadAloud={isReadAloudEnabled}
-                onToggleReadAloud={toggleReadAloud}
-                isSpeakingAudio={isSpeakingAudio}
-                onSpeakSegment={handleSpeakSegment}
-                currentlySpeakingId={currentlySpeakingId}
-                apiBaseUrl={API_BASE_URL}
-              />
-            </div>
-          )}
-
-          {(viewMode === 'split' || viewMode === 'tutor') && (
-            <div className={`canvas-pane-chat ${viewMode === 'tutor' ? 'tutor-active' : ''}`}>
-              <ErrorBoundary title="AI Tutor Chat">
-                <ChatPanel
-                  messages={messages}
-                  onSendMessage={handleSendMessage}
-                  isLoading={isAskingQa}
-                  onSelectCitation={handleSelectCitation}
-                  segmentCount={segments.length}
-                  sourceLang={sourceLang}
-                  targetLang={targetLang}
-                />
-              </ErrorBoundary>
-            </div>
-          )}
-        </main>
-      </div>
 
       {/* Modals */}
       <StudyGuideModal
