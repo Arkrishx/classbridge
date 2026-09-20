@@ -11,6 +11,8 @@ import {
   ArrowLeftRight,
   Globe,
   Settings2,
+  FileText,
+  FileDown,
 } from 'lucide-react';
 
 export default function GoogleAppBar({
@@ -27,6 +29,9 @@ export default function GoogleAppBar({
   onOpenGlossary,
   onOpenArchitecture,
   isRecording = false,
+  onExportTxt,
+  onExportPdf,
+  segmentCount = 0,
 }) {
   const formatTime = (secs) => {
     const mins = Math.floor(secs / 60);
@@ -131,6 +136,28 @@ export default function GoogleAppBar({
         >
           <BookOpen size={16} />
         </button>
+
+        {/* Caption Export Actions (TXT & PDF) */}
+        {segmentCount > 0 && (
+          <div className="google-bar-export-group" style={{ display: 'flex', gap: '4px' }}>
+            <button
+              className="google-icon-btn"
+              onClick={onExportTxt}
+              title="Export Captions as Plain Text (.txt)"
+              type="button"
+            >
+              <FileText size={16} color="var(--google-blue)" />
+            </button>
+            <button
+              className="google-icon-btn"
+              onClick={onExportPdf}
+              title="Export Captions as Formatted PDF (.pdf)"
+              type="button"
+            >
+              <FileDown size={16} color="var(--google-red)" />
+            </button>
+          </div>
+        )}
 
         {/* About / Architecture Button */}
         <button

@@ -14,7 +14,7 @@ import ErrorBanner from './components/ErrorBanner';
 import { AudioStreamer, getAudioInputDevices } from './utils/audioStreamer';
 import { globalTTS, getAudioOutputDevices } from './utils/ttsService';
 import { translateTextClient, translateInterimDebounced } from './utils/clientTranslator';
-import { Radio, MessageSquare } from 'lucide-react';
+import { Radio, MessageSquare, Sparkles } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { exportCaptionsAsTxt, exportCaptionsAsPdf } from './utils/captionExport';
 import {
@@ -1473,7 +1473,7 @@ export default function App() {
 
   const activeOutputDeviceObj = outputDevices.find((d) => d.deviceId === selectedOutputDeviceId) || outputDevices[0];
   const activeOutputDeviceLabel = activeOutputDeviceObj ? activeOutputDeviceObj.label : 'Laptop Speakers';
-  const detectedTermsCount = segments.reduce((acc, seg) => acc + (seg.domain_terms ? seg.domain_terms.length : 0), 0);
+  const _detectedTermsCount = segments.reduce((acc, seg) => acc + (seg.domain_terms ? seg.domain_terms.length : 0), 0);
 
   return (
     <div className="google-workspace-root">
@@ -1492,6 +1492,9 @@ export default function App() {
         onOpenGlossary={() => setIsGlossaryOpen(true)}
         onOpenArchitecture={() => setIsAboutOpen(true)}
         isRecording={isRecording}
+        onExportTxt={handleExportCaptionsTxt}
+        onExportPdf={handleExportCaptionsPdf}
+        segmentCount={segments.length}
       />
 
       {/* Error & Warning Notification Toast */}
