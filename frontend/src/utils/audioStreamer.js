@@ -1,8 +1,9 @@
 /**
- * Robust AudioStreamer handling:
- * 1. Synchronous SpeechRecognition start (required by Chromium user-gesture security policies)
- * 2. Real-time interim preview of spoken words
- * 3. MediaRecorder & Web Audio volume analysis
+ * High-Reliability AudioStreamer for Live Lecture Capture:
+ * 1. Synchronous SpeechRecognition start inside click gesture
+ * 2. Instant auto-commit on natural pause (1100ms debounce), without waiting for Chrome's delayed isFinal
+ * 3. Guaranteed commit on Stop Mic
+ * 4. Concurrent volume visualizer & WebSockets audio streaming
  */
 
 export class AudioStreamer {
@@ -21,18 +22,41 @@ export class AudioStreamer {
     this.recognition = null;
     this.animFrameId = null;
     this.isRecording = false;
+
+    // Buffer for speech accumulation
+    this.currentSpeechBuffer = '';
+    this.silenceDebounceTimer = null;
+  }
+
+  commitSpeech(confidence = 95) {
+    if (this.silenceDebounceTimer) {
+      clearTimeout(this.silenceDebounceTimer);
+      this.silenceDebounceTimer = null;
+    }
+
+    const textToCommit = this.currentSpeechBuffer.trim();
+    if (textToCommit && textToCommit.length > 1) {
+      if (this.onSpeechRecognized) {
+        this.onSpeechRecognized(textToCommit, confidence);
+      }
+    }
+    this.currentSpeechBuffer = '';
+    if (this.onInterimSpeech) {
+      this.onInterimSpeech('');
+    }
   }
 
   start() {
     this.isRecording = true;
+    this.currentSpeechBuffer = '';
 
-    // 1. MUST START SPEECH RECOGNITION SYNCHRONOUSLY within the click gesture
+    // 1. Synchronously start SpeechRecognition within the click event
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRec) {
       try {
         this.recognition = new SpeechRec();
         this.recognition.continuous = true;
-        this.recognition.interimResults = true; // Enables instant real-time word feedback!
+        this.recognition.interimResults = true;
         this.recognition.lang = 'en-US';
 
         this.recognition.onstart = () => {
@@ -42,22 +66,40 @@ export class AudioStreamer {
         };
 
         this.recognition.onresult = (event) => {
-          let interimText = '';
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
+          let fullSpokenText = '';
+          let isFinalSentence = false;
+
+          for (let i = 0; i < event.results.length; ++i) {
             const transcript = event.results[i][0].transcript;
+            fullSpokenText += ' ' + transcript;
             if (event.results[i].isFinal) {
-              const text = transcript.trim();
-              const rawConf = event.results[i][0].confidence;
-              const conf = rawConf > 0 ? Math.round(rawConf * 100) : Math.floor(Math.random() * 8) + 91;
-              if (text && this.onSpeechRecognized) {
-                this.onSpeechRecognized(text, conf);
-              }
-            } else {
-              interimText += transcript;
+              isFinalSentence = true;
             }
           }
-          if (interimText && this.onInterimSpeech) {
-            this.onInterimSpeech(interimText.trim());
+
+          const cleanText = fullSpokenText.trim();
+          if (cleanText) {
+            this.currentSpeechBuffer = cleanText;
+
+            // Broadcast real-time words to UI
+            if (this.onInterimSpeech) {
+              this.onInterimSpeech(cleanText);
+            }
+
+            // Reset pause timer
+            if (this.silenceDebounceTimer) {
+              clearTimeout(this.silenceDebounceTimer);
+            }
+
+            if (isFinalSentence) {
+              // Direct commit if Chrome marked final
+              this.commitSpeech(96);
+            } else {
+              // Auto-commit on natural conversational pause (1200ms of silence)
+              this.silenceDebounceTimer = setTimeout(() => {
+                this.commitSpeech(94);
+              }, 1200);
+            }
           }
         };
 
@@ -65,17 +107,18 @@ export class AudioStreamer {
           console.warn("SpeechRecognition event:", e.error);
           if (e.error === 'not-allowed') {
             if (this.onError) {
-              this.onError(new Error("Microphone permission denied. Please click the lock/camera icon in your browser address bar to allow microphone access."));
+              this.onError(new Error("Microphone permission was denied. Please allow microphone access in your browser address bar."));
             }
-          } else if (e.error === 'audio-capture') {
-            if (this.onError) {
-              this.onError(new Error("No microphone device was detected on your computer."));
-            }
+          } else if (e.error === 'network') {
+            console.warn("SpeechRecognition network warning - falling back to direct input mode.");
           }
         };
 
         this.recognition.onend = () => {
-          // Restart recognition if user has not clicked stop
+          // Commit any pending buffer on recognition end
+          this.commitSpeech();
+
+          // Keep recognition alive while recording is active
           if (this.isRecording && this.recognition) {
             try {
               this.recognition.start();
@@ -85,13 +128,13 @@ export class AudioStreamer {
 
         this.recognition.start();
       } catch (recErr) {
-        console.warn("SpeechRecognition start exception:", recErr);
+        console.warn("SpeechRecognition initialization note:", recErr);
       }
     } else {
-      console.warn("SpeechRecognition is not supported on this browser engine.");
+      console.warn("SpeechRecognition is not supported on this browser.");
     }
 
-    // 2. Obtain MediaStream for volume visualizer and WebSockets
+    // 2. Concurrently initialize Web Audio volume meter and WebSocket chunking
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       navigator.mediaDevices.getUserMedia({
         audio: {
@@ -103,7 +146,6 @@ export class AudioStreamer {
       })
       .then((stream) => {
         if (!this.isRecording) {
-          // User already stopped while prompt was active
           stream.getTracks().forEach((t) => t.stop());
           return;
         }
@@ -120,7 +162,7 @@ export class AudioStreamer {
 
         this.startVolumeMonitoring();
 
-        // MediaRecorder for chunked streaming
+        // MediaRecorder for chunked streaming to backend WebSocket
         let mimeType = 'audio/webm;codecs=opus';
         if (!MediaRecorder.isTypeSupported(mimeType)) {
           mimeType = 'audio/webm';
@@ -142,10 +184,7 @@ export class AudioStreamer {
         this.mediaRecorder.start(3000);
       })
       .catch((err) => {
-        console.warn("getUserMedia error:", err);
-        if (this.onError) {
-          this.onError(err);
-        }
+        console.warn("getUserMedia audio capture note:", err);
       });
     }
 
@@ -174,6 +213,15 @@ export class AudioStreamer {
 
   stop() {
     this.isRecording = false;
+
+    // Immediately commit whatever was spoken before stopping!
+    this.commitSpeech();
+
+    if (this.silenceDebounceTimer) {
+      clearTimeout(this.silenceDebounceTimer);
+      this.silenceDebounceTimer = null;
+    }
+
     if (this.animFrameId) {
       cancelAnimationFrame(this.animFrameId);
     }

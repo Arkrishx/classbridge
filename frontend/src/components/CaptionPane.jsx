@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { ShieldCheck, Tag, ArrowDown, Sparkles } from 'lucide-react';
+import { ShieldCheck, Tag, ArrowDown, Sparkles, Mic } from 'lucide-react';
 
 export default function CaptionPane({
   segments,
@@ -7,6 +7,7 @@ export default function CaptionPane({
   highlightedSegmentId,
   autoScroll,
   onToggleAutoScroll,
+  interimSpeech,
 }) {
   const bottomRef = useRef(null);
 
@@ -14,7 +15,7 @@ export default function CaptionPane({
     if (autoScroll && bottomRef.current) {
       bottomRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [segments, autoScroll]);
+  }, [segments, interimSpeech, autoScroll]);
 
   const getConfidenceBadge = (score) => {
     const s = Math.round(score || 92);
@@ -54,57 +55,85 @@ export default function CaptionPane({
       </div>
 
       <div className="caption-list">
-        {segments.length === 0 ? (
+        {segments.length === 0 && !interimSpeech ? (
           <div className="empty-state">
             <Sparkles size={40} color="var(--brand-primary)" style={{ opacity: 0.7 }} />
             <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
               No Lecture Speech Captured Yet
             </div>
             <p style={{ maxWidth: '380px', fontSize: '13px' }}>
-              Click <b>"Live Mic (Teacher)"</b> to capture live classroom speech, or click <b>"Sample: ML & Optimization"</b> above for an instant end-to-end demonstration.
+              Click <b>"Live Mic (Teacher)"</b> to capture live classroom speech, or use the direct speech bar to test captions immediately.
             </p>
           </div>
         ) : (
-          segments.map((seg) => {
-            const isHighlighted = seg.id === highlightedSegmentId;
-            return (
+          <>
+            {segments.map((seg) => {
+              const isHighlighted = seg.id === highlightedSegmentId;
+              return (
+                <div
+                  key={seg.id}
+                  id={`seg-${seg.id}`}
+                  className={`segment-item ${isHighlighted ? 'highlighted' : ''}`}
+                >
+                  <div className="segment-meta">
+                    <div className="timestamp-pill">
+                      ⏱ [{seg.timestamp || `${Math.floor(seg.start)}s - ${Math.floor(seg.end)}s`}]
+                    </div>
+                    <div>{getConfidenceBadge(seg.confidence)}</div>
+                  </div>
+
+                  <div className="caption-en">
+                    {seg.text_en}
+                  </div>
+
+                  <div className="caption-vernacular">
+                    {seg.text_vernacular}
+                  </div>
+
+                  {seg.domain_terms && seg.domain_terms.length > 0 && (
+                    <div className="domain-tags">
+                      {seg.domain_terms.map((dt, idx) => (
+                        <span
+                          key={idx}
+                          className="domain-pill"
+                          title={`Domain Adapted Term: ${dt.en} (${dt.category})\nCanonical definition: ${dt.definition}`}
+                        >
+                          <Tag size={10} />
+                          <b>{dt.en}</b>: {dt.adapted_vernacular || dt.en}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* Live streaming preview card while teacher is speaking */}
+            {interimSpeech && (
               <div
-                key={seg.id}
-                id={`seg-${seg.id}`}
-                className={`segment-item ${isHighlighted ? 'highlighted' : ''}`}
+                className="segment-item"
+                style={{
+                  border: '1px dashed var(--brand-primary)',
+                  background: 'rgba(56, 189, 248, 0.08)',
+                }}
               >
                 <div className="segment-meta">
-                  <div className="timestamp-pill">
-                    ⏱ [{seg.timestamp || `${Math.floor(seg.start)}s - ${Math.floor(seg.end)}s`}]
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--brand-primary)', fontWeight: 700, fontSize: '12px' }}>
+                    <Mic size={13} className="active" color="#ef4444" />
+                    <span>Listening to speech in real-time...</span>
                   </div>
-                  <div>{getConfidenceBadge(seg.confidence)}</div>
+                  <span className="badge-tag badge-blue">Transcribing</span>
                 </div>
 
-                <div className="caption-en">
-                  {seg.text_en}
+                <div className="caption-en" style={{ fontStyle: 'italic', color: '#7dd3fc', fontSize: '15px' }}>
+                  "{interimSpeech}"
                 </div>
-
-                <div className="caption-vernacular">
-                  {seg.text_vernacular}
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  (Pause speaking or click Stop Mic to commit translation)
                 </div>
-
-                {seg.domain_terms && seg.domain_terms.length > 0 && (
-                  <div className="domain-tags">
-                    {seg.domain_terms.map((dt, idx) => (
-                      <span
-                        key={idx}
-                        className="domain-pill"
-                        title={`Domain Adapted Term: ${dt.en} (${dt.category})\nCanonical definition: ${dt.definition}`}
-                      >
-                        <Tag size={10} />
-                        <b>{dt.en}</b>: {dt.adapted_vernacular || dt.en}
-                      </span>
-                    ))}
-                  </div>
-                )}
               </div>
-            );
-          })
+            )}
+          </>
         )}
         <div ref={bottomRef} />
       </div>

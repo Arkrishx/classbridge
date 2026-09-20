@@ -710,6 +710,7 @@ export default function App() {
           highlightedSegmentId={highlightedSegmentId}
           autoScroll={autoScroll}
           onToggleAutoScroll={() => setAutoScroll((prev) => !prev)}
+          interimSpeech={interimSpeech}
         />
 
         <ChatPanel
