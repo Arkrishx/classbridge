@@ -20,6 +20,8 @@ import {
   VolumeX,
   Languages,
   ArrowLeftRight,
+  FileText,
+  FileDown,
 } from 'lucide-react';
 
 export default function StudioSidebar({
@@ -48,6 +50,8 @@ export default function StudioSidebar({
   onToggleReadAloud,
   selectedOutputDeviceLabel = 'Laptop Speakers',
   isSpeakingAudio = false,
+  onExportTxt,
+  onExportPdf,
 }) {
   const formatTime = (secs) => {
     const mins = Math.floor(secs / 60);
@@ -360,6 +364,30 @@ export default function StudioSidebar({
             <span>{isGeneratingGuide ? 'Synthesizing...' : 'Study Guide & Notes'}</span>
             {segmentCount > 0 && <span className="pill-counter">{segmentCount}</span>}
           </button>
+
+          {segmentCount > 0 && (
+            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+              <button
+                className="btn-minimal flex-1"
+                onClick={onExportTxt}
+                title="Export live bilingual captions as Plain Text (.txt) file"
+                style={{ fontSize: '11px', padding: '6px 8px' }}
+              >
+                <FileText size={13} color="var(--accent-cyan)" />
+                <span>Export .TXT</span>
+              </button>
+
+              <button
+                className="btn-minimal flex-1"
+                onClick={onExportPdf}
+                title="Export live bilingual captions as Formatted PDF (.pdf) document"
+                style={{ fontSize: '11px', padding: '6px 8px' }}
+              >
+                <FileDown size={13} color="#fb7185" />
+                <span>Export .PDF</span>
+              </button>
+            </div>
+          )}
 
           <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
             <button

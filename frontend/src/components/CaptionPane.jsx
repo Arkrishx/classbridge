@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ShieldCheck, Tag, ArrowDown, Sparkles, Mic, Copy, Check, Download, Radio, Volume2, VolumeX, ArrowLeftRight } from 'lucide-react';
+import { ShieldCheck, Tag, ArrowDown, Sparkles, Mic, Copy, Check, Download, Radio, Volume2, VolumeX, ArrowLeftRight, FileText, FileDown, Loader2 } from 'lucide-react';
 import { detectDomainTermsClient } from '../utils/clientTranslator';
+import { exportCaptionsAsTxt, exportCaptionsAsPdf } from '../utils/captionExport';
 
 export default function CaptionPane({
   segments = [],
@@ -23,9 +24,11 @@ export default function CaptionPane({
   isSpeakingAudio = false,
   onSpeakSegment,
   currentlySpeakingId = null,
+  apiBaseUrl = '',
 }) {
   const bottomRef = useRef(null);
   const [copied, setCopied] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   useEffect(() => {
     if (autoScroll && bottomRef.current) {
@@ -50,22 +53,20 @@ export default function CaptionPane({
     }
   };
 
-  const handleDownloadTranscript = () => {
-    if (segments.length === 0) return;
-    const text = segments
-      .map(
-        (s, i) =>
-          `${i + 1}\n${s.timestamp || `00:${i * 4}`}\n${(s.source_lang || sourceLang).toUpperCase()}: ${s.text_source || s.text_en}\n${(s.target_lang || targetLang).toUpperCase()}: ${s.text_vernacular}\n`
-      )
-      .join('\n');
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `ClassBridge_Lecture_Transcript_${targetLang}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+  const handleExportTxt = () => {
+    exportCaptionsAsTxt(segments, sourceLang, targetLang);
+  };
+
+  const handleExportPdf = async () => {
+    setIsExportingPdf(true);
+    try {
+      const apiBase = apiBaseUrl || import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      await exportCaptionsAsPdf(segments, sourceLang, targetLang, apiBase);
+    } catch (err) {
+      console.error("Failed to export PDF captions:", err);
+    } finally {
+      setIsExportingPdf(false);
+    }
   };
 
   const getConfidenceBadge = (score) => {
@@ -127,13 +128,24 @@ export default function CaptionPane({
               </button>
 
               <button
-                className="chip-btn"
+                className="chip-btn export-txt-btn"
                 style={{ padding: '3px 8px', fontSize: '11px' }}
-                onClick={handleDownloadTranscript}
-                title="Download transcript as text file"
+                onClick={handleExportTxt}
+                title="Export bilingual captions as Plain Text (.txt) file"
               >
-                <Download size={12} />
-                <span>Export</span>
+                <FileText size={12} color="var(--accent-cyan)" />
+                <span>.TXT</span>
+              </button>
+
+              <button
+                className="chip-btn export-pdf-btn"
+                style={{ padding: '3px 8px', fontSize: '11px' }}
+                onClick={handleExportPdf}
+                disabled={isExportingPdf}
+                title="Export bilingual captions as Formatted PDF (.pdf) document"
+              >
+                {isExportingPdf ? <Loader2 size={12} className="spin-fast" /> : <FileDown size={12} color="#fb7185" />}
+                <span>{isExportingPdf ? '...' : '.PDF'}</span>
               </button>
             </>
           )}

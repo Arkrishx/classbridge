@@ -14,6 +14,7 @@ import { globalTTS, getAudioOutputDevices } from './utils/ttsService';
 import { translateTextClient, translateInterimDebounced } from './utils/clientTranslator';
 import { Radio, MessageSquare } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { exportCaptionsAsTxt, exportCaptionsAsPdf } from './utils/captionExport';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
@@ -1311,6 +1312,19 @@ export default function App() {
     }, 4000);
   };
 
+  // Caption Export Handlers (.TXT and .PDF)
+  const handleExportCaptionsTxt = () => {
+    exportCaptionsAsTxt(segments, sourceLang, targetLang);
+  };
+
+  const handleExportCaptionsPdf = async () => {
+    try {
+      await exportCaptionsAsPdf(segments, sourceLang, targetLang, API_BASE_URL);
+    } catch (err) {
+      console.error("PDF captions export error:", err);
+    }
+  };
+
   const sourceLangMeta = SUPPORTED_LANGUAGES.find((l) => l.code === sourceLang) || { name: 'English', native: 'English', flag: '🇬🇧' };
   const targetLangMeta = SUPPORTED_LANGUAGES.find((l) => l.code === targetLang) || { name: 'Tamil', native: 'தமிழ்', flag: '🇮🇳' };
   const activeDeviceObj = audioDevices.find((d) => d.deviceId === selectedDeviceId) || audioDevices[0];
@@ -1350,6 +1364,8 @@ export default function App() {
         onToggleReadAloud={toggleReadAloud}
         selectedOutputDeviceLabel={activeOutputDeviceLabel}
         isSpeakingAudio={isSpeakingAudio}
+        onExportTxt={handleExportCaptionsTxt}
+        onExportPdf={handleExportCaptionsPdf}
       />
 
       {/* Main Interactive Stage */}
@@ -1414,6 +1430,7 @@ export default function App() {
                 isSpeakingAudio={isSpeakingAudio}
                 onSpeakSegment={handleSpeakSegment}
                 currentlySpeakingId={currentlySpeakingId}
+                apiBaseUrl={API_BASE_URL}
               />
             </div>
           )}

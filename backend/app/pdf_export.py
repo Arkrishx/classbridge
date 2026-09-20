@@ -266,5 +266,162 @@ class PDFExportService:
         buffer.seek(0)
         return buffer.getvalue()
 
+    def generate_captions_pdf(
+        self,
+        segments: list,
+        source_lang: str = "en",
+        target_lang: str = "ta",
+        title: str = "ClassBridge Live Bilingual Lecture Captions"
+    ) -> bytes:
+        import html
+        from datetime import datetime
+
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=letter,
+            rightMargin=54,
+            leftMargin=54,
+            topMargin=54,
+            bottomMargin=54
+        )
+
+        styles = getSampleStyleSheet()
+        primary = colors.HexColor("#1e3a8a")     # Deep blue
+        secondary = colors.HexColor("#0284c7")   # Sky blue
+        accent = colors.HexColor("#0f766e")      # Teal
+        dark_text = colors.HexColor("#0f172a")   # Slate 900
+        muted_text = colors.HexColor("#475569")  # Slate 600
+        card_bg = colors.HexColor("#f8fafc")     # Slate 50
+        border_col = colors.HexColor("#cbd5e1")  # Slate 300
+
+        title_style = ParagraphStyle(
+            "CapDocTitle",
+            parent=styles["Heading1"],
+            fontName="Helvetica-Bold",
+            fontSize=20,
+            leading=24,
+            textColor=primary,
+            spaceAfter=6
+        )
+        subtitle_style = ParagraphStyle(
+            "CapDocSubtitle",
+            parent=styles["Normal"],
+            fontName="Helvetica",
+            fontSize=10,
+            leading=14,
+            textColor=muted_text,
+            spaceAfter=12
+        )
+        meta_style = ParagraphStyle(
+            "CapMeta",
+            parent=styles["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=9,
+            leading=13,
+            textColor=colors.HexColor("#1e40af")
+        )
+        src_style = ParagraphStyle(
+            "CapSrc",
+            parent=styles["Normal"],
+            fontName="Helvetica",
+            fontSize=10,
+            leading=14,
+            textColor=dark_text
+        )
+        tgt_style = ParagraphStyle(
+            "CapTgt",
+            parent=styles["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=10,
+            leading=14,
+            textColor=colors.HexColor("#047857")
+        )
+        term_style = ParagraphStyle(
+            "CapTerms",
+            parent=styles["Normal"],
+            fontName="Helvetica-Oblique",
+            fontSize=8.5,
+            leading=12,
+            textColor=colors.HexColor("#0369a1")
+        )
+
+        story = []
+        safe_title = html.escape(title)
+        story.append(Paragraph(f"🎓 {safe_title}", title_style))
+
+        date_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        avg_conf = 0
+        if segments:
+            avg_conf = round(sum(s.get("confidence", 95) for s in segments) / len(segments))
+
+        lang_map = {
+            "en": "English",
+            "ta": "Tamil (தமிழ்)",
+            "ml": "Malayalam (മലയാളം)",
+            "hi": "Hindi (हिन्दी)"
+        }
+        src_name = lang_map.get(source_lang.lower(), source_lang.upper())
+        tgt_name = lang_map.get(target_lang.lower(), target_lang.upper())
+
+        meta_text = (
+            f"<b>Export Date:</b> {date_str} &nbsp;|&nbsp; "
+            f"<b>Direction:</b> [{source_lang.upper()}] {src_name} ➔ [{target_lang.upper()}] {tgt_name} &nbsp;|&nbsp; "
+            f"<b>Segments:</b> {len(segments)} &nbsp;|&nbsp; <b>Avg Confidence:</b> {avg_conf}%"
+        )
+        story.append(Paragraph(meta_text, subtitle_style))
+        story.append(HRFlowable(width="100%", thickness=1.5, color=primary, spaceBefore=0, spaceAfter=14))
+
+        if not segments:
+            empty_style = ParagraphStyle("EmptyNotice", fontName="Helvetica-Oblique", fontSize=11, textColor=muted_text)
+            story.append(Paragraph("No live lecture captions recorded in this session yet.", empty_style))
+        else:
+            for idx, seg in enumerate(segments):
+                ts = seg.get("timestamp")
+                if not ts:
+                    start_s = seg.get("start", idx * 4)
+                    end_s = seg.get("end", (idx + 1) * 4)
+                    ts = f"{int(start_s // 60):02d}:{int(start_s % 60):02d} - {int(end_s // 60):02d}:{int(end_s % 60):02d}"
+                
+                conf = round(seg.get("confidence", 95))
+                src_text = html.escape(str(seg.get("text_source") or seg.get("text_en") or ""))
+                tgt_text = html.escape(str(seg.get("text_vernacular") or ""))
+
+                terms = seg.get("domain_terms", [])
+                terms_str = ""
+                if terms:
+                    term_names = []
+                    for t in terms:
+                        t_en = t.get("en") or t.get("term") or ""
+                        t_v = (t.get("translations") or {}).get(target_lang) or ""
+                        term_names.append(f"{t_en} ({t_v})" if t_v else t_en)
+                    terms_str = f"🔬 STEM Terms: {', '.join(term_names)}"
+
+                card_rows = [
+                    [Paragraph(f"<b>Segment #{idx + 1}</b> &nbsp;|&nbsp; ⏱️ <b>{ts}</b> &nbsp;|&nbsp; 🎯 Confidence: <b>{conf}%</b>", meta_style)],
+                    [Paragraph(f"<b>[{source_lang.upper()}]:</b> {src_text}", src_style)],
+                    [Paragraph(f"<b>[{target_lang.upper()}]:</b> {tgt_text}", tgt_style)],
+                ]
+                if terms_str:
+                    card_rows.append([Paragraph(html.escape(terms_str), term_style)])
+
+                t_card = Table(card_rows, colWidths=[letter[0] - 108])
+                t_card.setStyle(TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f1f5f9")),
+                    ("BACKGROUND", (0, 1), (-1, -1), colors.white),
+                    ("BOX", (0, 0), (-1, -1), 0.75, border_col),
+                    ("LINEBELOW", (0, 0), (-1, 0), 0.5, border_col),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 10),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ]))
+                story.append(KeepTogether([t_card, Spacer(1, 8)]))
+
+        doc.build(story, canvasmaker=NumberedCanvas)
+        buffer.seek(0)
+        return buffer.getvalue()
+
 # Global singleton
 pdf_export_service = PDFExportService()
+

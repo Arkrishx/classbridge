@@ -131,6 +131,27 @@ def test_all():
     assert len(r.content) > 100
     print(f"[OK] Indic TTS audio stream generated: {len(r.content)} bytes audio/mpeg")
 
+    # 9. Captions PDF Export
+    r = client.post("/api/captions/pdf", json={
+        "source_lang": "en",
+        "target_lang": "ta",
+        "title": "Unit Test Captions Export",
+        "segments": [
+            {
+                "id": 1,
+                "text_en": "Backpropagation computes gradients using the chain rule.",
+                "text_vernacular": "பின்நோக்கு பரவல் சங்கிலி விதியைப் பயன்படுத்தி சாய்வுகளைக் கணக்கிடுகிறது.",
+                "timestamp": "00:00 - 00:06",
+                "confidence": 98.2,
+                "domain_terms": [{"en": "Backpropagation", "term": "backpropagation"}]
+            }
+        ]
+    })
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/pdf"
+    assert len(r.content) > 1000
+    print(f"[OK] Captions PDF Export passed: {len(r.content)} bytes of PDF binary")
+
     print("\n========================================================")
     print("   ALL CLASSBRIDGE BACKEND UNIT & INTEGRATION TESTS PASSED!")
     print("========================================================")

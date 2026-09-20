@@ -57,6 +57,12 @@ class LangSwitchRequest(BaseModel):
     target_lang: str
     source_lang: Optional[str] = "en"
 
+class CaptionsExportRequest(BaseModel):
+    segments: Optional[List[Dict[str, Any]]] = None
+    source_lang: Optional[str] = "en"
+    target_lang: Optional[str] = "ta"
+    title: Optional[str] = "ClassBridge Live Bilingual Lecture Captions"
+
 
 # REST Endpoints
 @app.get("/api/health")
@@ -238,6 +244,27 @@ def export_study_guide_pdf(req: StudyGuideRequest):
         media_type="application/pdf",
         headers={
             "Content-Disposition": f"attachment; filename=ClassBridge_Study_Guide_{target_lang}.pdf"
+        }
+    )
+
+@app.post("/api/captions/pdf")
+def export_captions_pdf(req: CaptionsExportRequest):
+    segs = req.segments if req.segments is not None else active_session["segments"]
+    source_lang = req.source_lang or active_session.get("source_lang", "en")
+    target_lang = req.target_lang or active_session.get("target_lang", "ta")
+    title = req.title or "ClassBridge Live Bilingual Lecture Captions"
+    pdf_bytes = pdf_export_service.generate_captions_pdf(
+        segments=segs,
+        source_lang=source_lang,
+        target_lang=target_lang,
+        title=title
+    )
+
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=ClassBridge_Lecture_Captions_{source_lang}_{target_lang}.pdf"
         }
     )
 
