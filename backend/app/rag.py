@@ -51,10 +51,128 @@ class TranscriptSegment:
         }
 
 
+from rapidfuzz import fuzz
+
+# Comprehensive STEM & Academic Acronyms / Synonyms Knowledgebase
+STEM_ACRONYMS = {
+    "nlp": ["natural language processing", "natural language understanding", "nlu", "nlg"],
+    "natural language processing": ["nlp"],
+    "ml": ["machine learning"],
+    "machine learning": ["ml"],
+    "dl": ["deep learning"],
+    "deep learning": ["dl"],
+    "ai": ["artificial intelligence"],
+    "artificial intelligence": ["ai"],
+    "cv": ["computer vision"],
+    "computer vision": ["cv"],
+    "rl": ["reinforcement learning"],
+    "reinforcement learning": ["rl"],
+    "sgd": ["stochastic gradient descent"],
+    "stochastic gradient descent": ["sgd"],
+    "gd": ["gradient descent"],
+    "gradient descent": ["gd"],
+    "ann": ["artificial neural network", "neural network"],
+    "neural network": ["ann", "nn"],
+    "cnn": ["convolutional neural network", "convnet"],
+    "convolutional neural network": ["cnn"],
+    "rnn": ["recurrent neural network"],
+    "recurrent neural network": ["rnn"],
+    "lstm": ["long short term memory", "long short-term memory"],
+    "gru": ["gated recurrent unit"],
+    "gan": ["generative adversarial network"],
+    "llm": ["large language model", "foundation model"],
+    "large language model": ["llm"],
+    "pca": ["principal component analysis"],
+    "principal component analysis": ["pca"],
+    "svd": ["singular value decomposition"],
+    "singular value decomposition": ["svd"],
+    "svm": ["support vector machine"],
+    "support vector machine": ["svm"],
+    "rf": ["random forest"],
+    "random forest": ["rf"],
+    "lr": ["learning rate", "linear regression", "logistic regression"],
+    "learning rate": ["lr", "step size", "eta"],
+    "mse": ["mean squared error"],
+    "mae": ["mean absolute error"],
+    "rmse": ["root mean squared error"],
+    "bptt": ["backpropagation through time"],
+    "bp": ["backpropagation"],
+    "backpropagation": ["bp", "backward pass"],
+    "relu": ["rectified linear unit"],
+    "bert": ["bidirectional encoder representations from transformers"],
+    "gpt": ["generative pre-trained transformer"],
+    "rag": ["retrieval augmented generation", "retrieval-augmented generation"],
+    "api": ["application programming interface"],
+    "loss": ["cost function", "loss function", "objective function", "error"],
+    "loss function": ["cost function", "loss", "objective function", "error"],
+    "cost function": ["loss function", "loss", "objective function"],
+    "overfitting": ["high variance", "generalization error", "overfit"],
+    "underfitting": ["high bias", "underfit"],
+    "eigenvalue": ["characteristic value", "latent root", "eigen value"],
+    "eigenvector": ["characteristic vector", "eigen vector"]
+}
+
+STOPWORDS = {
+    'in', 'of', 'and', 'the', 'for', 'with', 'at', 'by', 'to', 'a', 'an',
+    'is', 'are', 'was', 'were', 'it', 'on', 'this', 'that', 'from', 'as',
+    'what', 'explain', 'define', 'tell', 'about', 'how', 'does', 'can', 'you',
+    'give', 'me', 'some', 'info', 'briefly'
+}
+
+def clean_query_text(query: str) -> str:
+    """Strips common interrogative prefixes to isolate core concepts."""
+    q = query.strip().strip("?.!\"'¿¡")
+    patterns = [
+        r'^(?:what is|what are|what does|how does|can you explain|explain|define|tell me about|meaning of|definition of)\s+',
+        r'^(?:what do you mean by|describe|briefly explain|give me info on|can you describe)\s+',
+        r'\s+(?:in this lecture|in the lecture|in machine learning|in deep learning|in linear algebra)$'
+    ]
+    for p in patterns:
+        q = re.sub(p, '', q, flags=re.IGNORECASE).strip()
+    return q.strip("?.!\"'")
+
+def matches_acronym_initials(acronym_or_term: str, text: str) -> bool:
+    """
+    Checks if an acronym (e.g. 'nlp' or 'gnn') matches the initial letters of words in text,
+    or if text contains an acronym matching the phrase.
+    """
+    clean_term = acronym_or_term.lower().strip()
+    clean_text = text.lower()
+    
+    # 1. Dictionary lookup
+    if clean_term in STEM_ACRONYMS:
+        for full in STEM_ACRONYMS[clean_term]:
+            if full in clean_text:
+                return True
+                
+    # 2. Dynamic initials regex: 'nlp' -> \bn\w+\s+l\w+\s+p\w*\b
+    letters = [c for c in clean_term if c.isalpha()]
+    if 2 <= len(letters) <= 5:
+        pattern = r'\b' + r'\w+\s+'.join(letters[:-1]) + r'\w+\s+' + letters[-1] + r'\w*\b'
+        try:
+            if re.search(pattern, clean_text):
+                return True
+        except Exception:
+            pass
+
+    # 3. Dynamic reverse: if query has multi-word phrase, check if its acronym is in text
+    words = re.findall(r'[a-zA-Z]+', clean_term)
+    if 2 <= len(words) <= 5:
+        initials = ''.join(w[0] for w in words).lower()
+        if re.search(r'\b' + re.escape(initials) + r'\b', clean_text):
+            return True
+
+    return False
+
+
 class InMemoryRAGIndex:
     """
-    Lightweight, fast in-memory RAG index for real-time lecture transcripts.
-    Supports BM25/TF-IDF similarity scoring with exact phrase matching for STEM vocabulary.
+    AI-Powered Semantic In-Memory RAG Index for real-time lecture transcripts.
+    Combines:
+    1. Acronym & abbreviation expansion (NLP <-> Natural Language Processing, ML <-> Machine Learning).
+    2. Dynamic initials regex matching for unseen subject acronyms (e.g. GNN <-> Graph Neural Network).
+    3. Cross-pollinated entity matching from Wikipedia and domain dictionaries.
+    4. RapidFuzz token-set & partial string similarity scoring.
     """
     def __init__(self):
         self.segments: List[TranscriptSegment] = []
@@ -65,38 +183,95 @@ class InMemoryRAGIndex:
     def add_segment(self, segment: TranscriptSegment):
         self.segments.append(segment)
 
-    def search(self, query: str, top_k: int = 4) -> List[Dict[str, Any]]:
-        """
-        Retrieves top_k most relevant transcript segments for a query.
-        Combines token overlap, phrase matching, and STEM term boosts.
-        """
+    def search(self, query: str, extra_concepts: Optional[List[str]] = None, top_k: int = 4) -> List[Dict[str, Any]]:
         if not self.segments or not query.strip():
             return []
 
-        query_tokens = set(re.findall(r'\w+', query.lower()))
+        core_concept = clean_query_text(query).lower()
+        query_lower = query.lower()
+        query_tokens = set(re.findall(r'\w+', query_lower))
+        concept_tokens = set(re.findall(r'\w+', core_concept))
+
+        # Build list of expansion targets
+        expansion_targets = set()
+        if core_concept:
+            expansion_targets.add(core_concept)
+        if core_concept in STEM_ACRONYMS:
+            expansion_targets.update(STEM_ACRONYMS[core_concept])
+            
+        if extra_concepts:
+            for ec in extra_concepts:
+                if ec:
+                    ec_clean = clean_query_text(ec).lower()
+                    if ec_clean:
+                        expansion_targets.add(ec_clean)
+                        if ec_clean in STEM_ACRONYMS:
+                            expansion_targets.update(STEM_ACRONYMS[ec_clean])
+
         results = []
 
         for seg in self.segments:
             seg_text = (seg.text_en + " " + seg.text_vernacular).lower()
             seg_tokens = re.findall(r'\w+', seg_text)
-            
             if not seg_tokens:
                 continue
 
-            # Token overlap score
-            overlap = sum(1 for token in query_tokens if token in seg_tokens)
-            score = overlap / (math.sqrt(len(query_tokens)) * math.sqrt(len(seg_tokens)) + 1e-5)
+            # Content word extraction (filtering stopwords)
+            content_words = set()
+            for t in expansion_targets:
+                for w in re.findall(r'[a-zA-Z]+', t):
+                    if w not in STOPWORDS and len(w) > 2:
+                        content_words.add(w)
 
-            # Bonus for exact query phrase match
-            if query.lower() in seg_text:
-                score += 1.0
+            # 1. Acronym & Initials Matcher (Highest semantic confidence)
+            acronym_hit = False
+            for target in expansion_targets:
+                if matches_acronym_initials(target, seg_text):
+                    acronym_hit = True
+                    break
 
-            # Bonus if segment contains domain terms mentioned in query
+            # 2. Phrase hit in lecture segment
+            phrase_hit = False
+            for target in expansion_targets:
+                if len(target.split()) >= 2 and target in seg_text:
+                    phrase_hit = True
+                    break
+
+            # 3. Domain terms match
+            domain_hit = False
             for term in seg.domain_terms:
-                if term["term"] in query.lower():
-                    score += 0.5
+                term_en = term.get("en", "").lower()
+                term_raw = term.get("term", "").lower()
+                if (term_en and any(term_en in t or t in term_en for t in expansion_targets)) or \
+                   (term_raw and any(term_raw in t or t in term_raw for t in expansion_targets)):
+                    domain_hit = True
+                    break
 
-            if score > 0.05:
+            # 4. Content words presence
+            matching_content_words = [w for w in content_words if w in seg_tokens]
+
+            # Strict guard: If there is no acronym match, no multi-word phrase match,
+            # no domain term match, and no non-stopword content match, this segment is irrelevant!
+            if not acronym_hit and not phrase_hit and not domain_hit and not matching_content_words:
+                continue
+
+            score = 0.0
+            if acronym_hit:
+                score += 2.5
+            if phrase_hit:
+                score += 2.0
+            if domain_hit:
+                score += 1.2
+            if matching_content_words:
+                token_ratio = len(matching_content_words) / max(len(content_words), 1)
+                score += token_ratio * 1.5
+
+            # Fuzzy token set bonus
+            if core_concept:
+                ts_score = fuzz.token_set_ratio(core_concept, seg_text) / 100.0
+                score += ts_score * 0.8
+
+            if score >= 0.5 or acronym_hit:
                 results.append((score, seg))
 
         # Sort descending by relevance score
@@ -140,9 +315,15 @@ class InternetReferenceService:
         if cache_key in self._cache:
             return self._cache[cache_key]
 
-        title = term.title()
+        # Check acronym expansion for clean encyclopedic lookup (e.g. nlp -> natural language processing)
+        lookup_term = term
+        term_lower = term.lower()
+        if term_lower in STEM_ACRONYMS and STEM_ACRONYMS[term_lower]:
+            lookup_term = STEM_ACRONYMS[term_lower][0]
+
+        title = lookup_term.title()
         extract_en = ""
-        source_url = f"https://en.wikipedia.org/wiki/{urllib.parse.quote(term)}"
+        source_url = f"https://en.wikipedia.org/wiki/{urllib.parse.quote(lookup_term.replace(' ', '_'))}"
 
         # 1. Check local STEM domain glossary first for instant matching
         glossary_terms = glossary_engine.get_all_terms()
@@ -163,7 +344,7 @@ class InternetReferenceService:
         # 2. If not in glossary or need live internet definition, query Wikipedia
         if not extract_en:
             try:
-                url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(term)}"
+                url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(lookup_term)}"
                 req = urllib.request.Request(
                     url,
                     headers={"User-Agent": "ClassBridgeEdu/1.0 (educational-companion)"}
@@ -176,12 +357,12 @@ class InternetReferenceService:
                             extract_en = data.get("extract", "")
                             source_url = data.get("content_urls", {}).get("desktop", {}).get("page", source_url)
             except Exception as e:
-                logger.info(f"Wikipedia summary lookup for '{term}' direct page failed: {e}")
+                logger.info(f"Wikipedia summary lookup for '{lookup_term}' direct page failed: {e}")
 
         # 3. If direct page summary not found, try Wikipedia OpenSearch for fuzzy topic title
         if not extract_en:
             try:
-                search_url = f"https://en.wikipedia.org/w/api.php?action=opensearch&search={urllib.parse.quote(term)}&limit=1&namespace=0&format=json"
+                search_url = f"https://en.wikipedia.org/w/api.php?action=opensearch&search={urllib.parse.quote(lookup_term)}&limit=1&namespace=0&format=json"
                 req = urllib.request.Request(
                     search_url,
                     headers={"User-Agent": "ClassBridgeEdu/1.0 (educational-companion)"}
@@ -276,17 +457,20 @@ class LectureQAService:
                         domain_terms=s.get("domain_terms", [])
                     ))
 
-        # Search index
-        retrieved = self.rag_index.search(question, top_k=3)
-        # In-lecture threshold: at least one match with score >= 0.10
-        is_in_lecture = len(retrieved) > 0 and retrieved[0]["score"] >= 0.10
-
-        # Fetch simple internet reference definition for both languages
+        # 1. Fetch simple internet reference definition first for semantic entity resolution
         internet_def = self.internet_service.fetch_reference(
             query=question,
             source_lang=source_lang,
             target_lang=target_lang
         )
+
+        resolved_term = internet_def.get("term")
+        extra_concepts = [resolved_term] if resolved_term else []
+
+        # 2. Search index using both question and resolved entity concepts
+        retrieved = self.rag_index.search(question, extra_concepts=extra_concepts, top_k=3)
+        # In-lecture threshold: at least one match with score >= 0.20
+        is_in_lecture = len(retrieved) > 0 and retrieved[0]["score"] >= 0.20
 
         if is_in_lecture:
             top_seg = retrieved[0]["segment"]
@@ -302,25 +486,55 @@ class LectureQAService:
                 })
 
             actual_quote = top_seg.get("text_source") or top_seg["text_en"]
+            actual_vernacular = top_seg.get("text_vernacular") or actual_quote
+            concept_title = resolved_term or clean_query_text(question).title()
+
+            # Default AI Tutor Synthesized Explanation
             grounded_en = (
-                f"Based on segment #{top_seg['id']} at [{top_seg['timestamp']}], "
-                f"the lecture explains: \"{actual_quote}\""
+                f"In this lecture at [{top_seg['timestamp']}], the instructor covers {concept_title}: "
+                f"\"{actual_quote}\". "
+                f"{internet_def.get('text_source', '')}"
             )
+
+            # Optional: Enhanced Generative AI Tutor synthesis if Gemini API key available
+            if settings.GEMINI_API_KEY:
+                try:
+                    from google import genai
+                    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+                    prompt = (
+                        f"You are ClassBridge, an empathetic, top-tier AI tutor. "
+                        f"Student Question: '{question}'\n"
+                        f"Lecture Quote at [{top_seg['timestamp']}]: '{actual_quote}'\n"
+                        f"Internet Definition: '{internet_def.get('text_source', '')}'\n"
+                        f"In 2-3 concise, clear sentences, answer the student's question directly by connecting "
+                        f"the lecture quote and concept. Include the timestamp [{top_seg['timestamp']}]."
+                    )
+                    resp = client.models.generate_content(
+                        model="gemini-2.5-flash",
+                        contents=prompt
+                    )
+                    if resp and resp.text:
+                        grounded_en = resp.text.strip()
+                except Exception as e:
+                    logger.info(f"Gemini LLM generation fallback: {e}")
 
             if target_lang == "ml":
                 grounded_vernacular = (
-                    f"പ്രഭാഷണ ഭാഗം #{top_seg['id']} [{top_seg['timestamp']}] പ്രകാരം: "
-                    f"\"{top_seg['text_vernacular']}\""
+                    f"നിങ്ങളുടെ പ്രഭാഷണത്തിൽ [{top_seg['timestamp']}] സമയത്ത് {concept_title} സംബന്ധിച്ച് വിശദീകരിച്ചിട്ടുണ്ട്: "
+                    f"\"{actual_vernacular}\". "
+                    f"{internet_def.get('text_target', '')}"
                 )
             elif target_lang == "hi":
                 grounded_vernacular = (
-                    f"व्याख्यान खंड #{top_seg['id']} [{top_seg['timestamp']}] के अनुसार: "
-                    f"\"{top_seg['text_vernacular']}\""
+                    f"आपके व्याख्यान में [{top_seg['timestamp']}] पर {concept_title} के बारे में बताया गया है: "
+                    f"\"{actual_vernacular}\". "
+                    f"{internet_def.get('text_target', '')}"
                 )
             elif target_lang == "ta":
                 grounded_vernacular = (
-                    f"விரிவுரை பகுதி #{top_seg['id']} [{top_seg['timestamp']}] இன் படி: "
-                    f"\"{top_seg['text_vernacular']}\""
+                    f"உங்கள் விரிவுரையில் [{top_seg['timestamp']}] நேரத்தில் {concept_title} பற்றி விரிவாகக் கூறப்பட்டுள்ளது: "
+                    f"\"{actual_vernacular}\". "
+                    f"{internet_def.get('text_target', '')}"
                 )
             else:
                 grounded_vernacular = grounded_en
@@ -335,7 +549,7 @@ class LectureQAService:
             }
         else:
             # Out of Topic
-            concept_name = internet_def.get("term", question)
+            concept_name = resolved_term or question
             not_covered_en = (
                 f"This topic ('{concept_name}') is not covered in the current lecture session transcript. "
                 f"Here is a reference definition from the internet:"

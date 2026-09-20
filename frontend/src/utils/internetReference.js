@@ -58,6 +58,109 @@ function getConciseSentences(text) {
   return result.trim() || text;
 }
 
+// Comprehensive STEM & Academic Acronyms / Synonyms Knowledgebase
+export const STEM_ACRONYMS = {
+  "nlp": ["natural language processing", "natural language understanding", "nlu", "nlg"],
+  "natural language processing": ["nlp"],
+  "ml": ["machine learning"],
+  "machine learning": ["ml"],
+  "dl": ["deep learning"],
+  "deep learning": ["dl"],
+  "ai": ["artificial intelligence"],
+  "artificial intelligence": ["ai"],
+  "cv": ["computer vision"],
+  "computer vision": ["cv"],
+  "rl": ["reinforcement learning"],
+  "reinforcement learning": ["rl"],
+  "sgd": ["stochastic gradient descent"],
+  "stochastic gradient descent": ["sgd"],
+  "gd": ["gradient descent"],
+  "gradient descent": ["gd"],
+  "ann": ["artificial neural network", "neural network"],
+  "neural network": ["ann", "nn"],
+  "cnn": ["convolutional neural network", "convnet"],
+  "convolutional neural network": ["cnn"],
+  "rnn": ["recurrent neural network"],
+  "recurrent neural network": ["rnn"],
+  "lstm": ["long short term memory", "long short-term memory"],
+  "gru": ["gated recurrent unit"],
+  "gan": ["generative adversarial network"],
+  "llm": ["large language model", "foundation model"],
+  "large language model": ["llm"],
+  "pca": ["principal component analysis"],
+  "principal component analysis": ["pca"],
+  "svd": ["singular value decomposition"],
+  "singular value decomposition": ["svd"],
+  "svm": ["support vector machine"],
+  "support vector machine": ["svm"],
+  "rf": ["random forest"],
+  "random forest": ["rf"],
+  "lr": ["learning rate", "linear regression", "logistic regression"],
+  "learning rate": ["lr", "step size", "eta"],
+  "mse": ["mean squared error"],
+  "mae": ["mean absolute error"],
+  "rmse": ["root mean squared error"],
+  "bptt": ["backpropagation through time"],
+  "bp": ["backpropagation"],
+  "backpropagation": ["bp", "backward pass"],
+  "relu": ["rectified linear unit"],
+  "bert": ["bidirectional encoder representations from transformers"],
+  "gpt": ["generative pre-trained transformer"],
+  "rag": ["retrieval augmented generation", "retrieval-augmented generation"],
+  "api": ["application programming interface"],
+  "loss": ["cost function", "loss function", "objective function", "error"],
+  "loss function": ["cost function", "loss", "objective function", "error"],
+  "cost function": ["loss function", "loss", "objective function"],
+  "overfitting": ["high variance", "generalization error", "overfit"],
+  "underfitting": ["high bias", "underfit"],
+  "eigenvalue": ["characteristic value", "latent root", "eigen value"],
+  "eigenvector": ["characteristic vector", "eigen vector"]
+};
+
+export const STOPWORDS = new Set([
+  'in', 'of', 'and', 'the', 'for', 'with', 'at', 'by', 'to', 'a', 'an',
+  'is', 'are', 'was', 'were', 'it', 'on', 'this', 'that', 'from', 'as',
+  'what', 'explain', 'define', 'tell', 'about', 'how', 'does', 'can', 'you',
+  'give', 'me', 'some', 'info', 'briefly'
+]);
+
+/**
+ * Check if a term or acronym matches text via dictionary or initials
+ */
+export function matchesAcronymOrInitials(acronymOrTerm, text) {
+  if (!acronymOrTerm || !text) return false;
+  const cleanTerm = acronymOrTerm.toLowerCase().trim();
+  const cleanText = text.toLowerCase();
+
+  // 1. Static Dictionary
+  if (STEM_ACRONYMS[cleanTerm]) {
+    for (const full of STEM_ACRONYMS[cleanTerm]) {
+      if (cleanText.includes(full)) return true;
+    }
+  }
+
+  // 2. Dynamic Initials: 'nlp' -> \bn\w+\s+l\w+\s+p\w*\b
+  const letters = cleanTerm.replace(/[^a-z]/g, '');
+  if (letters.length >= 2 && letters.length <= 5) {
+    const chars = letters.split('');
+    const regexStr = '\\b' + chars.slice(0, -1).map(c => c + '\\w+\\s+').join('') + chars[chars.length - 1] + '\\w*\\b';
+    try {
+      const re = new RegExp(regexStr, 'i');
+      if (re.test(cleanText)) return true;
+    } catch (e) {}
+  }
+
+  // 3. Dynamic reverse: multi-word phrase in query -> check initials acronym in text
+  const words = cleanTerm.match(/[a-z]+/g) || [];
+  if (words.length >= 2 && words.length <= 5) {
+    const initials = words.map(w => w[0]).join('');
+    const acrRe = new RegExp(`\\b${initials}\\b`, 'i');
+    if (acrRe.test(cleanText)) return true;
+  }
+
+  return false;
+}
+
 /**
  * Fetch a simple reference definition from the internet (Wikipedia) with translation
  */
@@ -69,14 +172,20 @@ export async function fetchInternetReference(question, sourceLang = 'en', target
     return CACHE.get(cacheKey);
   }
 
-  let title = term ? (term.charAt(0).toUpperCase() + term.slice(1)) : 'Topic';
+  // Acronym expansion for clean encyclopedic lookup (e.g. nlp -> natural language processing)
+  const termLower = term.toLowerCase();
+  const lookupTerm = (STEM_ACRONYMS[termLower] && STEM_ACRONYMS[termLower][0])
+    ? STEM_ACRONYMS[termLower][0]
+    : term;
+
+  let title = lookupTerm ? (lookupTerm.charAt(0).toUpperCase() + lookupTerm.slice(1)) : 'Topic';
   let extractEn = '';
-  let sourceUrl = `https://en.wikipedia.org/wiki/${encodeURIComponent(term)}`;
+  let sourceUrl = `https://en.wikipedia.org/wiki/${encodeURIComponent(lookupTerm.replace(/\s+/g, '_'))}`;
 
   // 1. Check fallback STEM glossary first for instant local matching
-  const termLower = term.toLowerCase();
   for (const [key, item] of Object.entries(fallbackGlossary || {})) {
-    if (termLower === key.toLowerCase() || termLower.includes(key.toLowerCase()) || key.toLowerCase().includes(termLower)) {
+    const kLow = key.toLowerCase();
+    if (lookupTerm.toLowerCase() === kLow || lookupTerm.toLowerCase().includes(kLow) || kLow.includes(lookupTerm.toLowerCase()) || termLower === kLow) {
       title = item.en || title;
       extractEn = item.definition || '';
       break;
@@ -86,7 +195,7 @@ export async function fetchInternetReference(question, sourceLang = 'en', target
   // 2. Query Wikipedia REST API for clean 1-2 sentence extract
   if (!extractEn) {
     try {
-      const resp = await fetchWithTimeout(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term)}`, {
+      const resp = await fetchWithTimeout(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(lookupTerm)}`, {
         headers: { 'Accept': 'application/json' }
       }, 3500);
       if (resp && resp.ok) {
@@ -108,7 +217,7 @@ export async function fetchInternetReference(question, sourceLang = 'en', target
   if (!extractEn) {
     try {
       const searchResp = await fetchWithTimeout(
-        `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(term)}&limit=1&namespace=0&format=json&origin=*`,
+        `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(lookupTerm)}&limit=1&namespace=0&format=json&origin=*`,
         {},
         3500
       );

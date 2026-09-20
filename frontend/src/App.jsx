@@ -15,7 +15,13 @@ import { translateTextClient, translateInterimDebounced } from './utils/clientTr
 import { Radio, MessageSquare } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { exportCaptionsAsTxt, exportCaptionsAsPdf } from './utils/captionExport';
-import { fetchInternetReference } from './utils/internetReference';
+import {
+  fetchInternetReference,
+  matchesAcronymOrInitials,
+  cleanQuestionToSearchTerm,
+  STEM_ACRONYMS,
+  STOPWORDS
+} from './utils/internetReference';
 import ErrorBoundary from './components/ErrorBoundary';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -998,26 +1004,8 @@ export default function App() {
         console.log("Backend Q&A unavailable, switching to client-side grounded RAG fallback.");
       }
 
-      // 2. Client-side Grounded RAG + Internet Reference Fallback
-      const qTokens = cleanQ.toLowerCase().split(/\s+/).filter((t) => t.length > 2);
-      let bestMatch = null;
-      let maxScore = -1;
-
-      if (Array.isArray(segments) && segments.length > 0) {
-        segments.forEach((seg) => {
-          const text = ((seg.text_source || seg.text_en || '') + " " + (seg.text_vernacular || '')).toLowerCase();
-          let score = 0;
-          qTokens.forEach((tok) => {
-            if (text.includes(tok)) score += 1;
-          });
-          if (score > maxScore) {
-            maxScore = score;
-            bestMatch = seg;
-          }
-        });
-      }
-
-      // Fetch simple internet reference definition in parallel
+      // 2. Client-side Semantic Grounded RAG + Internet Reference Fallback
+      // Fetch simple internet reference definition first for semantic concept resolution
       let internetDef = null;
       try {
         internetDef = await fetchInternetReference(cleanQ, sourceLang, targetLang, FALLBACK_GLOSSARY);
@@ -1025,21 +1013,111 @@ export default function App() {
         console.info("Client-side internet reference fetch fallback:", e);
       }
 
-      if (bestMatch && maxScore > 0) {
+      const coreConcept = cleanQuestionToSearchTerm(cleanQ).toLowerCase();
+      const expansionTargets = new Set();
+      if (coreConcept) expansionTargets.add(coreConcept);
+      if (STEM_ACRONYMS[coreConcept]) {
+        STEM_ACRONYMS[coreConcept].forEach((t) => expansionTargets.add(t.toLowerCase()));
+      }
+      if (internetDef?.term) {
+        const termClean = cleanQuestionToSearchTerm(internetDef.term).toLowerCase();
+        if (termClean) expansionTargets.add(termClean);
+        if (STEM_ACRONYMS[termClean]) {
+          STEM_ACRONYMS[termClean].forEach((t) => expansionTargets.add(t.toLowerCase()));
+        }
+      }
+
+      // Content words excluding stopwords
+      const contentWords = new Set();
+      expansionTargets.forEach((t) => {
+        (t.match(/[a-z]+/gi) || []).forEach((w) => {
+          const wLow = w.toLowerCase();
+          if (!STOPWORDS.has(wLow) && wLow.length > 2) {
+            contentWords.add(wLow);
+          }
+        });
+      });
+
+      let bestMatch = null;
+      let maxScore = -1;
+
+      if (Array.isArray(segments) && segments.length > 0) {
+        segments.forEach((seg) => {
+          const segText = ((seg.text_source || seg.text_en || '') + " " + (seg.text_vernacular || '')).toLowerCase();
+          const segWords = segText.match(/[a-z]+/gi) || [];
+
+          // 1. Acronym & Initials Match
+          let acronymHit = false;
+          for (const target of expansionTargets) {
+            if (matchesAcronymOrInitials(target, segText)) {
+              acronymHit = true;
+              break;
+            }
+          }
+
+          // 2. Multi-word phrase match
+          let phraseHit = false;
+          for (const target of expansionTargets) {
+            if (target.includes(' ') && segText.includes(target)) {
+              phraseHit = true;
+              break;
+            }
+          }
+
+          // 3. Domain terms match
+          let domainHit = false;
+          if (seg.domain_terms && Array.isArray(seg.domain_terms)) {
+            for (const dt of seg.domain_terms) {
+              const dtEn = (dt.en || dt.term || '').toLowerCase();
+              if (dtEn && Array.from(expansionTargets).some((t) => dtEn.includes(t) || t.includes(dtEn))) {
+                domainHit = true;
+                break;
+              }
+            }
+          }
+
+          // 4. Content words presence
+          const matchingWords = Array.from(contentWords).filter((w) => segWords.includes(w) || segText.includes(w));
+
+          // Strict guard: If there is no acronym match, no multi-word phrase match,
+          // no domain term match, and no matching content word, skip segment
+          if (!acronymHit && !phraseHit && !domainHit && matchingWords.length === 0) {
+            return;
+          }
+
+          let score = 0.0;
+          if (acronymHit) score += 2.5;
+          if (phraseHit) score += 2.0;
+          if (domainHit) score += 1.2;
+          if (matchingWords.length > 0) {
+            score += (matchingWords.length / Math.max(contentWords.size, 1)) * 1.5;
+          }
+
+          if (score > maxScore) {
+            maxScore = score;
+            bestMatch = seg;
+          }
+        });
+      }
+
+      if (bestMatch && maxScore >= 0.5) {
+        const conceptTitle = internetDef?.term || (coreConcept ? (coreConcept.charAt(0).toUpperCase() + coreConcept.slice(1)) : cleanQ);
         const actualSource = bestMatch.text_source || bestMatch.text_en || '';
-        const actualVernacular = bestMatch.text_vernacular || '';
+        const actualVernacular = bestMatch.text_vernacular || actualSource;
         const segId = bestMatch.id || 1;
         const segTime = bestMatch.timestamp || '00:00';
 
-        let botVernacular = "";
+        const groundedEn = `In this lecture at [${segTime}], the instructor covers ${conceptTitle}: "${actualSource}". ${internetDef?.text_source || ''}`;
+
+        let groundedVernacular = "";
         if (targetLang === 'ml') {
-          botVernacular = `ഭാഗം #${segId} [${segTime}] പ്രകാരം: "${actualVernacular}"`;
+          groundedVernacular = `നിങ്ങളുടെ പ്രഭാഷണത്തിൽ [${segTime}] സമയത്ത് ${conceptTitle} സംബന്ധിച്ച് വിശദീകരിച്ചിട്ടുണ്ട്: "${actualVernacular}". ${internetDef?.text_target || ''}`;
         } else if (targetLang === 'hi') {
-          botVernacular = `खंड #${segId} [${segTime}] के अनुसार: "${actualVernacular}"`;
+          groundedVernacular = `आपके व्याख्यान में [${segTime}] पर ${conceptTitle} के बारे में बताया गया है: "${actualVernacular}". ${internetDef?.text_target || ''}`;
         } else if (targetLang === 'ta') {
-          botVernacular = `பகுதி #${segId} [${segTime}] இன் படி: "${actualVernacular}"`;
+          groundedVernacular = `உங்கள் விரிவுரையில் [${segTime}] நேரத்தில் ${conceptTitle} பற்றி விளக்கப்பட்டுள்ளது: "${actualVernacular}". ${internetDef?.text_target || ''}`;
         } else {
-          botVernacular = `Based on segment #${segId} [${segTime}]: "${actualVernacular}"`;
+          groundedVernacular = groundedEn;
         }
 
         setMessages((prev) => [
@@ -1047,8 +1125,8 @@ export default function App() {
           {
             role: 'bot',
             found_in_lecture: true,
-            text: `Based on segment #${segId} at [${segTime}], the lecture explains: "${actualSource}"`,
-            vernacular: botVernacular,
+            text: groundedEn,
+            vernacular: groundedVernacular,
             source_lang: sourceLang,
             target_lang: targetLang,
             citations: [
@@ -1057,7 +1135,7 @@ export default function App() {
                 timestamp: segTime,
                 text_source: actualSource,
                 text_vernacular: actualVernacular,
-                relevance_score: 0.95
+                relevance_score: Math.min(1.0, Math.round(maxScore * 25) / 100)
               }
             ],
             internet_definition: internetDef
@@ -1065,7 +1143,7 @@ export default function App() {
         ]);
       } else {
         // Out of Topic (Not covered in lecture)
-        const conceptName = internetDef?.term || cleanQ;
+        const conceptName = internetDef?.term || (coreConcept ? (coreConcept.charAt(0).toUpperCase() + coreConcept.slice(1)) : cleanQ);
         let notFoundVernacular = "";
         if (targetLang === 'ml') {
           notFoundVernacular = `ഈ വിഷയം ('${conceptName}') നിലവിലെ പ്രഭാഷണത്തിൽ ഉൾപ്പെടുത്തിയിട്ടില്ല. ഇന്റർനെറ്റിൽ നിന്നുള്ള വിവരണം താഴെ നൽകുന്നു:`;
