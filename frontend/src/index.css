@@ -2706,7 +2706,8 @@ body {
 }
 
 .google-lang-pill {
-  display: flex;
+  position: relative;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
@@ -2714,27 +2715,67 @@ body {
   font-size: 13px;
   font-weight: 500;
   color: #e8eaed;
-  transition: background-color 0.2s;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .google-lang-pill:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.google-lang-dropdown {
-  background: transparent;
-  border: none;
-  outline: none;
+.lang-label-full {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.lang-label-short {
+  display: none;
+  white-space: nowrap;
+}
+
+.lang-chevron-arrow {
+  font-size: 9px;
+  color: var(--text-dim);
+  pointer-events: none;
+  transition: transform 0.2s ease;
+}
+
+.google-lang-pill:hover .lang-chevron-arrow {
   color: #e8eaed;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  padding-right: 4px;
+  transform: translateY(1px);
 }
 
-.google-lang-dropdown option {
+.google-lang-dropdown-native {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 5;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.google-lang-dropdown-native option {
   background: #202124;
   color: #e8eaed;
+}
+
+.mobile-device-btn {
+  display: none;
+}
+
+.status-label-desktop {
+  display: inline;
+}
+
+.status-label-tablet {
+  display: none;
 }
 
 .google-swap-circle-btn {
@@ -3434,8 +3475,20 @@ body {
   }
 }
 
-/* 2. Standard Laptops & Tablets Landscape (992px - 1200px) */
+/* 2. Laptops & Large Tablets (992px - 1200px) */
 @media (max-width: 1200px) {
+  .google-app-bar {
+    padding: 0 16px;
+    height: 60px;
+    min-height: 60px;
+    gap: 12px;
+  }
+  .google-tag-pill {
+    display: none;
+  }
+  .google-chip-text {
+    max-width: 95px;
+  }
   .google-main-stage {
     grid-template-columns: minmax(0, 1fr) 360px;
     gap: 16px;
@@ -3445,13 +3498,42 @@ body {
     max-width: 220px;
     min-width: 160px;
   }
-  .google-chip-text {
-    max-width: 90px;
-  }
 }
 
-/* 3. Tablets in Portrait & Compact Laptops (768px - 992px) */
+/* 3. Tablets in Landscape & Portrait (768px - 992px) */
 @media (max-width: 992px) {
+  .google-app-bar {
+    padding: 0 14px;
+    height: 58px;
+    min-height: 58px;
+    gap: 8px;
+  }
+  .google-app-title {
+    font-size: 17px;
+  }
+  .google-tag-pill {
+    display: none;
+  }
+  .lang-label-full {
+    display: none;
+  }
+  .lang-label-short {
+    display: inline-block;
+    font-weight: 700;
+    font-size: 12px;
+  }
+  .google-translate-bar {
+    padding: 2px 6px;
+    gap: 3px;
+  }
+  .google-lang-pill {
+    padding: 3px 7px;
+    gap: 4px;
+  }
+  .google-swap-circle-btn {
+    width: 26px;
+    height: 26px;
+  }
   .google-main-stage {
     grid-template-columns: minmax(0, 1fr) 330px;
     gap: 12px;
@@ -3461,7 +3543,16 @@ body {
     display: none;
   }
   .google-chip-action.device-chip {
-    padding: 6px 8px;
+    padding: 5px 8px;
+  }
+  .google-chip-text {
+    max-width: 80px;
+  }
+  .status-label-desktop {
+    display: none;
+  }
+  .status-label-tablet {
+    display: inline;
   }
 }
 
@@ -3472,25 +3563,79 @@ body {
   }
 
   .google-app-bar {
-    padding: 0 12px;
+    padding: 0 10px;
     height: 56px;
     min-height: 56px;
+    gap: 6px;
+  }
+
+  .google-bar-left {
+    flex-shrink: 0;
   }
 
   .google-brand-meta {
     display: none;
   }
 
+  .google-translate-bar {
+    padding: 2px 6px;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  .lang-label-full {
+    display: none;
+  }
+
+  .lang-label-short {
+    display: inline-block;
+    font-weight: 700;
+    font-size: 12px;
+  }
+
+  .google-lang-pill {
+    padding: 3px 6px;
+    gap: 3px;
+  }
+
+  .google-swap-circle-btn {
+    width: 26px;
+    height: 26px;
+  }
+
+  .google-bar-right {
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
   .google-chip-action.device-chip {
     display: none;
+  }
+
+  .mobile-device-btn {
+    display: flex;
+    width: 34px;
+    height: 34px;
   }
 
   .google-status-pill {
     display: none;
   }
 
+  .google-chip-action.timer-chip {
+    padding: 4px 8px;
+    font-size: 11px;
+    gap: 4px;
+  }
+
+  .google-icon-btn {
+    width: 34px;
+    height: 34px;
+  }
+
   .google-mobile-tab-bar {
     display: flex;
+    top: 56px;
   }
 
   .google-main-stage {
@@ -3510,7 +3655,7 @@ body {
   .google-stage-caption .caption-card,
   .google-stage-gemini .chat-card,
   .google-stage-tutor .chat-card {
-    height: calc(100vh - 200px);
+    height: calc(100vh - 195px);
     min-height: 420px;
   }
 
@@ -3546,8 +3691,20 @@ body {
 /* 5. Small Smartphones (< 480px) */
 @media (max-width: 480px) {
   .google-app-bar {
-    padding: 0 8px;
-    gap: 6px;
+    padding: 0 6px;
+    height: 52px;
+    min-height: 52px;
+    gap: 4px;
+  }
+
+  .google-mobile-tab-bar {
+    top: 52px;
+    padding: 6px 10px;
+  }
+
+  .google-mobile-tab-btn {
+    padding: 8px 10px;
+    font-size: 12px;
   }
 
   .google-translate-bar {
@@ -3556,17 +3713,37 @@ body {
   }
 
   .google-lang-pill {
-    padding: 2px 6px;
-    font-size: 12px;
+    padding: 2px 5px;
+    font-size: 11px;
+    gap: 2px;
   }
 
-  .google-lang-dropdown {
-    font-size: 12px;
+  .lang-flag {
+    font-size: 13px;
   }
 
   .google-swap-circle-btn {
-    width: 26px;
-    height: 26px;
+    width: 24px;
+    height: 24px;
+  }
+
+  .timer-chip .timer-icon {
+    display: none;
+  }
+
+  .google-chip-action.timer-chip {
+    padding: 3px 6px;
+    font-size: 10.5px;
+  }
+
+  .google-icon-btn {
+    width: 30px;
+    height: 30px;
+  }
+
+  .mobile-device-btn {
+    width: 30px;
+    height: 30px;
   }
 
   .google-meet-dock-wrapper {
@@ -3594,6 +3771,23 @@ body {
 
   .segment-item .vernacular-text {
     font-size: 15px;
+  }
+}
+
+/* 6. Extra Small Mobile Devices (< 360px) */
+@media (max-width: 360px) {
+  .google-app-bar {
+    padding: 0 4px;
+    gap: 2px;
+  }
+
+  .google-chip-action.timer-chip {
+    display: none;
+  }
+
+  .google-lang-pill {
+    padding: 2px 4px;
+    font-size: 10.5px;
   }
 }
 

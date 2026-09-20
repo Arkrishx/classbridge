@@ -63,13 +63,16 @@ export default function GoogleAppBar({
 
       {/* 2. Center: Prominent Google Translate-Style Bilingual Selector */}
       <div className={`google-translate-bar ${isSwapping ? 'bar-swapping' : ''}`} title="Google Translate-Style Bidirectional Language Pair">
-        <div className="google-lang-pill source-pill">
+        <div className="google-lang-pill source-pill" title="Spoken Lecture Source Language (Tap to change)">
           <span className="lang-flag">{sourceLangMeta.flag}</span>
+          <span className="lang-label-full">{sourceLangMeta.name}</span>
+          <span className="lang-label-short">{sourceLang.toUpperCase()}</span>
+          <span className="lang-chevron-arrow">▾</span>
           <select
             value={sourceLang}
             onChange={(e) => onSourceLanguageChange && onSourceLanguageChange(e.target.value)}
-            className="google-lang-dropdown"
-            title="Spoken Lecture Source Language"
+            className="google-lang-dropdown-native"
+            aria-label="Spoken Lecture Source Language"
           >
             {SUPPORTED_LANGUAGES.map((l) => (
               <option key={l.code} value={l.code} disabled={l.code === targetLang}>
@@ -84,17 +87,21 @@ export default function GoogleAppBar({
           onClick={handleSwapClick}
           title={`Click to swap languages (${sourceLang.toUpperCase()} ⇄ ${targetLang.toUpperCase()})`}
           type="button"
+          aria-label="Swap source and target languages"
         >
-          <ArrowLeftRight size={15} />
+          <ArrowLeftRight size={14} />
         </button>
 
-        <div className="google-lang-pill target-pill">
+        <div className="google-lang-pill target-pill" title="Real-Time Translation & Subtitles Language (Tap to change)">
           <span className="lang-flag">{targetLangMeta.flag}</span>
+          <span className="lang-label-full">{targetLangMeta.name}</span>
+          <span className="lang-label-short">{targetLang.toUpperCase()}</span>
+          <span className="lang-chevron-arrow">▾</span>
           <select
             value={targetLang}
             onChange={(e) => onLanguageChange && onLanguageChange(e.target.value)}
-            className="google-lang-dropdown"
-            title="Real-Time Subtitle Translation & Read Aloud Language"
+            className="google-lang-dropdown-native"
+            aria-label="Real-Time Subtitle Translation Language"
           >
             {SUPPORTED_LANGUAGES.map((l) => (
               <option key={l.code} value={l.code} disabled={l.code === sourceLang}>
@@ -107,7 +114,7 @@ export default function GoogleAppBar({
 
       {/* 3. Right: System Actions, Audio Hardware Chip & Modals */}
       <div className="google-bar-right">
-        {/* Audio Hardware Chip */}
+        {/* Audio Hardware Chip (Desktop & Tablet) */}
         <button
           className="google-chip-action device-chip"
           onClick={onOpenAudioDevices}
@@ -115,23 +122,39 @@ export default function GoogleAppBar({
           type="button"
         >
           {isBluetoothDevice ? (
-            <Headphones size={14} color="var(--google-green)" />
+            <Headphones size={13} color="var(--google-green)" />
           ) : (
-            <Mic size={14} color="var(--google-blue)" />
+            <Mic size={13} color="var(--google-blue)" />
           )}
           <span className="google-chip-text">{selectedDeviceLabel}</span>
-          <Settings2 size={12} color="var(--text-dim)" />
+          <Settings2 size={12} color="var(--text-dim)" className="chip-gear-icon" />
         </button>
 
-        {/* Live Session Status */}
+        {/* Compact Mobile Audio Button (Mobile) */}
+        <button
+          className="google-icon-btn mobile-device-btn"
+          onClick={onOpenAudioDevices}
+          title={`Microphone: ${selectedDeviceLabel}`}
+          type="button"
+          aria-label="Audio Hardware Settings"
+        >
+          {isBluetoothDevice ? (
+            <Headphones size={15} color="var(--google-green)" />
+          ) : (
+            <Mic size={15} color="var(--google-blue)" />
+          )}
+        </button>
+
+        {/* Live Session Status Pill */}
         <div className={`google-status-pill ${connectionStatus === 'connected' ? 'live' : 'browser'}`}>
           <span className="google-status-dot" />
-          <span>{connectionStatus === 'connected' ? 'Live Stream' : 'Browser Engine'}</span>
+          <span className="status-label-desktop">{connectionStatus === 'connected' ? 'Live Stream' : 'Browser Engine'}</span>
+          <span className="status-label-tablet">{connectionStatus === 'connected' ? 'Live' : 'Local'}</span>
         </div>
 
         {/* Session Timer */}
         <div className="google-chip-action timer-chip" title="Live lecture elapsed time">
-          <Clock size={13} color="var(--google-yellow)" />
+          <Clock size={12} color="var(--google-yellow)" className="timer-icon" />
           <span className="google-timer-mono">{formatTime(sessionSeconds)}</span>
         </div>
 
@@ -141,8 +164,9 @@ export default function GoogleAppBar({
           onClick={onOpenGlossary}
           title="STEM Technical Glossary & Domain Adaptation"
           type="button"
+          aria-label="Open STEM Glossary"
         >
-          <BookOpen size={16} />
+          <BookOpen size={15} />
         </button>
 
         {/* Caption Export Actions (TXT & PDF) */}
