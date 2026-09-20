@@ -8,6 +8,7 @@ import GlossaryModal from './components/GlossaryModal';
 import AboutModal from './components/AboutModal';
 import ErrorBanner from './components/ErrorBanner';
 import { AudioStreamer } from './utils/audioStreamer';
+import { translateTextClient } from './utils/clientTranslator';
 import confetti from 'canvas-confetti';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -300,13 +301,57 @@ export default function App() {
         onAudioData: (buffer) => {
           if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             wsRef.current.send(buffer);
-          } else {
-            // Browser assisted simulation if backend disconnected
-            simulateSpeechFromMic();
           }
         },
         onVolumeChange: (vol) => {
           setAudioLevel(vol);
+        },
+        onSpeechRecognized: async (spokenText, confidence) => {
+          if (!spokenText.trim()) return;
+
+          // If backend WebSocket is open, send for backend ASR/MT processing
+          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({
+              action: 'process_text_segment',
+              text: spokenText,
+              confidence: confidence,
+              duration: 4.0
+            }));
+            return;
+          }
+
+          // Real-time live browser transcription & translation fallback
+          try {
+            const transResult = await translateTextClient(spokenText, targetLang, glossary);
+            setSegments((prev) => {
+              const segId = prev.length + 1;
+              const startT = (segId - 1) * 4;
+              const endT = segId * 4;
+              const sMin = Math.floor(startT / 60);
+              const sSec = startT % 60;
+              const eMin = Math.floor(endT / 60);
+              const eSec = endT % 60;
+              const timestampStr = `${sMin.toString().padStart(2, '0')}:${sSec.toString().padStart(2, '0')} - ${eMin.toString().padStart(2, '0')}:${eSec.toString().padStart(2, '0')}`;
+
+              return [
+                ...prev,
+                {
+                  id: segId,
+                  start: startT,
+                  end: endT,
+                  timestamp: timestampStr,
+                  text_en: spokenText,
+                  text_vernacular: transResult.adapted_translation,
+                  raw_translation: transResult.raw_translation,
+                  confidence: confidence,
+                  domain_terms: transResult.domain_terms,
+                  target_lang: targetLang
+                }
+              ];
+            });
+          } catch (err) {
+            console.error("Error processing live speech segment:", err);
+          }
         },
         onError: (err) => {
           setErrorMessage(`Microphone access warning: ${err.message}. You can also use the 1-click sample lecture buttons to test without a microphone.`);
@@ -320,13 +365,6 @@ export default function App() {
         setIsRecording(true);
         setErrorMessage(null);
       }
-    }
-  };
-
-  const simulateSpeechFromMic = () => {
-    // Fallback if websocket is not connected
-    if (segments.length === 0) {
-      handleLoadSample('ml');
     }
   };
 

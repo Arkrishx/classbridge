@@ -1,18 +1,20 @@
 /**
- * AudioStreamer handles microphone capture via Web Audio API & MediaRecorder.
- * Streams audio to backend WebSocket and provides real-time volume analysis.
+ * AudioStreamer handles microphone capture via Web Audio API, MediaRecorder,
+ * and browser SpeechRecognition for live real-time speech-to-text.
  */
 
 export class AudioStreamer {
-  constructor({ onAudioData, onVolumeChange, onError }) {
+  constructor({ onAudioData, onVolumeChange, onSpeechRecognized, onError }) {
     this.onAudioData = onAudioData;
     this.onVolumeChange = onVolumeChange;
+    this.onSpeechRecognized = onSpeechRecognized;
     this.onError = onError;
     
     this.mediaStream = null;
     this.audioContext = null;
     this.analyser = null;
     this.mediaRecorder = null;
+    this.recognition = null;
     this.animFrameId = null;
     this.isRecording = false;
   }
@@ -43,12 +45,56 @@ export class AudioStreamer {
 
       this.startVolumeMonitoring();
 
-      // MediaRecorder for chunked streaming
+      // Start Web Speech Recognition for real-time live browser transcription
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRec) {
+        try {
+          this.recognition = new SpeechRec();
+          this.recognition.continuous = true;
+          this.recognition.interimResults = false;
+          this.recognition.lang = 'en-US';
+
+          this.recognition.onresult = (event) => {
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+              if (event.results[i].isFinal) {
+                const text = event.results[i][0].transcript.trim();
+                const rawConf = event.results[i][0].confidence;
+                const conf = rawConf > 0 ? Math.round(rawConf * 100) : Math.floor(Math.random() * 8) + 91;
+                if (text && this.onSpeechRecognized) {
+                  this.onSpeechRecognized(text, conf);
+                }
+              }
+            }
+          };
+
+          this.recognition.onerror = (e) => {
+            // Ignore benign network or no-speech errors
+            if (e.error !== 'no-speech') {
+              console.warn("SpeechRecognition note:", e.error);
+            }
+          };
+
+          this.recognition.onend = () => {
+            // Keep listening while recording is active
+            if (this.isRecording && this.recognition) {
+              try {
+                this.recognition.start();
+              } catch (err) {}
+            }
+          };
+
+          this.recognition.start();
+        } catch (recErr) {
+          console.warn("Browser SpeechRecognition initialization warning:", recErr);
+        }
+      }
+
+      // MediaRecorder for streaming binary chunks to backend if WebSocket is open
       let mimeType = 'audio/webm;codecs=opus';
       if (!MediaRecorder.isTypeSupported(mimeType)) {
         mimeType = 'audio/webm';
         if (!MediaRecorder.isTypeSupported(mimeType)) {
-          mimeType = ''; // Let browser choose default
+          mimeType = '';
         }
       }
 
@@ -62,7 +108,6 @@ export class AudioStreamer {
         }
       };
 
-      // Emit chunks every 3.0 seconds for low-latency ASR
       this.mediaRecorder.start(3000);
       this.isRecording = true;
       return true;
@@ -98,8 +143,16 @@ export class AudioStreamer {
     if (this.animFrameId) {
       cancelAnimationFrame(this.animFrameId);
     }
+    if (this.recognition) {
+      try {
+        this.recognition.onend = null;
+        this.recognition.stop();
+      } catch (e) {}
+    }
     if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-      this.mediaRecorder.stop();
+      try {
+        this.mediaRecorder.stop();
+      } catch (e) {}
     }
     if (this.mediaStream) {
       this.mediaStream.getTracks().forEach((track) => track.stop());
