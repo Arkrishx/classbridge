@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: classbridge-backend
+    env: docker
+    dockerfilePath: backend/Dockerfile
+    plan: free
+    region: oregon
+    envVars:
+      - key: WHISPER_MODEL_SIZE
+        value: base
+      - key: WHISPER_COMPUTE_TYPE
+        value: int8
+      - key: DEFAULT_TARGET_LANG
+        value: ta

@@ -1,0 +1,407 @@
+{
+  "glossary_version": "1.0.0",
+  "domain": "STEM (Science, Technology, Engineering, Mathematics)",
+  "description": "ClassBridge Domain Adaptation Layer Glossary - Curated standard technical translations for Indic languages to prevent MT hallucination or mistranslation.",
+  "terms": {
+    "eigenvalue": {
+      "en": "Eigenvalue",
+      "ta": "சிறப்பியல்பு மதிப்பு (Eigenvalue)",
+      "hi": "अभिलाक्षणिक मान (Eigenvalue)",
+      "te": "ఐగన్ విలువ (Eigenvalue)",
+      "category": "Linear Algebra",
+      "definition": "A scalar associated with a linear system of equations that measures factor expansion along an eigenvector."
+    },
+    "eigenvector": {
+      "en": "Eigenvector",
+      "ta": "சிறப்பியல்பு திசையன் (Eigenvector)",
+      "hi": "अभिलाक्षणिक सदिश (Eigenvector)",
+      "te": "ఐగన్ వెక్టర్ (Eigenvector)",
+      "category": "Linear Algebra",
+      "definition": "A non-zero vector whose direction remains unchanged when a linear transformation is applied."
+    },
+    "gradient descent": {
+      "en": "Gradient Descent",
+      "ta": "சரிவு இறக்கம் (Gradient Descent)",
+      "hi": "प्रवणता अवरोहण (Gradient Descent)",
+      "te": "గ్రేడియంట్ డీసెంట్ (Gradient Descent)",
+      "category": "Machine Learning",
+      "definition": "First-order iterative optimization algorithm for finding a local minimum of a differentiable function."
+    },
+    "backpropagation": {
+      "en": "Backpropagation",
+      "ta": "பின்நோக்கு பரவல் (Backpropagation)",
+      "hi": "पश्च-प्रसार (Backpropagation)",
+      "te": "బ్యాక్‌ప్రాపగేషన్ (Backpropagation)",
+      "category": "Machine Learning",
+      "definition": "Algorithm used to calculate gradients of loss function with respect to weights using chain rule."
+    },
+    "neural network": {
+      "en": "Neural Network",
+      "ta": "நரம்பியல் வலைப்பின்னல் (Neural Network)",
+      "hi": "न्यूरल नेटवर्क (Neural Network)",
+      "te": "న్యూరల్ నెట్‌వర్క్ (Neural Network)",
+      "category": "Machine Learning",
+      "definition": "A computational model inspired by biological nervous systems consisting of interconnected nodes/layers."
+    },
+    "loss function": {
+      "en": "Loss Function",
+      "ta": "இழப்புச் சார்பு (Loss Function)",
+      "hi": "हानि फलन (Loss Function)",
+      "te": "లాస్ ఫంక్షన్ (Loss Function)",
+      "category": "Machine Learning",
+      "definition": "Function that maps an event or values of one or more variables onto a real number representing cost."
+    },
+    "learning rate": {
+      "en": "Learning Rate",
+      "ta": "கற்றல் வீதம் (Learning Rate)",
+      "hi": "सीखने की दर (Learning Rate)",
+      "te": "లెర్నింగ్ రేట్ (Learning Rate)",
+      "category": "Machine Learning",
+      "definition": "Tuning parameter in an optimization algorithm that determines the step size at each iteration."
+    },
+    "overfitting": {
+      "en": "Overfitting",
+      "ta": "மிகைப்பொருத்தம் (Overfitting)",
+      "hi": "अति-सन्निकटन (Overfitting)",
+      "te": "ఓవర్‌ఫిట్టింగ్ (Overfitting)",
+      "category": "Machine Learning",
+      "definition": "Modeling error where function corresponds too closely or exactly to a particular set of data."
+    },
+    "underfitting": {
+      "en": "Underfitting",
+      "ta": "குறைபொருத்தம் (Underfitting)",
+      "hi": "अल्प-सन्निकटन (Underfitting)",
+      "te": "అండర్‌ఫిట్టింగ్ (Underfitting)",
+      "category": "Machine Learning",
+      "definition": "When a mathematical model cannot adequately capture the underlying structure of the data."
+    },
+    "activation function": {
+      "en": "Activation Function",
+      "ta": "செயல்படுத்துகை சார்பு (Activation Function)",
+      "hi": "सक्रियण फलन (Activation Function)",
+      "te": "యాక్టివేషన్ ఫంక్షన్ (Activation Function)",
+      "category": "Machine Learning",
+      "definition": "Node function that defines output given an input or set of inputs, introducing non-linearity."
+    },
+    "photosynthesis": {
+      "en": "Photosynthesis",
+      "ta": "ஒளிச்சேர்க்கை (Photosynthesis)",
+      "hi": "प्रकाश संश्लेषण (Photosynthesis)",
+      "te": "కిరణజన్య సంయోగక్రియ (Photosynthesis)",
+      "category": "Biology",
+      "definition": "Process by which phototrophs convert light energy into chemical energy (glucose)."
+    },
+    "mitochondria": {
+      "en": "Mitochondria",
+      "ta": "மைட்டோகாண்ட்ரியா (Mitochondria)",
+      "hi": "माइटोकॉन्ड्रिया (Mitochondria)",
+      "te": "మైటోకాండ్రియా (Mitochondria)",
+      "category": "Biology",
+      "definition": "Double-membrane-bound cellular organelle that produces adenosine triphosphate (ATP)."
+    },
+    "cellular respiration": {
+      "en": "Cellular Respiration",
+      "ta": "செல் சுவாசம் (Cellular Respiration)",
+      "hi": "कोशिकीय श्वसन (Cellular Respiration)",
+      "te": "కణ శ్వాసక్రియ (Cellular Respiration)",
+      "category": "Biology",
+      "definition": "Metabolic reactions converting biochemical energy from nutrients into ATP."
+    },
+    "ribosome": {
+      "en": "Ribosome",
+      "ta": "ரைபோசோம் (Ribosome)",
+      "hi": "राइबोसोम (Ribosome)",
+      "te": "రైబోజోమ్ (Ribosome)",
+      "category": "Biology",
+      "definition": "Macromolecular machine that performs biological protein synthesis."
+    },
+    "thermodynamics": {
+      "en": "Thermodynamics",
+      "ta": "வெப்ப இயக்கவியல் (Thermodynamics)",
+      "hi": "ऊष्माप्रवैगिकी (Thermodynamics)",
+      "te": "థర్మోడైనమిక్స్ (Thermodynamics)",
+      "category": "Physics",
+      "definition": "Branch of physics dealing with heat, work, temperature, and statistical relation to energy."
+    },
+    "entropy": {
+      "en": "Entropy",
+      "ta": "என்ட்ரோபி / ஒழுங்கின்மை அளவு (Entropy)",
+      "hi": "एन्ट्रॉपी / अव्यवस्था (Entropy)",
+      "te": "ఎంట్రోపీ (Entropy)",
+      "category": "Physics",
+      "definition": "Scientific concept associated with state of disorder, randomness, or uncertainty."
+    },
+    "momentum": {
+      "en": "Momentum",
+      "ta": "உந்தம் (Momentum)",
+      "hi": "संवेग (Momentum)",
+      "te": "ద్రవ్యవేగం (Momentum)",
+      "category": "Physics",
+      "definition": "The quantity of motion of a moving body, measured as a product of its mass and velocity."
+    },
+    "kinetic energy": {
+      "en": "Kinetic Energy",
+      "ta": "இயக்க ஆற்றல் (Kinetic Energy)",
+      "hi": "गतिज ऊर्जा (Kinetic Energy)",
+      "te": "గతి శక్తి (Kinetic Energy)",
+      "category": "Physics",
+      "definition": "The energy an object possesses by reason of its motion, equal to 1/2 m v^2."
+    },
+    "potential energy": {
+      "en": "Potential Energy",
+      "ta": "நிலை ஆற்றல் (Potential Energy)",
+      "hi": "स्थितिज ऊर्जा (Potential Energy)",
+      "te": "స్థితిజ శక్తి (Potential Energy)",
+      "category": "Physics",
+      "definition": "Stored energy held by an object because of its relative position, stress, or electric charge."
+    },
+    "capacitance": {
+      "en": "Capacitance",
+      "ta": "மின்தேக்குத்திறன் (Capacitance)",
+      "hi": "धारिता (Capacitance)",
+      "te": "కెపాసిటెన్స్ (Capacitance)",
+      "category": "Physics",
+      "definition": "The ratio of the change in an electric charge in a system to the corresponding change in its electric potential."
+    },
+    "inductance": {
+      "en": "Inductance",
+      "ta": "மின்தூண்டல் (Inductance)",
+      "hi": "प्रेरकत्व (Inductance)",
+      "te": "ఇండక్టెన్స్ (Inductance)",
+      "category": "Physics",
+      "definition": "Property of an electrical conductor by which a change in current flowing through it induces an electromotive force."
+    },
+    "matrix multiplication": {
+      "en": "Matrix Multiplication",
+      "ta": "அணிப் பெருக்கல் (Matrix Multiplication)",
+      "hi": "आव्यूह गुणन (Matrix Multiplication)",
+      "te": "మాట్రిక్స్ గుణకారం (Matrix Multiplication)",
+      "category": "Linear Algebra",
+      "definition": "Binary operation that produces a matrix from two matrices with compatible inner dimensions."
+    },
+    "determinant": {
+      "en": "Determinant",
+      "ta": "அணிக்கோவை மதிப்பு (Determinant)",
+      "hi": "सारणिक (Determinant)",
+      "te": "డిటర్మినెంట్ (Determinant)",
+      "category": "Linear Algebra",
+      "definition": "Scalar value computed from elements of a square matrix encoding transformation properties."
+    },
+    "derivative": {
+      "en": "Derivative",
+      "ta": "வகைக்கெழு (Derivative)",
+      "hi": "अवकलज (Derivative)",
+      "te": "అవకలనం (Derivative)",
+      "category": "Calculus",
+      "definition": "The rate of change of a function with respect to an independent variable."
+    },
+    "integral": {
+      "en": "Integral",
+      "ta": "தொகையீட்டுத் தொகை (Integral)",
+      "hi": "समाकलन (Integral)",
+      "te": "సమాకలనం (Integral)",
+      "category": "Calculus",
+      "definition": "Mathematical object assigning numbers to functions representing area, volume, displacement."
+    },
+    "polynomial": {
+      "en": "Polynomial",
+      "ta": "பல்லுறுப்புக் கோவை (Polynomial)",
+      "hi": "बहुपद (Polynomial)",
+      "te": "బహుపది (Polynomial)",
+      "category": "Calculus",
+      "definition": "Mathematical expression consisting of indeterminates and coefficients involving only addition, subtraction, multiplication."
+    },
+    "vector space": {
+      "en": "Vector Space",
+      "ta": "திசையன் வெளி (Vector Space)",
+      "hi": "सदिश समष्टि (Vector Space)",
+      "te": "వెక్టర్ స్పేస్ (Vector Space)",
+      "category": "Linear Algebra",
+      "definition": "Set of objects (vectors) that may be added together and multiplied by scalars."
+    },
+    "asymptotic notation": {
+      "en": "Asymptotic Notation",
+      "ta": "அசிம்ப்டோட்டிக் குறிப்பீடு (Asymptotic Notation)",
+      "hi": "अनंतस्पर्शी अंकन (Asymptotic Notation)",
+      "te": "అసింప్టోటిక్ నోటేషన్ (Asymptotic Notation)",
+      "category": "Computer Science",
+      "definition": "Mathematical notations (Big-O, Omega, Theta) describing limiting behavior of execution complexity."
+    },
+    "time complexity": {
+      "en": "Time Complexity",
+      "ta": "நேரச் சிக்கல்தன்மை (Time Complexity)",
+      "hi": "समय जटिलता (Time Complexity)",
+      "te": "సమయ సంక్లిష్టత (Time Complexity)",
+      "category": "Computer Science",
+      "definition": "Computational complexity that describes the amount of computer time taken to run an algorithm."
+    },
+    "space complexity": {
+      "en": "Space Complexity",
+      "ta": "நினைவகச் சிக்கல்தன்மை (Space Complexity)",
+      "hi": "स्थान जटिलता (Space Complexity)",
+      "te": "స్పేస్ కాంప్లెక్సిటీ (Space Complexity)",
+      "category": "Computer Science",
+      "definition": "Memory space required by an algorithm to execute as a function of the length of input."
+    },
+    "binary search": {
+      "en": "Binary Search",
+      "ta": "இருபடி தேடல் (Binary Search)",
+      "hi": "द्विआधारी खोज (Binary Search)",
+      "te": "బైనరీ సెర్చ్ (Binary Search)",
+      "category": "Computer Science",
+      "definition": "Search algorithm that finds position of a target value within a sorted array in O(log n) time."
+    },
+    "recursion": {
+      "en": "Recursion",
+      "ta": "தற்சுழற்சி (Recursion)",
+      "hi": "पुनरावर्तन (Recursion)",
+      "te": "పునరావృతం (Recursion)",
+      "category": "Computer Science",
+      "definition": "Method of solving a problem where the solution depends on solutions to smaller instances of the same problem."
+    },
+    "dynamic programming": {
+      "en": "Dynamic Programming",
+      "ta": "மாறும் நிரலாக்கம் (Dynamic Programming)",
+      "hi": "गतिक क्रमादेशन (Dynamic Programming)",
+      "te": "డైనమిక్ ప్రోగ్రామింగ్ (Dynamic Programming)",
+      "category": "Computer Science",
+      "definition": "Algorithmic technique solving complex problems by breaking them down into overlapping subproblems."
+    },
+    "graph traversal": {
+      "en": "Graph Traversal",
+      "ta": "வரைபட உலாவல் (Graph Traversal)",
+      "hi": "ग्राफ ट्रैवर्सल (Graph Traversal)",
+      "te": "గ్రాఫ్ ట్రావర్సల్ (Graph Traversal)",
+      "category": "Computer Science",
+      "definition": "Problem of visiting each vertex in a graph (BFS or DFS)."
+    },
+    "hash table": {
+      "en": "Hash Table",
+      "ta": "ஹேஷ் அட்டவணை (Hash Table)",
+      "hi": "हैश तालिका (Hash Table)",
+      "te": "హాష్ టేబుల్ (Hash Table)",
+      "category": "Computer Science",
+      "definition": "Data structure implementing an associative array, mapping keys to values using a hash function."
+    },
+    "catalyst": {
+      "en": "Catalyst",
+      "ta": "வினைவேக மாற்றி (Catalyst)",
+      "hi": "उत्प्रेरक (Catalyst)",
+      "te": "ఉత్ప్రేరకం (Catalyst)",
+      "category": "Chemistry",
+      "definition": "Substance that increases the rate of a chemical reaction without undergoing permanent chemical change."
+    },
+    "covalent bond": {
+      "en": "Covalent Bond",
+      "ta": "சகப்பிணைப்பு (Covalent Bond)",
+      "hi": "सहसंयोजक बंधन (Covalent Bond)",
+      "te": "సమయోజనీయ బంధం (Covalent Bond)",
+      "category": "Chemistry",
+      "definition": "Chemical bond involving sharing of electron pairs between atoms."
+    },
+    "exothermic": {
+      "en": "Exothermic",
+      "ta": "வெப்ப உமிழ் வினை (Exothermic)",
+      "hi": "ऊष्माक्षेपी (Exothermic)",
+      "te": "ఉష్ణమోచక (Exothermic)",
+      "category": "Chemistry",
+      "definition": "Chemical reaction accompanied by release of heat (negative delta H)."
+    },
+    "endothermic": {
+      "en": "Endothermic",
+      "ta": "வெப்ப ஏற்பு வினை (Endothermic)",
+      "hi": "ऊष्माशोषी (Endothermic)",
+      "te": "ఉష్ణగ్రాహక (Endothermic)",
+      "category": "Chemistry",
+      "definition": "Chemical reaction accompanied by absorption of heat (positive delta H)."
+    },
+    "activation energy": {
+      "en": "Activation Energy",
+      "ta": "செயல்படு ஆற்றல் (Activation Energy)",
+      "hi": "सक्रियण ऊर्जा (Activation Energy)",
+      "te": "సక్రియాకరణ శక్తి (Activation Energy)",
+      "category": "Chemistry",
+      "definition": "Minimum energy required for a chemical reaction to occur."
+    },
+    "equilibrium": {
+      "en": "Equilibrium",
+      "ta": "வேதிச் சமநிலை (Equilibrium)",
+      "hi": "रासायनिक साम्यावस्था (Equilibrium)",
+      "te": "రసాయన సమతాస్థితి (Equilibrium)",
+      "category": "Chemistry",
+      "definition": "State where forward reaction rate equals reverse reaction rate."
+    },
+    "oxidation": {
+      "en": "Oxidation",
+      "ta": "ஆக்சிஜனேற்றம் (Oxidation)",
+      "hi": "ऑक्सीकरण (Oxidation)",
+      "te": "ఆక్సీకరణం (Oxidation)",
+      "category": "Chemistry",
+      "definition": "Process involving loss of electrons or increase in oxidation state."
+    },
+    "reduction": {
+      "en": "Reduction",
+      "ta": "ஒடுக்கம் (Reduction)",
+      "hi": "अपचयन (Reduction)",
+      "te": "క్షయకరణం (Reduction)",
+      "category": "Chemistry",
+      "definition": "Process involving gain of electrons or decrease in oxidation state."
+    },
+    "differential equation": {
+      "en": "Differential Equation",
+      "ta": "வகைக்கெழு சமன்பாடு (Differential Equation)",
+      "hi": "अवकल समीकरण (Differential Equation)",
+      "te": "అవకలన సమీకరణం (Differential Equation)",
+      "category": "Calculus",
+      "definition": "Mathematical equation that relates one or more functions and their derivatives."
+    },
+    "partial derivative": {
+      "en": "Partial Derivative",
+      "ta": "பகுதி வகைக்கெழு (Partial Derivative)",
+      "hi": "आंशिक अवकलज (Partial Derivative)",
+      "te": "పాక్షిక అవకలనం (Partial Derivative)",
+      "category": "Calculus",
+      "definition": "Derivative of a function of several variables with respect to one variable, holding others constant."
+    },
+    "transformer": {
+      "en": "Transformer",
+      "ta": "டிரான்ஸ்ஃபார்மர் கட்டமைப்பு (Transformer Architecture)",
+      "hi": "ट्रांसफॉर्मर आर्किटेक्चर (Transformer Architecture)",
+      "te": "ట్రాన్స్‌ఫార్మర్ (Transformer)",
+      "category": "Machine Learning",
+      "definition": "Deep learning model architecture utilizing self-attention mechanisms widely used in NLP."
+    },
+    "attention mechanism": {
+      "en": "Attention Mechanism",
+      "ta": "கவனக் கட்டமைப்பு (Attention Mechanism)",
+      "hi": "अटेंशन मैकेनिज्म (Attention Mechanism)",
+      "te": "అటెన్షన్ మెకానిజం (Attention Mechanism)",
+      "category": "Machine Learning",
+      "definition": "Technique allowing neural networks to dynamically focus on specific parts of input sequence."
+    },
+    "convolution": {
+      "en": "Convolution",
+      "ta": "சுருள்வு செயல்பாடு (Convolution)",
+      "hi": "संवलन (Convolution)",
+      "te": "కన్వల్యూషన్ (Convolution)",
+      "category": "Machine Learning",
+      "definition": "Mathematical operation on two functions expressing how the shape of one is modified by the other."
+    },
+    "cross-entropy": {
+      "en": "Cross-Entropy",
+      "ta": "குறுக்கு என்ட்ரோபி (Cross-Entropy)",
+      "hi": "क्रॉस-एन्ट्रॉपी (Cross-Entropy)",
+      "te": "క్రాస్-ఎంట్రోపీ (Cross-Entropy)",
+      "category": "Machine Learning",
+      "definition": "Measure of difference between two probability distributions over the same set of events."
+    },
+    "stochastic gradient descent": {
+      "en": "Stochastic Gradient Descent",
+      "ta": "சீரற்ற சரிவு இறக்கம் (Stochastic Gradient Descent)",
+      "hi": "प्रायिकतावादी प्रवणता अवरोहण (SGD)",
+      "te": "స్టోకాస్టిక్ గ్రేడియంట్ డీసెంట్ (SGD)",
+      "category": "Machine Learning",
+      "definition": "Iterative optimization technique that calculates gradient on random mini-batches rather than whole dataset."
+    }
+  }
+}
