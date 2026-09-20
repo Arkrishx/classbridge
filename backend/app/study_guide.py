@@ -60,12 +60,18 @@ class StudyGuideGenerator:
         definitions = []
         for term_info in detected_terms[:8]:
             trans = term_info["translations"].get(target_lang) or term_info["translations"].get("ta", term_info["en"])
+            if target_lang == "ml":
+                v_def = f"{trans} എന്നത് {term_info['definition']}"
+            elif target_lang == "hi":
+                v_def = f"{trans}: {term_info['definition']}"
+            else:
+                v_def = f"{trans} என்பது {term_info['definition']}"
             definitions.append({
                 "term": term_info["en"],
                 "vernacular_term": trans,
                 "category": term_info["category"],
                 "definition": term_info["definition"],
-                "vernacular_definition": f"{trans} என்பது {term_info['definition']}"
+                "vernacular_definition": v_def
             })
 
         # Extract or infer STEM formulas
@@ -84,26 +90,46 @@ class StudyGuideGenerator:
         flashcards = []
         fc_id = 1
         for d in definitions[:5]:
+            if target_lang == "ml":
+                q_v = f"{d['vernacular_term']} എന്നാൽ എന്താണ്?"
+            elif target_lang == "hi":
+                q_v = f"{d['vernacular_term']} क्या है?"
+            else:
+                q_v = f"{d['vernacular_term']} என்றால் என்ன?"
+
             flashcards.append({
                 "id": fc_id,
                 "front": f"What is {d['term']}?",
-                "vernacular_front": f"{d['vernacular_term']} என்றால் என்ன?",
+                "vernacular_front": q_v,
                 "back": d["definition"],
                 "category": d["category"]
             })
             fc_id += 1
 
         for f in formulas[:3]:
+            if target_lang == "ml":
+                q_vf = f"{f['name']} സമവാക്യം / സൂത്രം"
+            elif target_lang == "hi":
+                q_vf = f"{f['name']} का सूत्र / समीकरण"
+            else:
+                q_vf = f"{f['name']} இன் சமன்பாடு / சூத்திரம்"
+
             flashcards.append({
                 "id": fc_id,
                 "front": f"Formula for {f['name']}",
-                "vernacular_front": f"{f['name']} இன் சமன்பாடு / சூத்திரம்",
+                "vernacular_front": q_vf,
                 "back": f"{f['latex']} — {f['description']}",
                 "category": "Formulas"
             })
             fc_id += 1
 
         lang_meta = settings.SUPPORTED_LANGUAGES.get(target_lang, {"name": "Tamil", "native": "தமிழ்"})
+        if target_lang == "ml":
+            v_overview = f"{len(segments)} പ്രഭാഷണ ഭാഗങ്ങളിൽ നിന്ന് തയ്യാറാക്കിയ സമഗ്രമായ STEM പഠന സഹായി."
+        elif target_lang == "hi":
+            v_overview = f"{len(segments)} व्याख्यान खंडों से तैयार की गई व्यापक STEM अध्ययन मार्गदर्शिका।"
+        else:
+            v_overview = f"{len(segments)} விரிவுரை பகுதிகளிலிருந்து தொகுக்கப்பட்ட விரிவான STEM படிப்பு வழிகாட்டி."
 
         return {
             "title": topic,
@@ -112,7 +138,7 @@ class StudyGuideGenerator:
             "native_language": lang_meta["native"],
             "overview": {
                 "en": f"Comprehensive lecture study guide synthesized from {len(segments)} transcript segments focusing on foundational STEM concepts, definitions, and equations.",
-                "vernacular": f"{len(segments)} விரிவுரை பகுதிகளிலிருந்து தொகுக்கப்பட்ட விரிவான STEM படிப்பு வழிகாட்டி."
+                "vernacular": v_overview
             },
             "definitions": definitions,
             "formulas": formulas,
@@ -256,6 +282,13 @@ Return ONLY valid JSON matching this exact JSON schema:
 
     def _generate_empty_guide(self, target_lang: str) -> Dict[str, Any]:
         lang_meta = settings.SUPPORTED_LANGUAGES.get(target_lang, {"name": "Tamil", "native": "தமிழ்"})
+        if target_lang == "ml":
+            empty_v = "പഠന സഹായി നിർമ്മിക്കുന്നതിന് മൈക്രോഫോൺ പ്രവർത്തിപ്പിക്കുക അല്ലെങ്കിൽ സാമ്പിൾ പ്രഭാഷണം ലോഡ് ചെയ്യുക."
+        elif target_lang == "hi":
+            empty_v = "अध्ययन मार्गदर्शिका तैयार करने के लिए कृपया माइक्रोफ़ोन शुरू करें या एक नमूना व्याख्यान लोड करें।"
+        else:
+            empty_v = "படிப்பு வழிகாட்டியை உருவாக்க ஒலிவாங்கியை இயக்கவும் அல்லது மாதிரி விரிவுரையை ஏற்றவும்."
+
         return {
             "title": "No Lecture Transcript Recorded Yet",
             "date": datetime.now().strftime("%B %d, %Y"),
@@ -263,7 +296,7 @@ Return ONLY valid JSON matching this exact JSON schema:
             "native_language": lang_meta["native"],
             "overview": {
                 "en": "Please start the microphone or load a sample lecture to record transcript segments before generating a study guide.",
-                "vernacular": "படிப்பு வழிகாட்டியை உருவாக்க ஒலிவாங்கியை இயக்கவும் அல்லது மாதிரி விரிவுரையை ஏற்றவும்."
+                "vernacular": empty_v
             },
             "definitions": [],
             "formulas": [],

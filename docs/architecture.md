@@ -82,7 +82,7 @@ To deliver a comfortable real-time experience for students following a live lect
 General-purpose MT algorithms fail drastically on technical scientific phrases (e.g. translating *"gradient descent"* into *"சாய்வு வம்சாவளி"* — literal slope genealogy). 
 The Domain Adaptation Layer:
 1. Detects specialized STEM terms in English transcript segments using boundary-aware regex matching.
-2. Applies standardized Indic terminology (Tamil, Hindi, Telugu, etc.) with dual-script English annotations in parentheses.
+2. Applies standardized Indic terminology (Tamil, Malayalam, and Hindi) with dual-script English annotations in parentheses.
 3. Attaches explanatory metadata (`category`, `definition`) directly to the caption payload so students can inspect the concept in the UI.
 
 ### 3.2 Explainable ASR Confidence Scoring

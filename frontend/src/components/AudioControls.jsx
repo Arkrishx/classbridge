@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mic, MicOff, PlayCircle, BookCheck, Trash2, Volume2, Sparkles, Send } from 'lucide-react';
+import { Mic, MicOff, Play, BookCheck, Trash2, Sparkles, Send, Activity } from 'lucide-react';
 
 export default function AudioControls({
   isRecording,
@@ -25,13 +25,14 @@ export default function AudioControls({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-      <div className="control-card">
-        <div className="control-left">
+    <div className="control-dock">
+      <div className="dock-top-row">
+        <div className="dock-left-actions">
+          {/* Immersive Tactile Record Button */}
           <button
-            className={`btn ${isRecording ? 'btn-danger' : 'btn-primary'}`}
+            className={`btn-record ${isRecording ? 'recording' : 'idle'}`}
             onClick={onToggleRecord}
-            title="Start live speech capture from microphone"
+            title={isRecording ? "Click to stop recording" : "Click to start live speech capture"}
           >
             {isRecording ? (
               <>
@@ -46,62 +47,68 @@ export default function AudioControls({
             )}
           </button>
 
-          {/* Real-time Audio Level Visualizer */}
-          <div className="audio-visualizer" title={`Input Level: ${audioLevel}%`}>
-            <Volume2 size={16} color={isRecording ? 'var(--brand-primary)' : 'var(--text-muted)'} />
-            {[...Array(8)].map((_, i) => {
-              const isActive = isRecording && audioLevel > i * 12;
+          {/* Organic Audio Waveform Visualizer */}
+          <div className="waveform-container" title={`Audio Level: ${audioLevel}%`}>
+            {[...Array(12)].map((_, i) => {
+              const active = isRecording && audioLevel > i * 8;
+              const barHeight = active
+                ? Math.max(6, Math.min(26, (audioLevel / 100) * 28 + Math.sin(i) * 6))
+                : 4;
               return (
                 <div
                   key={i}
-                  className={`viz-bar ${isActive ? 'active' : ''}`}
+                  className="waveform-bar"
                   style={{
-                    height: isActive ? `${Math.max(6, Math.min(22, (audioLevel / 100) * 24 + i * 2))}px` : '4px',
-                    backgroundColor: isActive ? 'var(--brand-primary)' : 'var(--bg-tertiary)',
+                    height: `${barHeight}px`,
+                    background: active
+                      ? 'linear-gradient(180deg, var(--accent-cyan), var(--accent-indigo))'
+                      : 'rgba(255, 255, 255, 0.1)',
                   }}
                 />
               );
             })}
           </div>
 
-          {/* 1-Click Sample Lecture Replay */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* Minimalist Sample Lecture Chips */}
+          <div className="dock-chips">
             <button
-              className="btn btn-outline"
+              className="chip-btn"
               onClick={() => onLoadSample('ml')}
               title="Load Pre-recorded Machine Learning & Optimization Lecture"
             >
-              <PlayCircle size={15} />
+              <Play size={11} fill="currentColor" />
               <span>Sample: ML & Optimization</span>
             </button>
 
             <button
-              className="btn btn-outline"
+              className="chip-btn"
               onClick={() => onLoadSample('linear_algebra')}
               title="Load Pre-recorded Linear Algebra & Eigenvalues Lecture"
             >
-              <PlayCircle size={15} />
+              <Play size={11} fill="currentColor" />
               <span>Sample: Linear Algebra</span>
             </button>
           </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Shimmering Study Guide Button */}
           <button
-            className="btn btn-accent"
+            className="btn-shimmer"
             onClick={onGenerateStudyGuide}
             disabled={isGeneratingGuide || segmentCount === 0}
-            title="Auto-generate structured PDF study guide with definitions, formulas, takeaways, and flashcards"
+            title="Synthesize structured PDF study guide"
           >
             <BookCheck size={16} />
-            <span>{isGeneratingGuide ? 'Synthesizing...' : 'Generate Study Guide'}</span>
+            <span>{isGeneratingGuide ? 'Synthesizing...' : 'Study Guide'}</span>
             {segmentCount > 0 && (
               <span
                 style={{
-                  background: 'rgba(255, 255, 255, 0.25)',
-                  padding: '1px 6px',
-                  borderRadius: '10px',
+                  background: 'rgba(52, 211, 153, 0.25)',
+                  padding: '1px 7px',
+                  borderRadius: 'var(--radius-pill)',
                   fontSize: '11px',
+                  fontWeight: 800,
                 }}
               >
                 {segmentCount}
@@ -111,23 +118,24 @@ export default function AudioControls({
 
           {segmentCount > 0 && (
             <button
-              className="btn btn-outline"
+              className="btn-minimal"
               onClick={onClearSession}
-              title="Clear all captions and reset session"
+              title="Clear transcript session"
+              style={{ padding: '8px' }}
             >
-              <Trash2 size={15} />
+              <Trash2 size={15} color="var(--text-muted)" />
             </button>
           )}
         </div>
       </div>
 
-      {/* Live Speech Feedback Bar */}
+      {/* Live Speech Recognition Feedback (Active while speaking) */}
       {isRecording && (
         <div
           style={{
-            background: 'rgba(56, 189, 248, 0.12)',
-            border: '1px solid rgba(56, 189, 248, 0.3)',
-            borderRadius: '8px',
+            background: 'rgba(56, 189, 248, 0.08)',
+            border: '1px solid rgba(56, 189, 248, 0.25)',
+            borderRadius: 'var(--radius-md)',
             padding: '8px 16px',
             display: 'flex',
             alignItems: 'center',
@@ -136,47 +144,29 @@ export default function AudioControls({
             color: '#7dd3fc',
           }}
         >
-          <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', animation: 'pulse 1s infinite' }} />
-          <span><b>Live Mic Active:</b> {interimSpeech ? `"${interimSpeech}..."` : "Listening... Speak clearly into your microphone."}</span>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', animation: 'pulseBlink 1s infinite' }} />
+          <span><b>Live Voice:</b> {interimSpeech ? `"${interimSpeech}..."` : "Listening for speech... (Say: 'Today we learn eigenvalues and gradient descent')"}</span>
         </div>
       )}
 
-      {/* Direct Test Speech Input Bar */}
-      <form
-        onSubmit={handleQuickSubmit}
-        style={{
-          display: 'flex',
-          gap: '8px',
-          alignItems: 'center',
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border-color)',
-          borderRadius: '8px',
-          padding: '6px 12px',
-        }}
-      >
-        <Sparkles size={15} color="var(--brand-primary)" />
+      {/* Minimalist Integrated Speech / Dictation Input */}
+      <form onSubmit={handleQuickSubmit} className="quick-speech-bar">
+        <Sparkles size={14} color="var(--accent-cyan)" />
         <input
           type="text"
+          className="quick-speech-input"
           value={quickInput}
           onChange={(e) => setQuickInput(e.target.value)}
-          placeholder='Or dictate/type live speech to test (e.g. "Today we study eigenvalues and gradient descent in neural networks")'
-          style={{
-            flex: 1,
-            background: 'transparent',
-            border: 'none',
-            outline: 'none',
-            color: 'var(--text-primary)',
-            fontSize: '13px',
-          }}
+          placeholder='Or dictate/type lecture speech (e.g. "We compute eigenvalues and backpropagation in neural networks")'
         />
         <button
           type="submit"
-          className="btn btn-primary"
-          style={{ padding: '4px 12px', fontSize: '12px' }}
+          className="btn-minimal"
+          style={{ padding: '4px 12px', fontSize: '12px', background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent-cyan)', borderColor: 'rgba(56, 189, 248, 0.3)' }}
           disabled={!quickInput.trim()}
         >
-          <Send size={12} />
-          <span>Live Caption</span>
+          <Send size={11} />
+          <span>Caption</span>
         </button>
       </form>
     </div>

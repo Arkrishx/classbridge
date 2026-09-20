@@ -14,11 +14,12 @@ import confetti from 'canvas-confetti';
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
 
-// Fallback STEM Glossary for standalone Vercel preview
+// Fallback STEM Glossary for standalone Vercel preview (Tamil, Malayalam, Hindi)
 const FALLBACK_GLOSSARY = {
   "eigenvalue": {
     "en": "Eigenvalue",
     "ta": "சிறப்பியல்பு மதிப்பு (Eigenvalue)",
+    "ml": "ഐഗൺവാല്യു (Eigenvalue)",
     "hi": "अभिलाक्षणिक मान (Eigenvalue)",
     "category": "Linear Algebra",
     "definition": "A scalar associated with a linear system of equations that measures factor expansion."
@@ -26,6 +27,7 @@ const FALLBACK_GLOSSARY = {
   "eigenvector": {
     "en": "Eigenvector",
     "ta": "சிறப்பியல்பு திசையன் (Eigenvector)",
+    "ml": "ഐഗൺവെക്ടർ (Eigenvector)",
     "hi": "अभिलाक्षणिक सदिश (Eigenvector)",
     "category": "Linear Algebra",
     "definition": "A non-zero vector whose direction remains unchanged when a linear transformation is applied."
@@ -33,6 +35,7 @@ const FALLBACK_GLOSSARY = {
   "gradient descent": {
     "en": "Gradient Descent",
     "ta": "சரிவு இறக்கம் (Gradient Descent)",
+    "ml": "ഗ്രേഡിയന്റ് ഡിസന്റ് (Gradient Descent)",
     "hi": "प्रवणता अवरोहण (Gradient Descent)",
     "category": "Machine Learning",
     "definition": "First-order iterative optimization algorithm for finding a local minimum of a function."
@@ -40,6 +43,7 @@ const FALLBACK_GLOSSARY = {
   "backpropagation": {
     "en": "Backpropagation",
     "ta": "பின்நோக்கு பரவல் (Backpropagation)",
+    "ml": "ബാക്ക്പ്രൊപ്പഗേഷൻ (Backpropagation)",
     "hi": "पश्च-प्रसार (Backpropagation)",
     "category": "Machine Learning",
     "definition": "Algorithm used to calculate gradients of loss function with respect to weights using chain rule."
@@ -47,6 +51,7 @@ const FALLBACK_GLOSSARY = {
   "loss function": {
     "en": "Loss Function",
     "ta": "இழப்புச் சார்பு (Loss Function)",
+    "ml": "നഷ്ട ഫലനം (Loss Function)",
     "hi": "हानि फलन (Loss Function)",
     "category": "Machine Learning",
     "definition": "Function that maps values onto a real number representing cost or discrepancy."
@@ -54,6 +59,7 @@ const FALLBACK_GLOSSARY = {
   "learning rate": {
     "en": "Learning Rate",
     "ta": "கற்றல் வீதம் (Learning Rate)",
+    "ml": "ലേണിംഗ് റേറ്റ് (Learning Rate)",
     "hi": "सीखने की दर (Learning Rate)",
     "category": "Machine Learning",
     "definition": "Tuning parameter in optimization determining the step size at each iteration."
@@ -61,6 +67,7 @@ const FALLBACK_GLOSSARY = {
   "overfitting": {
     "en": "Overfitting",
     "ta": "மிகைப்பொருத்தம் (Overfitting)",
+    "ml": "ഓവർഫിറ്റിംഗ് (Overfitting)",
     "hi": "अति-सन्निकटन (Overfitting)",
     "category": "Machine Learning",
     "definition": "Modeling error where a function corresponds too closely or exactly to a particular dataset."
@@ -68,6 +75,7 @@ const FALLBACK_GLOSSARY = {
   "entropy": {
     "en": "Entropy",
     "ta": "என்ட்ரோபி / ஒழுங்கின்மை அளவு (Entropy)",
+    "ml": "എൻട്രോപ്പി (Entropy)",
     "hi": "एन्ट्रॉपी / अव्यवस्था (Entropy)",
     "category": "Physics",
     "definition": "Scientific concept associated with state of disorder, randomness, or uncertainty."
@@ -75,106 +83,275 @@ const FALLBACK_GLOSSARY = {
   "binary search": {
     "en": "Binary Search",
     "ta": "இருபடி தேடல் (Binary Search)",
+    "ml": "ബൈനറി സെർച്ച് (Binary Search)",
     "hi": "द्विआधारी खोज (Binary Search)",
     "category": "Computer Science",
     "definition": "Search algorithm that finds target position in a sorted array in O(log n) time."
   }
 };
 
-// Rich Sample Lecture Datasets for 1-Click Demos
+// Rich Sample Lecture Datasets with Tamil, Malayalam, and Hindi Support
 const SAMPLE_LECTURES = {
   ml: [
     {
       text_en: "Welcome class, today we begin our study of gradient descent and neural network optimization.",
-      text_vernacular: "வணக்கம் மாணவர்களே, இன்று நாம் சரிவு இறக்கம் (Gradient Descent) மற்றும் நரம்பியல் வலைப்பின்னல் உகப்பாக்கம் பற்றிய நமது ஆய்வைத் தொடங்குகிறோம்.",
+      translations: {
+        ta: "வணக்கம் மாணவர்களே, இன்று நாம் சரிவு இறக்கம் (Gradient Descent) மற்றும் நரம்பியல் வலைப்பின்னல் உகப்பாக்கம் பற்றிய நமது ஆய்வைத் தொடங்குகிறோம்.",
+        ml: "ക്ലാസ്സിലേക്ക് സ്വാഗതം, ഇന്ന് നമ്മൾ ഗ്രേഡിയന്റ് ഡിസന്റ് (Gradient Descent), ന്യൂറൽ നെറ്റ്‌വർക്ക് ഒപ്റ്റിമൈസേഷൻ എന്നിവയെക്കുറിച്ചുള്ള പഠനം ആരംഭിക്കുന്നു.",
+        hi: "कक्षा में स्वागत है, आज हम प्रवणता अवरोहण (Gradient Descent) और तंत्रिका नेटवर्क अनुकूलन का अपना अध्ययन शुरू करते हैं।"
+      },
       confidence: 97.4,
       start: 0.0,
       end: 4.5,
       timestamp: "00:00 - 00:04",
-      domain_terms: [{ en: "Gradient Descent", term: "gradient descent", adapted_vernacular: "சரிவு இறக்கம் (Gradient Descent)", category: "Machine Learning", definition: "First-order iterative optimization algorithm for finding a local minimum." }]
+      domain_terms: [
+        {
+          en: "Gradient Descent",
+          term: "gradient descent",
+          category: "Machine Learning",
+          definition: "First-order iterative optimization algorithm for finding a local minimum.",
+          translations: {
+            ta: "சரிவு இறக்கம் (Gradient Descent)",
+            ml: "ഗ്രേഡിയന്റ് ഡിസന്റ് (Gradient Descent)",
+            hi: "प्रवणता अवरोहण (Gradient Descent)"
+          }
+        }
+      ]
     },
     {
       text_en: "In deep learning, we compute derivatives via backpropagation to update the weights using our chosen learning rate.",
-      text_vernacular: "ஆழ்ந்த கற்றலில் (Deep Learning), நமது கற்றல் வீதம் (Learning Rate) பயன்படுத்தி எடைகளைப் புதுப்பிக்க பின்நோக்கு பரவல் (Backpropagation) வழியாக வகைக்கெழுக்களைக் கணக்கிடுகிறோம்.",
+      translations: {
+        ta: "ஆழ்ந்த கற்றலில் (Deep Learning), நமது கற்றல் வீதம் (Learning Rate) பயன்படுத்தி எடைகளைப் புதுப்பிக்க பின்நோக்கு பரவல் (Backpropagation) வழியாக வகைக்கெழுக்களைக் கணக்கிடுகிறோம்.",
+        ml: "ഡീപ് ലേണിംഗിൽ, നമ്മൾ തിരഞ്ഞെടുത്ത ലേണിംഗ് റേറ്റ് (Learning Rate) ഉപയോഗിച്ച് വെയ്റ്റുകൾ അപ്‌ഡേറ്റ് ചെയ്യാൻ ബാക്ക്പ്രൊപ്പഗേഷൻ (Backpropagation) വഴി ഡെറിവേറ്റീവുകൾ കണക്കാക്കുന്നു.",
+        hi: "डीप लर्निंग में, हम अपनी चुनी गई सीखने की दर (Learning Rate) का उपयोग करके भारों को अपडेट करने के लिए पश्च-प्रसार (Backpropagation) के माध्यम से अवकलज की गणना करते हैं।"
+      },
       confidence: 95.8,
       start: 4.5,
       end: 10.2,
       timestamp: "00:04 - 00:10",
       domain_terms: [
-        { en: "Backpropagation", term: "backpropagation", adapted_vernacular: "பின்நோக்கு பரவல் (Backpropagation)", category: "Machine Learning", definition: "Algorithm used to calculate gradients of loss function with respect to weights." },
-        { en: "Learning Rate", term: "learning rate", adapted_vernacular: "கற்றல் வீதம் (Learning Rate)", category: "Machine Learning", definition: "Tuning parameter in optimization determining the step size." }
+        {
+          en: "Backpropagation",
+          term: "backpropagation",
+          category: "Machine Learning",
+          definition: "Algorithm used to calculate gradients of loss function with respect to weights.",
+          translations: {
+            ta: "பின்நோக்கு பரவல் (Backpropagation)",
+            ml: "ബാക്ക്പ്രൊപ്പഗേഷൻ (Backpropagation)",
+            hi: "पश्च-प्रसार (Backpropagation)"
+          }
+        },
+        {
+          en: "Learning Rate",
+          term: "learning rate",
+          category: "Machine Learning",
+          definition: "Tuning parameter in optimization determining the step size.",
+          translations: {
+            ta: "கற்றல் வீதம் (Learning Rate)",
+            ml: "ലേണിംഗ് റേറ്റ് (Learning Rate)",
+            hi: "सीखने की दर (Learning Rate)"
+          }
+        }
       ]
     },
     {
       text_en: "If the learning rate is too high, the loss function may diverge and cause severe overfitting on training data.",
-      text_vernacular: "கற்றல் வீதம் அதிகமாக இருந்தால், இழப்புச் சார்பு (Loss Function) விலகி பயிற்சித் தரவில் கடுமையான மிகைப்பொருத்தம் (Overfitting) ஏற்படுத்தக்கூடும்.",
+      translations: {
+        ta: "கற்றல் வீதம் அதிகமாக இருந்தால், இழப்புச் சார்பு (Loss Function) விலகி பயிற்சித் தரவில் கடுமையான மிகைப்பொருத்தம் (Overfitting) ஏற்படுத்தக்கூடும்.",
+        ml: "ലേണിംഗ് റേറ്റ് വളരെ ഉയർന്നതാണെങ്കിൽ, നഷ്ട ഫലനം (Loss Function) വഴിമാറിപ്പോവുകയും പരിശീലന ഡാറ്റയിൽ കടുത്ത ഓവർഫിറ്റിംഗ് (Overfitting) ഉണ്ടാക്കുകയും ചെയ്യാം.",
+        hi: "यदि सीखने की दर बहुत अधिक है, तो हानि फलन (Loss Function) विचलित हो सकता है और प्रशिक्षण डेटा पर गंभीर अति-सन्निकटन (Overfitting) पैदा कर सकता है।"
+      },
       confidence: 96.5,
       start: 10.2,
       end: 16.0,
       timestamp: "00:10 - 00:16",
       domain_terms: [
-        { en: "Loss Function", term: "loss function", adapted_vernacular: "இழப்புச் சார்பு (Loss Function)", category: "Machine Learning", definition: "Cost function measuring prediction error." },
-        { en: "Overfitting", term: "overfitting", adapted_vernacular: "மிகைப்பொருத்தம் (Overfitting)", category: "Machine Learning", definition: "Model error corresponding too closely to training data." }
+        {
+          en: "Loss Function",
+          term: "loss function",
+          category: "Machine Learning",
+          definition: "Cost function measuring prediction error.",
+          translations: {
+            ta: "இழப்புச் சார்பு (Loss Function)",
+            ml: "നഷ്ട ഫലനം (Loss Function)",
+            hi: "हानि फलन (Loss Function)"
+          }
+        },
+        {
+          en: "Overfitting",
+          term: "overfitting",
+          category: "Machine Learning",
+          definition: "Model error corresponding too closely to training data.",
+          translations: {
+            ta: "மிகைப்பொருத்தம் (Overfitting)",
+            ml: "ഓവർഫിറ്റിംഗ് (Overfitting)",
+            hi: "अति-सन्निकटन (Overfitting)"
+          }
+        }
       ]
     },
     {
       text_en: "The fundamental parameter update formula is theta at t plus one equals theta minus eta times the gradient of the loss.",
-      text_vernacular: "அடிப்படை அளவுரு புதுப்பித்தல் சூத்திரம்: தீட்டா t கூட்டல் ஒன்று சமன் தீட்டா கழித்தல் ஈட்டா பெருக்கல் இழப்பின் சரிவு (θ_{t+1} = θ_t - η ∇J(θ_t)).",
+      translations: {
+        ta: "அடிப்படை அளவுரு புதுப்பித்தல் சூத்திரம்: தீட்டா t கூட்டல் ஒன்று சமன் தீட்டா கழித்தல் ஈட்டா பெருக்கல் இழப்பின் சரிவு (θ_{t+1} = θ_t - η ∇J(θ_t)).",
+        ml: "അടിസ്ഥാന പാരാമീറ്റർ അപ്‌ഡേറ്റ് ഫോർമുല: തീറ്റ t പ്ലസ് ഒന്ന് സമം തീറ്റ മൈനസ് ഈറ്റ ഗുണം നഷ്ടത്തിന്റെ ഗ്രേഡിയന്റ് (θ_{t+1} = θ_t - η ∇J(θ_t)).",
+        hi: "मूल पैरामीटर अपडेट सूत्र है: थीटा t प्लस एक बराबर थीटा माइनस ईटा गुणा हानि की प्रवणता (θ_{t+1} = θ_t - η ∇J(θ_t))।"
+      },
       confidence: 98.2,
       start: 16.0,
       end: 22.8,
       timestamp: "00:16 - 00:22",
-      domain_terms: [{ en: "Gradient Descent", term: "gradient descent", adapted_vernacular: "சரிவு இறக்கம் (Gradient Descent)", category: "Machine Learning", definition: "Parameter update θ_{t+1} = θ_t - η ∇J(θ_t)." }]
+      domain_terms: [
+        {
+          en: "Gradient Descent",
+          term: "gradient descent",
+          category: "Machine Learning",
+          definition: "Parameter update θ_{t+1} = θ_t - η ∇J(θ_t).",
+          translations: {
+            ta: "சரிவு இறக்கம் (Gradient Descent)",
+            ml: "ഗ്രേഡിയന്റ് ഡിസന്റ് (Gradient Descent)",
+            hi: "प्रवणता अवरोहण (Gradient Descent)"
+          }
+        }
+      ]
     },
     {
       text_en: "Next lecture we will study stochastic gradient descent which computes gradients over mini-batches instead of the full dataset.",
-      text_vernacular: "அடுத்த விரிவுரையில் நாம் முழுத் தரவுத்தொகுப்பிற்குப் பதிலாக மினி-பேட்சுகளில் சரிவுகளைக் கணக்கிடும் சீரற்ற சரிவு இறக்கம் (Stochastic Gradient Descent) பற்றி படிப்போம்.",
+      translations: {
+        ta: "அடுத்த விரிவுரையில் நாம் முழுத் தரவுத்தொகுப்பிற்குப் பதிலாக மினி-பேட்சுகளில் சரிவுகளைக் கணக்கிடும் சீரற்ற சரிவு இறக்கம் (Stochastic Gradient Descent) பற்றி படிப்போம்.",
+        ml: "അടുത്ത ക്ലാസ്സിൽ പൂർണ്ണ ഡാറ്റാസെറ്റിന് പകരം മിനി-ബാച്ചുകളിലായി ഗ്രേഡിയന്റുകൾ കണക്കാക്കുന്ന സ്റ്റോക്കാസ്റ്റിക് ഗ്രേഡിയന്റ് ഡിസന്റ് (Stochastic Gradient Descent) നമ്മൾ പഠിക്കും.",
+        hi: "अगले व्याख्यान में हम प्रसंभाव्य प्रवणता अवरोहण (Stochastic Gradient Descent) का अध्ययन करेंगे जो पूरे डेटासेट के बजाय मिनी-बैचों पर प्रवणता की गणना करता है।"
+      },
       confidence: 94.7,
       start: 22.8,
       end: 29.5,
       timestamp: "00:22 - 00:29",
-      domain_terms: [{ en: "Stochastic Gradient Descent", term: "stochastic gradient descent", adapted_vernacular: "சீரற்ற சரிவு இறக்கம் (Stochastic Gradient Descent)", category: "Machine Learning", definition: "SGD computes updates over mini-batches." }]
+      domain_terms: [
+        {
+          en: "Stochastic Gradient Descent",
+          term: "stochastic gradient descent",
+          category: "Machine Learning",
+          definition: "SGD computes updates over mini-batches.",
+          translations: {
+            ta: "சீரற்ற சரிவு இறக்கம் (Stochastic Gradient Descent)",
+            ml: "സ്റ്റോക്കാസ്റ്റിക് ഗ്രേഡിയന്റ് ഡിസന്റ് (Stochastic Gradient Descent)",
+            hi: "प्रसंभाव्य प्रवणता अवरोहण (Stochastic Gradient Descent)"
+          }
+        }
+      ]
     }
   ],
   linear_algebra: [
     {
       text_en: "Welcome to Linear Algebra. Today we explore eigenvalues and eigenvectors of square transformation matrices.",
-      text_vernacular: "நேரியல் இயற்கணிதத்திற்கு நல்வரவு. இன்று நாம் சதுர உருமாற்ற அணிகளின் சிறப்பியல்பு மதிப்பு (Eigenvalue) மற்றும் சிறப்பியல்பு திசையன் (Eigenvector) பற்றி ஆராய்வோம்.",
+      translations: {
+        ta: "நேரியல் இயற்கணிதத்திற்கு நல்வரவு. இன்று நாம் சதுர உருமாற்ற அணிகளின் சிறப்பியல்பு மதிப்பு (Eigenvalue) மற்றும் சிறப்பியல்பு திசையன் (Eigenvector) பற்றி ஆராய்வோம்.",
+        ml: "ലീനിയർ ആൾജിബ്രയിലേക്ക് സ്വാഗതം. ഇന്ന് നമ്മൾ സ്ക്വയർ ട്രാൻസ്ഫോർമേഷൻ മാട്രിക്സുകളുടെ ഐഗൺവാല്യു (Eigenvalue), ഐഗൺവെക്ടർ (Eigenvector) എന്നിവ പരിശോധിക്കുന്നു.",
+        hi: "रैखिक बीजगणित में आपका स्वागत है। आज हम वर्ग रूपांतरण आव्यूहों के अभिलाक्षणिक मान (Eigenvalue) और अभिलाक्षणिक सदिश (Eigenvector) का अध्ययन करेंगे।"
+      },
       confidence: 97.0,
       start: 0.0,
       end: 5.2,
       timestamp: "00:00 - 00:05",
       domain_terms: [
-        { en: "Eigenvalue", term: "eigenvalue", adapted_vernacular: "சிறப்பியல்பு மதிப்பு (Eigenvalue)", category: "Linear Algebra", definition: "Scalar factor measuring vector expansion." },
-        { en: "Eigenvector", term: "eigenvector", adapted_vernacular: "சிறப்பியல்பு திசையன் (Eigenvector)", category: "Linear Algebra", definition: "Vector whose direction remains unchanged under linear transformation." }
+        {
+          en: "Eigenvalue",
+          term: "eigenvalue",
+          category: "Linear Algebra",
+          definition: "Scalar factor measuring vector expansion.",
+          translations: {
+            ta: "சிறப்பியல்பு மதிப்பு (Eigenvalue)",
+            ml: "ഐഗൺവാല്യു (Eigenvalue)",
+            hi: "अभिलाक्षणिक मान (Eigenvalue)"
+          }
+        },
+        {
+          en: "Eigenvector",
+          term: "eigenvector",
+          category: "Linear Algebra",
+          definition: "Vector whose direction remains unchanged under linear transformation.",
+          translations: {
+            ta: "சிறப்பியல்பு திசையன் (Eigenvector)",
+            ml: "ഐഗൺവെക്ടർ (Eigenvector)",
+            hi: "अभिलाक्षणिक सदिश (Eigenvector)"
+          }
+        }
       ]
     },
     {
       text_en: "Remember that an eigenvalue lambda and eigenvector v satisfy the fundamental matrix equation A v equals lambda v.",
-      text_vernacular: "சிறப்பியல்பு மதிப்பு லாம்ப்டா (λ) மற்றும் திசையன் v ஆகியவை அடிப்படை அணிச் சமன்பாடான A v = λ v ஐ நிறைவு செய்கின்றன என்பதை நினைவில் கொள்க.",
+      translations: {
+        ta: "சிறப்பியல்பு மதிப்பு லாம்ப்டா (λ) மற்றும் திசையன் v ஆகியவை அடிப்படை அணிச் சமன்பாடான A v = λ v ஐ நிறைவு செய்கின்றன என்பதை நினைவில் கொள்க.",
+        ml: "ഐഗൺവാല്യു ലാംഡയും (λ) ഐഗൺവെക്ടർ v-യും അടിസ്ഥാന മാട്രിക്സ് സമവാക്യമായ A v = λ v നിറവേറ്റുന്നു എന്ന് ഓർക്കുക.",
+        hi: "याद रखें कि एक अभिलाक्षणिक मान लैम्ब्डा (λ) और अभिलाक्षणिक सदिश v मौलिक आव्यूह समीकरण A v = λ v को संतुष्ट करते हैं।"
+      },
       confidence: 96.2,
       start: 5.2,
       end: 11.5,
       timestamp: "00:05 - 00:11",
-      domain_terms: [{ en: "Eigenvalue", term: "eigenvalue", adapted_vernacular: "சிறப்பியல்பு மதிப்பு (Eigenvalue)", category: "Linear Algebra", definition: "A v = λ v characteristic equation." }]
+      domain_terms: [
+        {
+          en: "Eigenvalue",
+          term: "eigenvalue",
+          category: "Linear Algebra",
+          definition: "A v = λ v characteristic equation.",
+          translations: {
+            ta: "சிறப்பியல்பு மதிப்பு (Eigenvalue)",
+            ml: "ഐഗൺവാല്യു (Eigenvalue)",
+            hi: "अभिलाक्षणिक मान (Eigenvalue)"
+          }
+        }
+      ]
     },
     {
       text_en: "To solve for eigenvalues, we compute the determinant of A minus lambda times identity matrix and set it to zero.",
-      text_vernacular: "சிறப்பியல்பு மதிப்புகளைக் கண்டுபிடிக்க, A கழித்தல் லாம்ப்டா பெருக்கல் அலகு அணியின் அணிக்கோவை மதிப்பை (Determinant: det(A - λI) = 0) கணக்கிடுகிறோம்.",
+      translations: {
+        ta: "சிறப்பியல்பு மதிப்புகளைக் கண்டுபிடிக்க, A கழித்தல் லாம்ப்டா பெருக்கல் அலகு அணியின் அணிக்கோவை மதிப்பை (Determinant: det(A - λI) = 0) கணக்கிடுகிறோம்.",
+        ml: "ഐഗൺവാല്യുകൾ കണ്ടെത്തുന്നതിന്, A മൈനസ് ലാംഡ ഗുണം ഐഡന്റിറ്റി മാട്രിക്സിന്റെ ഡിറ്റർമിനന്റ് (det(A - λI) = 0) കണക്കാക്കുന്നു.",
+        hi: "अभिलाक्षणिक मान ज्ञात करने के लिए, हम A माइनस लैम्ब्डा गुणा तत्समक आव्यूह के सारणिक (det(A - λI) = 0) की गणना करते हैं।"
+      },
       confidence: 95.1,
       start: 11.5,
       end: 18.0,
       timestamp: "00:11 - 00:18",
-      domain_terms: [{ en: "Determinant", term: "determinant", adapted_vernacular: "அணிக்கோவை மதிப்பு (Determinant)", category: "Linear Algebra", definition: "det(A - λI) = 0 characteristic polynomial." }]
+      domain_terms: [
+        {
+          en: "Determinant",
+          term: "determinant",
+          category: "Linear Algebra",
+          definition: "det(A - λI) = 0 characteristic polynomial.",
+          translations: {
+            ta: "அணிக்கோவை மதிப்பு (Determinant)",
+            ml: "ഡിറ്റർമിനന്റ് (Determinant)",
+            hi: "सारणिक (Determinant)"
+          }
+        }
+      ]
     },
     {
       text_en: "In geometric terms, eigenvectors define the invariant axes along which space merely stretches or shrinks.",
-      text_vernacular: "வடிவியல் ரீதியாக, சிறப்பியல்பு திசையன்கள் விண்வெளி நீட்டிக்கப்படும் அல்லது சுருங்கும் மாறாத அச்சுகளை வரையறுக்கின்றன.",
+      translations: {
+        ta: "வடிவியல் ரீதியாக, சிறப்பியல்பு திசையன்கள் விண்வெளி நீட்டிக்கப்படும் அல்லது சுருங்கும் மாறாத அச்சுகளை வரையறுக்கின்றன.",
+        ml: "ജ്യാമിതീയപരമായി, ഇടം വികസിക്കുകയോ ചുരുങ്ങുകയോ മാത്രം ചെയ്യുന്ന മാറ്റമില്ലാത്ത അക്ഷങ്ങളെയാണ് ഐഗൺവെക്ടറുകൾ നിർവചിക്കുന്നത്.",
+        hi: "ज्यामितीय दृष्टि से, अभिलाक्षणिक सदिश उन अपरिवर्तनीय अक्षों को परिभाषित करते हैं जिनके अनुदिश केवल स्थान फैलता या सिकुड़ता है।"
+      },
       confidence: 94.3,
       start: 18.0,
       end: 24.5,
       timestamp: "00:18 - 00:24",
-      domain_terms: [{ en: "Eigenvector", term: "eigenvector", adapted_vernacular: "சிறப்பியல்பு திசையன் (Eigenvector)", category: "Linear Algebra", definition: "Invariant axes of transformation." }]
+      domain_terms: [
+        {
+          en: "Eigenvector",
+          term: "eigenvector",
+          category: "Linear Algebra",
+          definition: "Invariant axes of transformation.",
+          translations: {
+            ta: "சிறப்பியல்பு திசையன் (Eigenvector)",
+            ml: "ഐഗൺവെക്ടർ (Eigenvector)",
+            hi: "अभिलाक्षणिक सदिश (Eigenvector)"
+          }
+        }
+      ]
     }
   ]
 };
@@ -287,6 +464,23 @@ export default function App() {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ action: 'set_language', language: newLang }));
     }
+    // Dynamically update existing segments that have multi-language translations
+    setSegments((prev) =>
+      prev.map((seg) => {
+        if (seg.translations && seg.translations[newLang]) {
+          return {
+            ...seg,
+            target_lang: newLang,
+            text_vernacular: seg.translations[newLang],
+            domain_terms: (seg.domain_terms || []).map((dt) => ({
+              ...dt,
+              adapted_vernacular: (dt.translations && dt.translations[newLang]) || dt.adapted_vernacular || dt.en
+            }))
+          };
+        }
+        return seg;
+      })
+    );
   };
 
   const processSpeechText = async (spokenText, confidence = 95) => {
@@ -385,6 +579,12 @@ export default function App() {
     sampleItems.forEach((item, index) => {
       setTimeout(() => {
         const segId = segments.length + index + 1;
+        const vernText = item.translations ? (item.translations[targetLang] || item.translations.ta) : item.text_vernacular;
+        const adaptedTerms = (item.domain_terms || []).map((dt) => ({
+          ...dt,
+          adapted_vernacular: (dt.translations && dt.translations[targetLang]) || dt.adapted_vernacular || dt.en
+        }));
+
         setSegments((prev) => {
           if (prev.some((s) => s.text_en === item.text_en)) return prev;
           return [
@@ -395,9 +595,10 @@ export default function App() {
               end: item.end,
               timestamp: item.timestamp,
               text_en: item.text_en,
-              text_vernacular: item.text_vernacular,
+              text_vernacular: vernText,
+              translations: item.translations,
               confidence: item.confidence,
-              domain_terms: item.domain_terms,
+              domain_terms: adaptedTerms,
               target_lang: targetLang
             }
           ];
@@ -470,7 +671,7 @@ export default function App() {
     let maxScore = -1;
 
     segments.forEach((seg) => {
-      const text = (seg.text_en + " " + seg.text_vernacular).toLowerCase();
+      const text = (seg.text_en + " " + (seg.text_vernacular || '')).toLowerCase();
       let score = 0;
       qTokens.forEach((tok) => {
         if (tok.length > 2 && text.includes(tok)) score += 1;
@@ -482,12 +683,21 @@ export default function App() {
     });
 
     if (bestMatch && maxScore > 0) {
+      let botVernacular = "";
+      if (targetLang === 'ml') {
+        botVernacular = `ഭാഗം #${bestMatch.id} [${bestMatch.timestamp}] പ്രകാരം: "${bestMatch.text_vernacular}"`;
+      } else if (targetLang === 'hi') {
+        botVernacular = `खंड #${bestMatch.id} [${bestMatch.timestamp}] के अनुसार: "${bestMatch.text_vernacular}"`;
+      } else {
+        botVernacular = `பகுதி #${bestMatch.id} [${bestMatch.timestamp}] இன் படி: "${bestMatch.text_vernacular}"`;
+      }
+
       setMessages((prev) => [
         ...prev,
         {
           role: 'bot',
           text: `Based on segment #${bestMatch.id} at [${bestMatch.timestamp}], the lecture explains: "${bestMatch.text_en}"`,
-          vernacular: `பகுதி #${bestMatch.id} [${bestMatch.timestamp}] இன் படி: "${bestMatch.text_vernacular}"`,
+          vernacular: botVernacular,
           citations: [
             {
               segment_id: bestMatch.id,
@@ -499,12 +709,21 @@ export default function App() {
         }
       ]);
     } else {
+      let notFoundVernacular = "";
+      if (targetLang === 'ml') {
+        notFoundVernacular = `ഈ പ്രഭാഷണത്തിൽ ഈ ചോദ്യത്തിനുള്ള വിവരങ്ങൾ ഇതുവരെ ലഭ്യമായിട്ടില്ല.`;
+      } else if (targetLang === 'hi') {
+        notFoundVernacular = `इस व्याख्यान में इस प्रश्न की जानकारी अभी उपलब्ध नहीं है।`;
+      } else {
+        notFoundVernacular = `விரிவுரையில் இந்தக் கேள்விக்கான தகவல் இன்னும் இடம்பெறவில்லை.`;
+      }
+
       setMessages((prev) => [
         ...prev,
         {
           role: 'bot',
           text: `I could not find information directly addressing "${question}" in this lecture transcript yet. Try asking about the formulas, eigenvalues, or gradient descent mentioned in the captions.`,
-          vernacular: `விரிவுரையில் இந்தக் கேள்விக்கான தகவல் இன்னும் இடம்பெறவில்லை.`,
+          vernacular: notFoundVernacular,
           citations: []
         }
       ]);
@@ -542,6 +761,154 @@ export default function App() {
 
     // Client-side fallback study guide generator
     const langObj = SUPPORTED_LANGUAGES.find((l) => l.code === targetLang) || { name: 'Tamil', native: 'தமிழ்' };
+
+    let overviewVernacular = `${segments.length} விரிவுரை பகுதிகளிலிருந்து தொகுக்கப்பட்ட விரிவான STEM படிப்பு வழிகாட்டி.`;
+    let defs = [
+      {
+        term: "Gradient Descent",
+        vernacular_term: "சரிவு இறக்கம் (Gradient Descent)",
+        category: "Machine Learning",
+        definition: "First-order iterative optimization algorithm for finding a local minimum of a differentiable loss function.",
+        vernacular_definition: "ஒரு சார்பின் உள்ளூர் குறைந்தபட்சத்தைக் கண்டறிவதற்கான முதல்-வரிசை மறுசெயல்முறை உகப்பாக்கம்."
+      },
+      {
+        term: "Eigenvalue",
+        vernacular_term: "சிறப்பியல்பு மதிப்பு (Eigenvalue)",
+        category: "Linear Algebra",
+        definition: "Scalar factor that scales an eigenvector during a linear transformation without changing its line of action.",
+        vernacular_definition: "நேரியல் உருமாற்றத்தில் திசையனின் திசையை மாற்றாமல் அளவிடும் காரணி."
+      },
+      {
+        term: "Backpropagation",
+        vernacular_term: "பின்நோக்கு பரவல் (Backpropagation)",
+        category: "Machine Learning",
+        definition: "Efficient gradient computation algorithm via chain rule throughout layered neural networks.",
+        vernacular_definition: "சங்கிலி விதியைப் பயன்படுத்தி நரம்பியல் வலைப்பின்னல்களில் சரிவுகளைக் கணக்கிடும் வழிமுறை."
+      }
+    ];
+
+    let flashcards = [
+      {
+        id: 1,
+        front: "What is Gradient Descent?",
+        vernacular_front: "சரிவு இறக்கம் என்றால் என்ன?",
+        back: "An optimization algorithm that minimizes the loss function by iteratively moving in the direction of steepest descent.",
+        category: "Machine Learning"
+      },
+      {
+        id: 2,
+        front: "What equation defines an eigenvalue and eigenvector?",
+        vernacular_front: "சிறப்பியல்பு மதிப்பு மற்றும் திசையனை வரையறுக்கும் சமன்பாடு எது?",
+        back: "A v = λ v, where matrix A acts on non-zero vector v resulting in scaled vector λv.",
+        category: "Linear Algebra"
+      },
+      {
+        id: 3,
+        front: "What happens if the learning rate is too large?",
+        vernacular_front: "கற்றல் வீதம் மிக அதிகமாக இருந்தால் என்ன நடக்கும்?",
+        back: "The optimization may diverge, overshoot the minimum, and cause unstable oscillations or severe overfitting.",
+        category: "Deep Learning"
+      }
+    ];
+
+    if (targetLang === 'ml') {
+      overviewVernacular = `${segments.length} പ്രഭാഷണ ഭാഗങ്ങളിൽ നിന്ന് തയ്യാറാക്കിയ സമഗ്രമായ STEM പഠന സഹായി.`;
+      defs = [
+        {
+          term: "Gradient Descent",
+          vernacular_term: "ഗ്രേഡിയന്റ് ഡിസന്റ് (Gradient Descent)",
+          category: "Machine Learning",
+          definition: "First-order iterative optimization algorithm for finding a local minimum of a differentiable loss function.",
+          vernacular_definition: "ഒരു ഫംഗ്ഷന്റെ ലോക്കൽ മിനിമം കണ്ടെത്താനുള്ള ആവർത്തന ഒപ്റ്റിമൈസേഷൻ അൽഗോരിതം."
+        },
+        {
+          term: "Eigenvalue",
+          vernacular_term: "ഐഗൺവാല്യു (Eigenvalue)",
+          category: "Linear Algebra",
+          definition: "Scalar factor that scales an eigenvector during a linear transformation without changing its line of action.",
+          vernacular_definition: "ലീനിയർ ട്രാൻസ്ഫോർമേഷനിൽ ഐഗൺവെക്ടറിനെ സ്കെയിൽ ചെയ്യുന്ന മൂല്യം."
+        },
+        {
+          term: "Backpropagation",
+          vernacular_term: "ബാക്ക്പ്രൊപ്പഗേഷൻ (Backpropagation)",
+          category: "Machine Learning",
+          definition: "Efficient gradient computation algorithm via chain rule throughout layered neural networks.",
+          vernacular_definition: "ചെയിൻ റൂൾ ഉപയോഗിച്ച് ന്യൂറൽ നെറ്റ്‌വർക്കുകളിൽ ഗ്രേഡിയന്റുകൾ കണക്കാക്കുന്ന രീതി."
+        }
+      ];
+      flashcards = [
+        {
+          id: 1,
+          front: "What is Gradient Descent?",
+          vernacular_front: "ഗ്രേഡിയന്റ് ഡിസന്റ് എന്നാൽ എന്താണ്?",
+          back: "An optimization algorithm that minimizes the loss function by iteratively moving in the direction of steepest descent.",
+          category: "Machine Learning"
+        },
+        {
+          id: 2,
+          front: "What equation defines an eigenvalue and eigenvector?",
+          vernacular_front: "ഐഗൺവാല്യുവും ഐഗൺവെക്ടറും നിർവചിക്കുന്ന സമവാക്യം ഏതാണ്?",
+          back: "A v = λ v, where matrix A acts on non-zero vector v resulting in scaled vector λv.",
+          category: "Linear Algebra"
+        },
+        {
+          id: 3,
+          front: "What happens if the learning rate is too large?",
+          vernacular_front: "ലേണിംഗ് റേറ്റ് വളരെ കൂടിയാൽ എന്ത് സംഭവിക്കും?",
+          back: "The optimization may diverge, overshoot the minimum, and cause unstable oscillations or severe overfitting.",
+          category: "Deep Learning"
+        }
+      ];
+    } else if (targetLang === 'hi') {
+      overviewVernacular = `${segments.length} व्याख्यान खंडों से तैयार की गई व्यापक STEM अध्ययन मार्गदर्शिका।`;
+      defs = [
+        {
+          term: "Gradient Descent",
+          vernacular_term: "प्रवणता अवरोहण (Gradient Descent)",
+          category: "Machine Learning",
+          definition: "First-order iterative optimization algorithm for finding a local minimum of a differentiable loss function.",
+          vernacular_definition: "किसी अवकलनीय हानि फलन का स्थानीय न्यूनतम खोजने के लिए प्रथम-क्रम पुनरावृत्ति अनुकूलन एल्गोरिदम।"
+        },
+        {
+          term: "Eigenvalue",
+          vernacular_term: "अभिलाक्षणिक मान (Eigenvalue)",
+          category: "Linear Algebra",
+          definition: "Scalar factor that scales an eigenvector during a linear transformation without changing its line of action.",
+          vernacular_definition: "एक अदिश मान जो रैखिक रूपांतरण के दौरान दिशा बदले बिना सदिश का परिमाण बदलता है।"
+        },
+        {
+          term: "Backpropagation",
+          vernacular_term: "पश्च-प्रसार (Backpropagation)",
+          category: "Machine Learning",
+          definition: "Efficient gradient computation algorithm via chain rule throughout layered neural networks.",
+          vernacular_definition: "श्रृंखला नियम का उपयोग करके तंत्रिका नेटवर्क में ग्रेडिएंट की गणना करने की कुशल विधि।"
+        }
+      ];
+      flashcards = [
+        {
+          id: 1,
+          front: "What is Gradient Descent?",
+          vernacular_front: "प्रवणता अवरोहण (Gradient Descent) क्या है?",
+          back: "An optimization algorithm that minimizes the loss function by iteratively moving in the direction of steepest descent.",
+          category: "Machine Learning"
+        },
+        {
+          id: 2,
+          front: "What equation defines an eigenvalue and eigenvector?",
+          vernacular_front: "अभिलाक्षणिक मान और अभिलाक्षणिक सदिश को परिभाषित करने वाला समीकरण कौन सा है?",
+          back: "A v = λ v, where matrix A acts on non-zero vector v resulting in scaled vector λv.",
+          category: "Linear Algebra"
+        },
+        {
+          id: 3,
+          front: "What happens if the learning rate is too large?",
+          vernacular_front: "यदि सीखने की दर बहुत अधिक हो तो क्या होगा?",
+          back: "The optimization may diverge, overshoot the minimum, and cause unstable oscillations or severe overfitting.",
+          category: "Deep Learning"
+        }
+      ];
+    }
+
     const guideData = {
       title: "Machine Learning & STEM Fundamentals",
       date: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
@@ -550,31 +917,9 @@ export default function App() {
       segment_count: segments.length,
       overview: {
         en: `Comprehensive study guide synthesized from ${segments.length} lecture segments focusing on gradient descent, eigenvalues, backpropagation, and core STEM principles.`,
-        vernacular: `${segments.length} விரிவுரை பகுதிகளிலிருந்து தொகுக்கப்பட்ட விரிவான STEM படிப்பு வழிகாட்டி.`
+        vernacular: overviewVernacular
       },
-      definitions: [
-        {
-          term: "Gradient Descent",
-          vernacular_term: "சரிவு இறக்கம் (Gradient Descent)",
-          category: "Machine Learning",
-          definition: "First-order iterative optimization algorithm for finding a local minimum of a differentiable loss function.",
-          vernacular_definition: "ஒரு சார்பின் உள்ளூர் குறைந்தபட்சத்தைக் கண்டறிவதற்கான முதல்-வரிசை மறுசெயல்முறை உகப்பாக்கம்."
-        },
-        {
-          term: "Eigenvalue",
-          vernacular_term: "சிறப்பியல்பு மதிப்பு (Eigenvalue)",
-          category: "Linear Algebra",
-          definition: "Scalar factor that scales an eigenvector during a linear transformation without changing its line of action.",
-          vernacular_definition: "நேரியல் உருமாற்றத்தில் திசையனின் திசையை மாற்றாமல் அளவிடும் காரணி."
-        },
-        {
-          term: "Backpropagation",
-          vernacular_term: "பின்நோக்கு பரவல் (Backpropagation)",
-          category: "Machine Learning",
-          definition: "Efficient gradient computation algorithm via chain rule throughout layered neural networks.",
-          vernacular_definition: "சங்கிலி விதியைப் பயன்படுத்தி நரம்பியல் வலைப்பின்னல்களில் சரிவுகளைக் கணக்கிடும் வழிமுறை."
-        }
-      ],
+      definitions: defs,
       formulas: [
         {
           name: "Gradient Descent Parameter Update",
@@ -594,29 +939,7 @@ export default function App() {
         vernacular_point: s.text_vernacular,
         timestamp: s.timestamp || `00:${idx * 15}`
       })),
-      flashcards: [
-        {
-          id: 1,
-          front: "What is Gradient Descent?",
-          vernacular_front: "சரிவு இறக்கம் என்றால் என்ன?",
-          back: "An optimization algorithm that minimizes the loss function by iteratively moving in the direction of steepest descent.",
-          category: "Machine Learning"
-        },
-        {
-          id: 2,
-          front: "What equation defines an eigenvalue and eigenvector?",
-          vernacular_front: "சிறப்பியல்பு மதிப்பு மற்றும் திசையனை வரையறுக்கும் சமன்பாடு எது?",
-          back: "A v = λ v, where matrix A acts on non-zero vector v resulting in scaled vector λv.",
-          category: "Linear Algebra"
-        },
-        {
-          id: 3,
-          front: "What happens if the learning rate is too large?",
-          vernacular_front: "கற்றல் வீதம் மிக அதிகமாக இருந்தால் என்ன நடக்கும்?",
-          back: "The optimization may diverge, overshoot the minimum, and cause unstable oscillations or severe overfitting.",
-          category: "Deep Learning"
-        }
-      ]
+      flashcards: flashcards
     };
 
     setStudyGuide(guideData);

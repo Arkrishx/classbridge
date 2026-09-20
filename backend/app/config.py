@@ -19,13 +19,8 @@ class Settings(BaseModel):
     DEFAULT_TARGET_LANG: str = os.getenv("DEFAULT_TARGET_LANG", "ta")
     SUPPORTED_LANGUAGES: dict = {
         "ta": {"name": "Tamil", "native": "தமிழ்", "nllb": "tam_Taml"},
-        "hi": {"name": "Hindi", "native": "हिन्दी", "nllb": "hin_Deva"},
-        "te": {"name": "Telugu", "native": "తెలుగు", "nllb": "tel_Telu"},
-        "kn": {"name": "Kannada", "native": "ಕನ್ನಡ", "nllb": "kan_Knda"},
         "ml": {"name": "Malayalam", "native": "മലയാളം", "nllb": "mal_Mlym"},
-        "bn": {"name": "Bengali", "native": "বাংলা", "nllb": "ben_Beng"},
-        "mr": {"name": "Marathi", "native": "मराठी", "nllb": "mar_Deva"},
-        "gu": {"name": "Gujarati", "native": "ગુજરાતી", "nllb": "guj_Gujr"}
+        "hi": {"name": "Hindi", "native": "हिन्दी", "nllb": "hin_Deva"}
     }
     
     # Domain Adaptation Glossary Path

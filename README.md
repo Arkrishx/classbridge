@@ -16,7 +16,7 @@ For millions of students across India, following university-level STEM lectures 
 
 **ClassBridge** solves this end-to-end in one continuous workflow:
 1. **Live Microphone Audio Capture:** Streams 3–5s audio chunks from the teacher's microphone over WebSockets.
-2. **Real-Time Dual-Language Captions:** Shows parallel English + Tamil (or any Indic language: Hindi, Telugu, Kannada, etc.) with live **ASR confidence scores** and timestamps.
+2. **Real-Time Dual-Language Captions:** Shows parallel English + Indic vernacular (**Tamil**, **Malayalam**, and **Hindi**) with live **ASR confidence scores** and timestamps.
 3. **STEM Domain Adaptation Layer:** Applies a post-MT correction pass using a curated STEM glossary (~80+ terms) to prevent technical terminology hallucination.
 4. **Automated Structured Study Guide & PDF Export:** Synthesizes the session transcript into executive overviews, bilingual definitions, LaTeX formulas, bulleted takeaways, and interactive flip flashcards, exportable to a publication-grade PDF.
 5. **Grounded Retrieval-Augmented Q&A:** A conversational assistant that answers student questions strictly using transcript facts and **cites the exact timestamp `[MM:SS]` and segment line**, highlighting the corresponding lecture segment upon click.
@@ -172,7 +172,7 @@ EDU-02/
 │   │   ├── rag.py                 # In-memory RAG index & grounded Q&A with citations
 │   │   ├── study_guide.py         # Hierarchical note synthesis & formula extraction
 │   │   └── data/
-│   │       └── stem_glossary.json # 80+ STEM terms with Tamil, Hindi, Telugu translations
+│   │       └── stem_glossary.json # 80+ STEM terms with Tamil, Malayalam, and Hindi translations
 │   ├── Dockerfile                 # Container deployment for Render/Railway/HF Spaces
 │   └── requirements.txt
 ├── frontend/

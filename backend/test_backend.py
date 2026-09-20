@@ -20,7 +20,8 @@ def test_all():
     r = client.get("/api/languages")
     assert r.status_code == 200
     langs = r.json()["supported"]
-    assert "ta" in langs and "hi" in langs and "te" in langs
+    assert "ta" in langs and "ml" in langs and "hi" in langs
+    assert len(langs) == 3
     print(f"[OK] Languages check passed: {len(langs)} supported Indic languages")
     
     # 3. Glossary

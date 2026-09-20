@@ -25,135 +25,128 @@ export default function ChatPanel({
   const sampleQuestions = [
     "What is gradient descent?",
     "Explain eigenvalue and eigenvector.",
-    "What is the relationship between learning rate and overfitting?",
-    "What does entropy represent in thermodynamics?",
+    "What causes model overfitting?",
   ];
 
   return (
-    <div className="right-pane">
-      <div className="chat-card">
-        <div className="chat-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <MessageSquare size={16} color="var(--brand-primary)" />
-            <span style={{ fontWeight: 700, fontSize: '15px' }}>
-              Grounded Lecture Q&A
-            </span>
-          </div>
-          <span className="badge-tag badge-blue" title="Only answers based on transcript with citations">
-            Grounded RAG
+    <div className="chat-card">
+      <div className="chat-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <MessageSquare size={15} color="var(--accent-cyan)" />
+          <span style={{ fontWeight: 700, fontSize: '14.5px', letterSpacing: '-0.01em' }}>
+            Lecture Q&A
           </span>
         </div>
+        <span className="brand-tag">Grounded RAG</span>
+      </div>
 
-        <div className="chat-messages">
-          {messages.length === 0 ? (
-            <div className="empty-state" style={{ padding: '20px 10px' }}>
-              <HelpCircle size={36} color="var(--text-muted)" />
-              <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)' }}>
-                Ask Questions About This Lecture
+      <div className="chat-messages">
+        {messages.length === 0 ? (
+          <div className="empty-box" style={{ padding: '24px 12px' }}>
+            <HelpCircle size={32} color="var(--text-dim)" />
+            <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-main)' }}>
+              Ask Any Question
+            </div>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+              Answers are grounded strictly in the session transcript and cite the exact timestamp line.
+            </p>
+
+            {segmentCount > 0 && (
+              <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+                <span style={{ fontSize: '10.5px', color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: 700 }}>
+                  Suggested Questions:
+                </span>
+                {sampleQuestions.map((q, idx) => (
+                  <button
+                    key={idx}
+                    className="chip-btn"
+                    style={{ textAlign: 'left', padding: '6px 10px', justifyContent: 'flex-start' }}
+                    onClick={() => onSendMessage(q)}
+                  >
+                    <Sparkles size={11} color="var(--accent-cyan)" />
+                    <span>{q}</span>
+                  </button>
+                ))}
               </div>
-              <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                Every answer is grounded strictly in the session transcript and cites the exact timestamp and line used.
-              </p>
+            )}
+          </div>
+        ) : (
+          messages.map((msg, index) => (
+            <div
+              key={index}
+              className={`msg-bubble ${msg.role === 'user' ? 'msg-user' : 'msg-bot'}`}
+            >
+              <div>{msg.text}</div>
 
-              {segmentCount > 0 && (
-                <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                    Suggested Questions:
+              {msg.vernacular && (
+                <div
+                  style={{
+                    marginTop: '4px',
+                    paddingTop: '4px',
+                    borderTop: '1px dashed rgba(255, 255, 255, 0.12)',
+                    color: 'var(--accent-gold)',
+                    fontSize: '13px',
+                  }}
+                >
+                  {msg.vernacular}
+                </div>
+              )}
+
+              {msg.citations && msg.citations.length > 0 && (
+                <div style={{ marginTop: '6px', display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
+                  <span style={{ fontSize: '10.5px', color: 'var(--text-dim)', fontWeight: 600 }}>
+                    Sources:
                   </span>
-                  {sampleQuestions.map((q, idx) => (
+                  {msg.citations.map((cite, cIdx) => (
                     <button
-                      key={idx}
-                      className="btn btn-outline"
-                      style={{ fontSize: '12px', textAlign: 'left', padding: '6px 10px', justifyContent: 'flex-start' }}
-                      onClick={() => onSendMessage(q)}
+                      key={cIdx}
+                      className="citation-chip"
+                      onClick={() => onSelectCitation(cite.segment_id)}
+                      title={`Jump to [${cite.timestamp}]:\n"${cite.text_en}"`}
                     >
-                      <Sparkles size={12} color="var(--brand-primary)" />
-                      <span>{q}</span>
+                      <ExternalLink size={9} />
+                      <span>[{cite.timestamp}]</span>
                     </button>
                   ))}
                 </div>
               )}
             </div>
-          ) : (
-            messages.map((msg, index) => (
-              <div
-                key={index}
-                className={`message-bubble ${msg.role === 'user' ? 'message-user' : 'message-bot'}`}
-              >
-                <div>{msg.text}</div>
+          ))
+        )}
 
-                {msg.vernacular && (
-                  <div
-                    style={{
-                      marginTop: '4px',
-                      paddingTop: '4px',
-                      borderTop: '1px dashed rgba(255, 255, 255, 0.15)',
-                      color: 'var(--vernacular-color)',
-                      fontSize: '13px',
-                    }}
-                  >
-                    {msg.vernacular}
-                  </div>
-                )}
-
-                {msg.citations && msg.citations.length > 0 && (
-                  <div className="citation-box">
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
-                      Grounded Citations:
-                    </span>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                      {msg.citations.map((cite, cIdx) => (
-                        <button
-                          key={cIdx}
-                          className="citation-pill"
-                          onClick={() => onSelectCitation(cite.segment_id)}
-                          title={`Click to jump to transcript at ${cite.timestamp}:\n"${cite.text_en}"`}
-                        >
-                          <ExternalLink size={10} />
-                          <span>Seg #{cite.segment_id} [{cite.timestamp}]</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))
-          )}
-
-          {isLoading && (
-            <div className="message-bubble message-bot" style={{ opacity: 0.8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Sparkles size={14} className="active" color="var(--brand-primary)" />
-                <span style={{ fontSize: '13px' }}>Retrieving transcript segments and grounding answer...</span>
-              </div>
+        {isLoading && (
+          <div className="msg-bubble msg-bot" style={{ opacity: 0.8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: 'var(--accent-cyan)' }}>
+              <Sparkles size={13} className="active" />
+              <span>Retrieving transcript evidence & grounding answer...</span>
             </div>
-          )}
-          <div ref={chatEndRef} />
-        </div>
-
-        <form className="chat-input-bar" onSubmit={handleSubmit}>
-          <input
-            type="text"
-            className="chat-input"
-            placeholder={
-              segmentCount === 0
-                ? "Record lecture or load sample to ask questions..."
-                : "Ask anything about this lecture..."
-            }
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            disabled={isLoading}
-          />
-          <button
-            type="submit"
-            className="btn btn-primary"
-            style={{ padding: '8px 12px' }}
-            disabled={isLoading || !input.trim()}
-          >
-            <Send size={15} />
-          </button>
-        </form>
+          </div>
+        )}
+        <div ref={chatEndRef} />
       </div>
+
+      <form className="chat-input-row" onSubmit={handleSubmit}>
+        <input
+          type="text"
+          className="chat-input-field"
+          placeholder={
+            segmentCount === 0
+              ? "Capture lecture speech to ask questions..."
+              : "Ask about this lecture..."
+          }
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          disabled={isLoading}
+        />
+        <button
+          type="submit"
+          className="btn-minimal"
+          style={{ background: 'var(--accent-cyan)', color: '#08090d', border: 'none', padding: '8px 12px' }}
+          disabled={isLoading || !input.trim()}
+        >
+          <Send size={14} />
+        </button>
+      </form>
     </div>
   );
 }

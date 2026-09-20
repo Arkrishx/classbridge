@@ -1,15 +1,10 @@
 import React from 'react';
-import { Globe, BookOpen, Clock, Activity, Sparkles } from 'lucide-react';
+import { BookOpen, Clock, Sparkles, Languages } from 'lucide-react';
 
 export const SUPPORTED_LANGUAGES = [
   { code: 'ta', name: 'Tamil', native: 'தமிழ்' },
-  { code: 'hi', name: 'Hindi', native: 'हिन्दी' },
-  { code: 'te', name: 'Telugu', native: 'తెలుగు' },
-  { code: 'kn', name: 'Kannada', native: 'ಕನ್ನಡ' },
   { code: 'ml', name: 'Malayalam', native: 'മലയാളം' },
-  { code: 'bn', name: 'Bengali', native: 'বাংলা' },
-  { code: 'mr', name: 'Marathi', native: 'मराठी' },
-  { code: 'gu', name: 'Gujarati', native: 'ગુજરાતી' },
+  { code: 'hi', name: 'Hindi', native: 'हिन्दी' },
 ];
 
 export default function Header({
@@ -26,74 +21,66 @@ export default function Header({
     return `${mins.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const getStatusBadge = () => {
-    if (connectionStatus === 'connected') {
-      return <span className="badge-tag badge-green">● Live Stream (WebSocket)</span>;
-    }
-    if (connectionStatus === 'browser_assisted') {
-      return <span className="badge-tag badge-blue">● Browser/Demo Mode</span>;
-    }
-    if (connectionStatus === 'connecting') {
-      return <span className="badge-tag badge-amber">● Connecting...</span>;
-    }
-    return <span className="badge-tag badge-blue">● Offline / Demo</span>;
-  };
-
   return (
     <header className="app-header">
       <div className="brand-section">
-        <div className="logo-badge">
+        <div className="logo-symbol">
           CB
         </div>
         <div>
           <div className="brand-title">
             ClassBridge
-            <span className="badge-tag badge-blue">TENSORA 2026 | EDU-02</span>
+            <span className="brand-tag">EDU-02</span>
           </div>
-          <div className="brand-subtitle">
-            Real-Time Vernacular Lecture Companion & Grounded Study Synthesis
+          <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
+            Real-Time Vernacular Lecture Companion
           </div>
         </div>
       </div>
 
-      <div className="header-actions">
-        {getStatusBadge()}
+      {/* Tactile Segmented Language Selector (Tamil, Malayalam, Hindi ONLY) */}
+      <div className="lang-segmented" title="Select Vernacular Caption Language">
+        {SUPPORTED_LANGUAGES.map((lang) => {
+          const isActive = targetLang === lang.code;
+          return (
+            <button
+              key={lang.code}
+              className={`lang-pill-btn ${isActive ? 'active' : ''}`}
+              onClick={() => onLanguageChange(lang.code)}
+            >
+              <span>{lang.native}</span>
+              <span style={{ fontSize: '11px', opacity: 0.7 }}>{lang.name}</span>
+            </button>
+          );
+        })}
+      </div>
 
-        <div className="badge-tag badge-blue" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <Clock size={12} />
-          <span>{formatTime(sessionSeconds)}</span>
+      <div className="header-actions">
+        <div className={`status-badge ${connectionStatus === 'connected' ? 'status-live' : 'status-browser'}`}>
+          <span className="status-pulse-dot" />
+          <span>{connectionStatus === 'connected' ? 'Live Stream' : 'Browser Engine'}</span>
         </div>
 
-        <div className="lang-selector">
-          <Globe size={16} color="var(--brand-primary)" />
-          <select
-            className="lang-dropdown"
-            value={targetLang}
-            onChange={(e) => onLanguageChange(e.target.value)}
-          >
-            {SUPPORTED_LANGUAGES.map((lang) => (
-              <option key={lang.code} value={lang.code}>
-                {lang.name} ({lang.native})
-              </option>
-            ))}
-          </select>
+        <div className="status-badge" style={{ background: 'rgba(255, 255, 255, 0.04)', color: 'var(--text-muted)' }}>
+          <Clock size={12} />
+          <span style={{ fontFamily: 'var(--font-mono)' }}>{formatTime(sessionSeconds)}</span>
         </div>
 
         <button
-          className="btn btn-outline"
+          className="btn-minimal"
           onClick={onOpenGlossary}
           title="Inspect STEM Domain Adaptation Glossary"
         >
-          <BookOpen size={15} />
-          <span>STEM Glossary</span>
+          <BookOpen size={14} color="var(--accent-cyan)" />
+          <span>Glossary</span>
         </button>
 
         <button
-          className="btn btn-outline"
+          className="btn-minimal"
           onClick={onOpenArchitecture}
-          title="Architecture & Explainability Details"
+          title="Architecture & Compliance"
         >
-          <Sparkles size={15} />
+          <Sparkles size={14} color="var(--accent-indigo)" />
           <span>About</span>
         </button>
       </div>

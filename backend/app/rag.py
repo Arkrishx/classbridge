@@ -120,10 +120,17 @@ class LectureQAService:
         
         if not retrieved:
             # Fallback if no relevant segment found
+            if target_lang == "ml":
+                vernacular_not_found = f"ഈ പ്രഭാഷണത്തിൽ '{question}' എന്നതുമായി ബന്ധപ്പെട്ട വിവരങ്ങൾ കണ്ടെത്തിയില്ല."
+            elif target_lang == "hi":
+                vernacular_not_found = f"इस व्याख्यान में '{question}' से संबंधित कोई जानकारी नहीं मिली।"
+            else:
+                vernacular_not_found = f"இந்த விரிவுரையில் '{question}' தொடர்பான குறிப்புகள் எதுவும் கிடைக்கவில்லை."
+
             return {
                 "question": question,
                 "answer": f"I could not find information directly addressing '{question}' in this lecture transcript yet. Try asking about topics or terms mentioned in the lecture.",
-                "vernacular_answer": f"இந்த விரிவுரையில் '{question}' தொடர்பான குறிப்புகள் எதுவும் கிடைக்கவில்லை.",
+                "vernacular_answer": vernacular_not_found,
                 "citations": []
             }
 
@@ -163,10 +170,21 @@ class LectureQAService:
             f"Based on segment {top_seg['id']} at {top_seg['timestamp']}, "
             f"the lecture states: \"{top_seg['text_en']}\""
         )
-        vernacular_ans = (
-            f"விரிவுரை பகுதி {top_seg['id']} ({top_seg['timestamp']}) இன் படி: "
-            f"\"{top_seg['text_vernacular']}\""
-        )
+        if target_lang == "ml":
+            vernacular_ans = (
+                f"പ്രഭാഷണ ഭാഗം {top_seg['id']} ({top_seg['timestamp']}) പ്രകാരം: "
+                f"\"{top_seg['text_vernacular']}\""
+            )
+        elif target_lang == "hi":
+            vernacular_ans = (
+                f"व्याख्यान खंड {top_seg['id']} ({top_seg['timestamp']}) के अनुसार: "
+                f"\"{top_seg['text_vernacular']}\""
+            )
+        else:
+            vernacular_ans = (
+                f"விரிவுரை பகுதி {top_seg['id']} ({top_seg['timestamp']}) இன் படி: "
+                f"\"{top_seg['text_vernacular']}\""
+            )
 
         return {
             "question": question,
