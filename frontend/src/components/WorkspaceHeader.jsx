@@ -98,7 +98,8 @@ export default function WorkspaceHeader({
             className="workspace-speech-input"
             value={quickInput}
             onChange={(e) => setQuickInput(e.target.value)}
-            placeholder='Dictate/type text (e.g. "We compute eigenvalues and gradient descent")...'
+            placeholder='Type or dictate text (e.g. "We compute eigenvalues and gradient descent")...'
+            title="Tip: You can also press Windows Key + H in this box for instant Windows Voice Typing!"
           />
           <button
             type="submit"

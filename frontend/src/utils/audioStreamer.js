@@ -216,19 +216,19 @@ export class AudioStreamer {
     this.consecutiveErrors = 0;
     this.recLang = 'en-US';
 
-    // 1. ALWAYS initialize real physical audio capture on selected device
-    await this.initPhysicalAudioStream();
-
-    // 2. Start volume animation ticker for the 16-bar visualizer
+    // Start volume animation ticker for the 16-bar visualizer
     this.startVolumeTicker();
 
-    // 3. Initialize Speech Recognition engine
     const SpeechRec = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
 
     if (SpeechRec) {
+      // PRIMARY: SpeechRecognition runs with exclusive microphone access (Zero Hardware Contention)
+      // Simultaneous getUserMedia + SpeechRecognition causes audio device collision on Windows & mobile.
       this.initSpeechRecognition(SpeechRec);
     } else {
-      console.warn("Web Speech API not supported; relying on fallback.");
+      // FALLBACK: If browser has no Web Speech API (Firefox), use getUserMedia + MediaRecorder
+      console.warn("Web Speech API not supported; relying on MediaStream fallback.");
+      await this.initPhysicalAudioStream();
       if (this.onError) {
         this.onError(new Error("Your browser does not natively support speech recognition (e.g. Mozilla Firefox). Please use Microsoft Edge or Google Chrome for live voice dictation."));
       }
@@ -251,11 +251,15 @@ export class AudioStreamer {
       }
 
       const rec = new SpeechRec();
-      rec.continuous = true;
+      
+      // On desktop Edge/Chrome, continuous=false guarantees onresult triggers immediately
+      // on every utterance and avoids Edge's known continuous-mode silent stalls.
+      const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      rec.continuous = isMobile;
       rec.interimResults = true;
       rec.maxAlternatives = 1;
 
-      // Microsoft Edge on Windows requires en-US for 100% reliable speech recognition
+      // en-US is universally supported by Microsoft Edge and Chrome speech services
       rec.lang = this.recLang || 'en-US';
 
       rec.onstart = () => {
@@ -268,7 +272,7 @@ export class AudioStreamer {
 
       rec.onspeechstart = () => {
         this.isSpeaking = true;
-        this.targetSimVolume = 55;
+        this.targetSimVolume = 65;
         if (this.onStatusChange) {
           this.onStatusChange('speaking');
         }
@@ -295,26 +299,31 @@ export class AudioStreamer {
 
       rec.onresult = (event) => {
         let interim = '';
+        let final = '';
 
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
+        for (let i = 0; i < event.results.length; ++i) {
           const res = event.results[i];
           const transcript = res[0].transcript;
 
           if (res.isFinal) {
-            const conf = Math.round((res[0].confidence || 0.95) * 100);
-            this.commitFinalText(transcript, conf);
+            final += transcript;
           } else {
             interim += transcript;
           }
         }
 
-        if (interim.trim()) {
+        if (final.trim()) {
+          const conf = Math.round((event.results[event.results.length - 1][0].confidence || 0.95) * 100);
+          this.commitFinalText(final.trim(), conf);
+        } else if (interim.trim()) {
           this.handleInterimText(interim.trim());
         }
       };
 
       rec.onerror = (e) => {
         const err = e.error;
+        console.warn("Speech recognition event:", err);
+
         // 'no-speech' or 'aborted' are normal quiet pauses, not fatal errors
         if (err === 'no-speech' || err === 'aborted') {
           return;
@@ -333,18 +342,25 @@ export class AudioStreamer {
           console.warn(`Speech recognition ${err} error; switching language to universal en-US...`);
           this.recLang = 'en-US';
           this.consecutiveErrors += 1;
+          // Auto-recover cleanly if still recording
+          if (this.isRecording) {
+            if (this.restartTimer) clearTimeout(this.restartTimer);
+            this.restartTimer = setTimeout(() => {
+              if (this.isRecording) {
+                this.initSpeechRecognition(SpeechRec);
+              }
+            }, 300);
+          }
           return;
         }
 
         if (err === 'audio-capture') {
           console.warn("Audio capture error on device:", err);
           if (this.onError) {
-            this.onError(new Error("Could not capture audio from the selected device. Please verify your Bluetooth headset is connected or select Laptop Internal Mic."));
+            this.onError(new Error("Could not capture audio. Please verify your Bluetooth headset or microphone is connected and set as default in Windows Sound settings."));
           }
           return;
         }
-
-        console.warn("Speech recognition event note:", err);
       };
 
       rec.onend = () => {
@@ -355,14 +371,14 @@ export class AudioStreamer {
           this.commitFinalText(textToCommit, 94);
         }
 
-        // Resilient self-healing loop: 350ms delay gives Edge's audio endpoint time to cleanly recycle
+        // Resilient self-healing loop: restart immediately if user still has mic turned on
         if (this.isRecording) {
           if (this.restartTimer) clearTimeout(this.restartTimer);
           this.restartTimer = setTimeout(() => {
             if (this.isRecording) {
               this.initSpeechRecognition(SpeechRec);
             }
-          }, 350);
+          }, 120);
         }
       };
 
@@ -378,7 +394,7 @@ export class AudioStreamer {
           if (this.isRecording) {
             this.initSpeechRecognition(SpeechRec);
           }
-        }, 400);
+        }, 300);
       }
     }
   }
@@ -512,7 +528,7 @@ export class AudioStreamer {
 
   async setAudioDevice(deviceId) {
     this.selectedDeviceId = deviceId;
-    if (this.isRecording) {
+    if (this.isRecording && !this.recognition) {
       await this.initPhysicalAudioStream();
     }
   }
