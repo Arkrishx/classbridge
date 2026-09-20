@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mic, MicOff, Play, BookCheck, Trash2, Sparkles, Send, Activity } from 'lucide-react';
+import { Mic, MicOff, Play, BookCheck, Trash2, Sparkles, Send, Activity, Headphones, Settings2 } from 'lucide-react';
 
 export default function AudioControls({
   isRecording,
@@ -14,6 +14,9 @@ export default function AudioControls({
   interimSpeech,
   interimVernacular,
   onDirectSpeechSubmit,
+  selectedDeviceLabel = 'Default Microphone',
+  isBluetoothDevice = false,
+  onOpenAudioDevices,
 }) {
   const [quickInput, setQuickInput] = useState('');
 
@@ -47,6 +50,27 @@ export default function AudioControls({
                 <span>Live Mic (Teacher)</span>
               </>
             )}
+          </button>
+
+          {/* Quick Audio Input Device Switcher Button */}
+          <button
+            className="chip-btn dock-device-btn"
+            onClick={onOpenAudioDevices}
+            title={`Active Microphone: ${selectedDeviceLabel}. Click to switch microphone or test headset audio.`}
+            style={{
+              padding: '8px 12px',
+              borderColor: isBluetoothDevice ? 'rgba(52, 211, 153, 0.4)' : 'var(--border-subtle)',
+              background: isBluetoothDevice ? 'rgba(52, 211, 153, 0.1)' : 'rgba(255, 255, 255, 0.04)',
+            }}
+          >
+            {isBluetoothDevice ? (
+              <Headphones size={15} color="var(--accent-emerald)" />
+            ) : (
+              <Mic size={15} color="var(--accent-cyan)" />
+            )}
+            <span style={{ maxWidth: '110px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {isBluetoothDevice ? 'Headset' : 'Mic'}
+            </span>
           </button>
 
           {/* Organic Audio Waveform Visualizer */}

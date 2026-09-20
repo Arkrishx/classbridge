@@ -6,9 +6,11 @@ import ChatPanel from './components/ChatPanel';
 import StudyGuideModal from './components/StudyGuideModal';
 import GlossaryModal from './components/GlossaryModal';
 import AboutModal from './components/AboutModal';
+import AudioDeviceModal from './components/AudioDeviceModal';
 import ErrorBanner from './components/ErrorBanner';
-import { AudioStreamer } from './utils/audioStreamer';
+import { AudioStreamer, getAudioInputDevices } from './utils/audioStreamer';
 import { translateTextClient, translateInterimDebounced } from './utils/clientTranslator';
+import { Radio, MessageSquare } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -377,22 +379,70 @@ export default function App() {
   const [interimSpeech, setInterimSpeech] = useState('');
   const [interimVernacular, setInterimVernacular] = useState('');
   const [liveMicStatus, setLiveMicStatus] = useState('idle');
+  const [audioDevices, setAudioDevices] = useState([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState(() => {
+    try {
+      return localStorage.getItem('classbridge_audio_device_id') || 'default';
+    } catch (e) {
+      return 'default';
+    }
+  });
+  const [isDeviceModalOpen, setIsDeviceModalOpen] = useState(false);
+  const [mobileActiveTab, setMobileActiveTab] = useState('captions');
 
   const wsRef = useRef(null);
   const streamerRef = useRef(null);
   const timerRef = useRef(null);
 
-  // Initialize Connection & Load Glossary
+  // Initialize Connection, Audio Devices & Load Glossary
   useEffect(() => {
     connectWebSocket();
     loadGlossary();
+    loadAudioDevices();
+
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.addEventListener) {
+      navigator.mediaDevices.addEventListener('devicechange', loadAudioDevices);
+    }
 
     return () => {
       if (wsRef.current) wsRef.current.close();
       if (streamerRef.current) streamerRef.current.stop();
       if (timerRef.current) clearInterval(timerRef.current);
+      if (typeof navigator !== 'undefined' && navigator.mediaDevices?.removeEventListener) {
+        navigator.mediaDevices.removeEventListener('devicechange', loadAudioDevices);
+      }
     };
   }, []);
+
+  const loadAudioDevices = async () => {
+    try {
+      const devs = await getAudioInputDevices();
+      if (devs && devs.length > 0) {
+        setAudioDevices(devs);
+        const saved = localStorage.getItem('classbridge_audio_device_id');
+        if (saved && devs.some((d) => d.deviceId === saved)) {
+          setSelectedDeviceId(saved);
+        } else if (devs.some((d) => d.isBluetooth)) {
+          const bt = devs.find((d) => d.isBluetooth);
+          setSelectedDeviceId(bt.deviceId);
+        } else if (!devs.some((d) => d.deviceId === selectedDeviceId)) {
+          setSelectedDeviceId(devs[0].deviceId);
+        }
+      }
+    } catch (e) {
+      console.warn("Could not load audio devices:", e);
+    }
+  };
+
+  const handleSelectAudioDevice = (deviceId) => {
+    setSelectedDeviceId(deviceId);
+    try {
+      localStorage.setItem('classbridge_audio_device_id', deviceId);
+    } catch (e) {}
+    if (streamerRef.current) {
+      streamerRef.current.setAudioDevice(deviceId);
+    }
+  };
 
   // Session duration timer
   useEffect(() => {
@@ -572,6 +622,7 @@ export default function App() {
       setLiveMicStatus('idle');
     } else {
       const streamer = new AudioStreamer({
+        selectedDeviceId: selectedDeviceId,
         onAudioData: (buffer) => {
           if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             wsRef.current.send(buffer);
@@ -1038,6 +1089,9 @@ export default function App() {
   };
 
   const selectedLangMeta = SUPPORTED_LANGUAGES.find((l) => l.code === targetLang) || { name: 'Tamil', native: 'தமிழ்' };
+  const activeDeviceObj = audioDevices.find((d) => d.deviceId === selectedDeviceId) || audioDevices[0];
+  const activeDeviceLabel = activeDeviceObj ? activeDeviceObj.label : 'Default Microphone';
+  const isBluetoothDevice = Boolean(activeDeviceObj?.isBluetooth);
 
   return (
     <div className="app-container">
@@ -1048,6 +1102,9 @@ export default function App() {
         sessionSeconds={sessionSeconds}
         onOpenGlossary={() => setIsGlossaryOpen(true)}
         onOpenArchitecture={() => setIsAboutOpen(true)}
+        selectedDeviceLabel={activeDeviceLabel}
+        isBluetoothDevice={isBluetoothDevice}
+        onOpenAudioDevices={() => setIsDeviceModalOpen(true)}
       />
 
       <ErrorBanner
@@ -1070,10 +1127,32 @@ export default function App() {
           interimSpeech={interimSpeech}
           interimVernacular={interimVernacular}
           onDirectSpeechSubmit={processSpeechText}
+          selectedDeviceLabel={activeDeviceLabel}
+          isBluetoothDevice={isBluetoothDevice}
+          onOpenAudioDevices={() => setIsDeviceModalOpen(true)}
         />
       </div>
 
-      <main className="main-grid">
+      {/* Responsive Mobile Screen Workspace Tabs (< 768px) */}
+      <div className="mobile-tab-bar">
+        <button
+          className={`mobile-tab-btn ${mobileActiveTab === 'captions' ? 'active' : ''}`}
+          onClick={() => setMobileActiveTab('captions')}
+        >
+          <Radio size={14} />
+          <span>Live Captions {segments.length > 0 && `(${segments.length})`}</span>
+        </button>
+
+        <button
+          className={`mobile-tab-btn ${mobileActiveTab === 'chat' ? 'active' : ''}`}
+          onClick={() => setMobileActiveTab('chat')}
+        >
+          <MessageSquare size={14} />
+          <span>AI Tutor & Q&A {messages.length > 0 && `(${messages.length})`}</span>
+        </button>
+      </div>
+
+      <main className={`main-grid mobile-${mobileActiveTab}`}>
         <CaptionPane
           segments={segments}
           targetLangName={`${selectedLangMeta.name} (${selectedLangMeta.native})`}
@@ -1115,6 +1194,15 @@ export default function App() {
       <AboutModal
         isOpen={isAboutOpen}
         onClose={() => setIsAboutOpen(false)}
+      />
+
+      <AudioDeviceModal
+        isOpen={isDeviceModalOpen}
+        onClose={() => setIsDeviceModalOpen(false)}
+        devices={audioDevices}
+        selectedDeviceId={selectedDeviceId}
+        onSelectDevice={handleSelectAudioDevice}
+        onRefreshDevices={loadAudioDevices}
       />
     </div>
   );

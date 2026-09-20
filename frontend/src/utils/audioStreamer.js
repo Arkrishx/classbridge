@@ -17,7 +17,8 @@ export class AudioStreamer {
     onSpeechRecognized,
     onInterimSpeech,
     onError,
-    onStatusChange
+    onStatusChange,
+    selectedDeviceId = ''
   }) {
     this.onAudioData = onAudioData;
     this.onVolumeChange = onVolumeChange;
@@ -25,6 +26,7 @@ export class AudioStreamer {
     this.onInterimSpeech = onInterimSpeech;
     this.onError = onError;
     this.onStatusChange = onStatusChange;
+    this.selectedDeviceId = selectedDeviceId;
 
     this.mediaStream = null;
     this.audioContext = null;
@@ -183,15 +185,19 @@ export class AudioStreamer {
 
     // 2. Concurrently initialize Web Audio volume meter and WebSocket chunking
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({
-        audio: {
-          channelCount: 1,
-          sampleRate: 16000,
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      })
+      const audioConstraints = {
+        channelCount: 1,
+        sampleRate: 16000,
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      };
+
+      if (this.selectedDeviceId && this.selectedDeviceId !== 'default') {
+        audioConstraints.deviceId = { exact: this.selectedDeviceId };
+      }
+
+      navigator.mediaDevices.getUserMedia({ audio: audioConstraints })
       .then((stream) => {
         if (!this.isRecording) {
           stream.getTracks().forEach((t) => t.stop());
@@ -335,5 +341,117 @@ export class AudioStreamer {
       this.onStatusChange('idle');
     }
   }
+
+  async setAudioDevice(deviceId) {
+    this.selectedDeviceId = deviceId;
+    if (this.isRecording && this.audioContext && navigator.mediaDevices?.getUserMedia) {
+      try {
+        const audioConstraints = {
+          channelCount: 1,
+          sampleRate: 16000,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        };
+        if (deviceId && deviceId !== 'default') {
+          audioConstraints.deviceId = { exact: deviceId };
+        }
+
+        const newStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
+        if (this.mediaStream) {
+          this.mediaStream.getTracks().forEach((t) => t.stop());
+        }
+        this.mediaStream = newStream;
+
+        if (this.audioContext && this.analyser) {
+          const source = this.audioContext.createMediaStreamSource(this.mediaStream);
+          source.connect(this.analyser);
+        }
+      } catch (err) {
+        console.warn("Could not switch audio device on active stream:", err);
+      }
+    }
+  }
+}
+
+/**
+ * Enumerate all available audio input devices (detecting Bluetooth headsets, internal mics, USB)
+ */
+export async function getAudioInputDevices() {
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+    return [];
+  }
+  try {
+    let devices = await navigator.mediaDevices.enumerateDevices();
+    let audioInputs = devices.filter((d) => d.kind === 'audioinput');
+
+    // If labels are empty (before permissions are granted), prompt for a temporary stream
+    const hasLabels = audioInputs.some((d) => Boolean(d.label));
+    if (!hasLabels && navigator.mediaDevices.getUserMedia) {
+      try {
+        const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        tempStream.getTracks().forEach((t) => t.stop());
+        devices = await navigator.mediaDevices.enumerateDevices();
+        audioInputs = devices.filter((d) => d.kind === 'audioinput');
+      } catch (e) {
+        // User may have denied or dismissed
+      }
+    }
+
+    return parseAudioDevices(audioInputs);
+  } catch (err) {
+    console.warn("Could not enumerate audio devices:", err);
+    return [];
+  }
+}
+
+function parseAudioDevices(devices) {
+  return devices.map((d, index) => {
+    const label = d.label || `Microphone ${index + 1}`;
+    const lower = label.toLowerCase();
+    const isBluetooth =
+      lower.includes('bluetooth') ||
+      lower.includes('airpods') ||
+      lower.includes('headset') ||
+      lower.includes('hands-free') ||
+      lower.includes('wireless') ||
+      lower.includes('buds') ||
+      lower.includes('galaxy buds') ||
+      lower.includes('pixel buds') ||
+      lower.includes('wh-') ||
+      lower.includes('wf-') ||
+      lower.includes('bose') ||
+      lower.includes('jbl') ||
+      lower.includes('jabra') ||
+      lower.includes('jabber') ||
+      lower.includes('plantronics') ||
+      lower.includes('sennheiser');
+
+    const isUsb =
+      lower.includes('usb') ||
+      lower.includes('focusrite') ||
+      lower.includes('blue yeti') ||
+      lower.includes('rode') ||
+      lower.includes('fifine') ||
+      lower.includes('hyperx') ||
+      lower.includes('samson');
+
+    const isDefault = d.deviceId === 'default' || lower.includes('default');
+
+    let type = 'internal';
+    if (isBluetooth) type = 'bluetooth';
+    else if (isUsb) type = 'usb';
+    else if (isDefault) type = 'default';
+
+    return {
+      deviceId: d.deviceId,
+      groupId: d.groupId,
+      label: label,
+      type: type,
+      isBluetooth: isBluetooth,
+      isUsb: isUsb,
+      isDefault: isDefault
+    };
+  });
 }
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Clock, Sparkles, Languages } from 'lucide-react';
+import { BookOpen, Clock, Sparkles, Languages, Headphones, Mic } from 'lucide-react';
 
 export const SUPPORTED_LANGUAGES = [
   { code: 'ta', name: 'Tamil', native: 'தமிழ்' },
@@ -14,6 +14,9 @@ export default function Header({
   sessionSeconds,
   onOpenGlossary,
   onOpenArchitecture,
+  selectedDeviceLabel = 'Default Microphone',
+  isBluetoothDevice = false,
+  onOpenAudioDevices,
 }) {
   const formatTime = (secs) => {
     const mins = Math.floor(secs / 60);
@@ -56,6 +59,26 @@ export default function Header({
       </div>
 
       <div className="header-actions">
+        {/* Audio Input Device Selector Button */}
+        <button
+          className="btn-minimal header-device-btn"
+          onClick={onOpenAudioDevices}
+          title={`Active Microphone: ${selectedDeviceLabel}. Click to switch to Bluetooth headset or internal mic.`}
+          style={{
+            borderColor: isBluetoothDevice ? 'rgba(52, 211, 153, 0.4)' : 'rgba(56, 189, 248, 0.3)',
+            background: isBluetoothDevice ? 'rgba(52, 211, 153, 0.08)' : 'rgba(56, 189, 248, 0.06)',
+          }}
+        >
+          {isBluetoothDevice ? (
+            <Headphones size={14} color="var(--accent-emerald)" />
+          ) : (
+            <Mic size={14} color="var(--accent-cyan)" />
+          )}
+          <span className="header-device-text" style={{ maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {selectedDeviceLabel}
+          </span>
+        </button>
+
         <div className={`status-badge ${connectionStatus === 'connected' ? 'status-live' : 'status-browser'}`}>
           <span className="status-pulse-dot" />
           <span>{connectionStatus === 'connected' ? 'Live Stream' : 'Browser Engine'}</span>

@@ -387,17 +387,71 @@ body {
   color: var(--text-dim);
 }
 
-/* Main Grid Layout */
+/* Main Grid Layout & Mobile Responsive Tabs */
+.mobile-tab-bar {
+  display: none;
+  background: rgba(10, 14, 24, 0.85);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  padding: 4px;
+  gap: 4px;
+  margin-bottom: 16px;
+  backdrop-filter: var(--glass-blur);
+}
+
+.mobile-tab-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: var(--radius-pill);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mobile-tab-btn.active {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(99, 102, 241, 0.3));
+  color: #fff;
+  border: 1px solid rgba(56, 189, 248, 0.5);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.25);
+}
+
 .main-grid {
   display: grid;
-  grid-template-columns: 1fr 390px;
+  grid-template-columns: 1fr 400px;
   gap: 20px;
   flex: 1;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1140px) {
+  .main-grid {
+    grid-template-columns: 1fr 360px;
+    gap: 16px;
+  }
+}
+
+@media (max-width: 820px) {
+  .mobile-tab-bar {
+    display: flex;
+  }
+
   .main-grid {
     grid-template-columns: 1fr;
+  }
+
+  .main-grid.mobile-captions .chat-card {
+    display: none !important;
+  }
+
+  .main-grid.mobile-chat .caption-card {
+    display: none !important;
   }
 }
 
@@ -861,4 +915,221 @@ body {
   color: var(--text-dim);
   text-align: center;
   padding: 40px 20px;
+}
+
+/* Spinner Animation */
+@keyframes spinAnim {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin-icon {
+  animation: spinAnim 0.8s linear infinite;
+}
+
+/* Device Buttons */
+.header-device-btn,
+.dock-device-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.header-device-btn:hover,
+.dock-device-btn:hover {
+  background: rgba(56, 189, 248, 0.12) !important;
+  border-color: rgba(56, 189, 248, 0.5) !important;
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+/* ==========================================================================
+   Complete Multi-Device Responsiveness (Mobile, Tablet, Laptop, Desktop)
+   ========================================================================== */
+
+/* Tablet & Smaller Laptops (<= 1024px) */
+@media (max-width: 1024px) {
+  .app-container {
+    padding: 14px 16px 28px;
+  }
+
+  .app-header {
+    padding: 12px 16px;
+    margin-bottom: 16px;
+  }
+
+  .caption-card,
+  .chat-card {
+    min-height: 480px;
+    max-height: 580px;
+  }
+}
+
+/* Mobile Screens & Phablets (<= 768px) */
+@media (max-width: 768px) {
+  .app-container {
+    padding: 10px 12px 24px;
+  }
+
+  .app-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: var(--radius-md);
+  }
+
+  .brand-section {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .lang-segmented {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .lang-pill-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  .header-actions {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .header-device-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .control-dock {
+    padding: 12px 14px;
+    border-radius: var(--radius-md);
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .dock-top-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .dock-left-actions {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .btn-record {
+    flex: 1;
+    justify-content: center;
+    padding: 10px 16px;
+    font-size: 13.5px;
+  }
+
+  .dock-device-btn {
+    padding: 9px 12px;
+  }
+
+  .waveform-container {
+    display: none;
+  }
+
+  .dock-chips {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .dock-chips .chip-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 7px 10px;
+    font-size: 11.5px;
+  }
+
+  .caption-card,
+  .chat-card {
+    min-height: 440px;
+    max-height: calc(100vh - 210px);
+    border-radius: var(--radius-md);
+  }
+
+  .caption-header,
+  .chat-header {
+    padding: 12px 14px;
+  }
+
+  .caption-list,
+  .chat-messages {
+    padding: 12px;
+  }
+
+  .segment-item {
+    padding: 12px 14px;
+  }
+
+  .caption-en {
+    font-size: 14.5px;
+  }
+
+  .caption-vernacular {
+    font-size: 15.5px;
+  }
+
+  .modal-overlay {
+    padding: 10px;
+    align-items: flex-end;
+  }
+
+  .modal-card {
+    max-height: 92vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+
+  .modal-head {
+    padding: 14px 18px;
+  }
+
+  .modal-scroll {
+    padding: 16px;
+  }
+}
+
+/* Small Smart Phones (<= 480px) */
+@media (max-width: 480px) {
+  .logo-symbol {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+
+  .brand-title {
+    font-size: 16px;
+  }
+
+  .header-actions .btn-minimal span:not(.header-device-text) {
+    display: none;
+  }
+
+  .header-actions .status-badge {
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+
+  .quick-speech-bar {
+    padding: 4px 10px;
+  }
+
+  .quick-speech-input {
+    font-size: 12px;
+  }
 }
