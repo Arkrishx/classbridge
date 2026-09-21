@@ -496,48 +496,44 @@ class LectureQAService:
                 f"{internet_def.get('text_source', '')}"
             )
 
-            # Optional: Enhanced Generative AI Tutor synthesis if Gemini API key available
+            lang_meta = settings.SUPPORTED_LANGUAGES.get(target_lang, {"name": "Tamil", "native": "தமிழ்"})
+            lang_name = lang_meta.get("name", "Tamil")
+
+            # Enhanced Generative AI Tutor synthesis if Gemini API key available
             if settings.GEMINI_API_KEY:
                 try:
                     from google import genai
                     client = genai.Client(api_key=settings.GEMINI_API_KEY)
                     prompt = (
-                        f"You are ClassBridge, an empathetic, top-tier AI tutor. "
+                        f"You are ClassBridge, an empathetic, top-tier AI tutor for a multilingual STEM classroom.\n"
                         f"Student Question: '{question}'\n"
+                        f"Target Vernacular Language: '{lang_name}' (code: '{target_lang}')\n"
                         f"Lecture Quote at [{top_seg['timestamp']}]: '{actual_quote}'\n"
-                        f"Internet Definition: '{internet_def.get('text_source', '')}'\n"
+                        f"Internet Definition Reference: '{internet_def.get('text_source', '')}'\n\n"
                         f"In 2-3 concise, clear sentences, answer the student's question directly by connecting "
-                        f"the lecture quote and concept. Include the timestamp [{top_seg['timestamp']}]."
+                        f"the lecture quote and concept. Always include the timestamp [{top_seg['timestamp']}].\n"
+                        f"Provide both a grounded English answer and a fluent, natural translation in {lang_name}.\n"
+                        f"Return ONLY valid JSON with keys: 'answer' and 'vernacular_answer'."
                     )
-                    resp = client.models.generate_content(
-                        model="gemini-3.6-flash",
-                        contents=prompt
-                    )
-                    if resp and resp.text:
-                        grounded_en = resp.text.strip()
+                    models_to_try = ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash"]
+                    for model_name in models_to_try:
+                        try:
+                            resp = client.models.generate_content(
+                                model=model_name,
+                                contents=prompt,
+                                config=dict(response_mime_type="application/json")
+                            )
+                            if resp and resp.text:
+                                q_data = json.loads(resp.text)
+                                if q_data.get("answer"):
+                                    grounded_en = q_data["answer"].strip()
+                                if q_data.get("vernacular_answer"):
+                                    grounded_vernacular = q_data["vernacular_answer"].strip()
+                                break
+                        except Exception as m_err:
+                            logger.info(f"RAG Gemini model {model_name} failed: {m_err}, trying next...")
                 except Exception as e:
                     logger.info(f"Gemini LLM generation fallback: {e}")
-
-            if target_lang == "ml":
-                grounded_vernacular = (
-                    f"നിങ്ങളുടെ പ്രഭാഷണത്തിൽ [{top_seg['timestamp']}] സമയത്ത് {concept_title} സംബന്ധിച്ച് വിശദീകരിച്ചിട്ടുണ്ട്: "
-                    f"\"{actual_vernacular}\". "
-                    f"{internet_def.get('text_target', '')}"
-                )
-            elif target_lang == "hi":
-                grounded_vernacular = (
-                    f"आपके व्याख्यान में [{top_seg['timestamp']}] पर {concept_title} के बारे में बताया गया है: "
-                    f"\"{actual_vernacular}\". "
-                    f"{internet_def.get('text_target', '')}"
-                )
-            elif target_lang == "ta":
-                grounded_vernacular = (
-                    f"உங்கள் விரிவுரையில் [{top_seg['timestamp']}] நேரத்தில் {concept_title} பற்றி விரிவாகக் கூறப்பட்டுள்ளது: "
-                    f"\"{actual_vernacular}\". "
-                    f"{internet_def.get('text_target', '')}"
-                )
-            else:
-                grounded_vernacular = grounded_en
 
             return {
                 "found_in_lecture": True,
@@ -550,28 +546,68 @@ class LectureQAService:
         else:
             # Out of Topic
             concept_name = resolved_term or question
+            lang_meta = settings.SUPPORTED_LANGUAGES.get(target_lang, {"name": "Tamil", "native": "தமிழ்"})
+            lang_name = lang_meta.get("name", "Tamil")
+
             not_covered_en = (
                 f"This topic ('{concept_name}') is not covered in the current lecture session transcript. "
-                f"Here is a reference definition from the internet:"
+                f"Here is a reference definition from the internet: {internet_def.get('text_source', '')}"
             )
 
             if target_lang == "ml":
                 not_covered_vernacular = (
                     f"ഈ വിഷയം ('{concept_name}') നിലവിലെ പ്രഭാഷണത്തിൽ ഉൾപ്പെടുത്തിയിട്ടില്ല. "
-                    f"ഇന്റർനെറ്റിൽ നിന്നുള്ള ലളിതമായ വിവരണം താഴെ നൽകുന്നു:"
+                    f"ലളിതമായ വിവരണം: {internet_def.get('text_target', '')}"
                 )
             elif target_lang == "hi":
                 not_covered_vernacular = (
                     f"यह विषय ('{concept_name}') वर्तमान व्याख्यान में शामिल नहीं है। "
-                    f"इंटरनेट से सरल संदर्भ परिभाषा नीचे दी गई है:"
+                    f"सरल संदर्भ परिभाषा: {internet_def.get('text_target', '')}"
                 )
             elif target_lang == "ta":
                 not_covered_vernacular = (
                     f"இந்தத் தலைப்பு ('{concept_name}') தற்போதைய விரிவுரையில் இடம்பெறவில்லை. "
-                    f"இணையத்திலிருந்து எளிய குறிப்பு வரையறை கீழே கொடுக்கப்பட்டுள்ளது:"
+                    f"எளிய குறிப்பு வரையறை: {internet_def.get('text_target', '')}"
                 )
             else:
                 not_covered_vernacular = not_covered_en
+
+            # If Gemini is available, provide an intelligent educational response
+            if settings.GEMINI_API_KEY:
+                try:
+                    from google import genai
+                    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+                    prompt = (
+                        f"You are ClassBridge, an empathetic, top-tier AI tutor.\n"
+                        f"Student Question: '{question}'\n"
+                        f"Target Vernacular Language: '{lang_name}' (code: '{target_lang}')\n"
+                        f"Note: This topic was NOT covered in the current lecture transcript.\n"
+                        f"Politely clarify in 1 sentence that this wasn't covered in today's class, "
+                        f"then explain the concept in 1-2 helpful sentences.\n"
+                        f"Return ONLY valid JSON with keys: 'answer' and 'vernacular_answer'."
+                    )
+                    models_to_try = ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash"]
+                    for model_name in models_to_try:
+                        try:
+                            resp = client.models.generate_content(
+                                model=model_name,
+                                contents=prompt,
+                                config=dict(response_mime_type="application/json")
+                            )
+                            if resp and resp.text:
+                                out_data = json.loads(resp.text)
+                                if out_data.get("answer"):
+                                    ans = out_data["answer"].strip()
+                                    if "not covered" not in ans.lower():
+                                        ans = f"This topic ('{concept_name}') is not covered in the current lecture session transcript. " + ans
+                                    not_covered_en = ans
+                                if out_data.get("vernacular_answer"):
+                                    not_covered_vernacular = out_data["vernacular_answer"].strip()
+                                break
+                        except Exception as m_err:
+                            logger.info(f"Out-of-topic Gemini model {model_name} failed: {m_err}...")
+                except Exception as e:
+                    logger.info(f"Gemini out-of-topic fallback: {e}")
 
             return {
                 "found_in_lecture": False,
