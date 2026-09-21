@@ -15,6 +15,7 @@ import ClassModeBar from './components/ClassModeBar';
 import OnlineClassStage from './components/OnlineClassStage';
 import StudentRegisterModal from './components/StudentRegisterModal';
 import AttendanceRosterModal from './components/AttendanceRosterModal';
+import TeacherSetupModal from './components/TeacherSetupModal';
 import ErrorBanner from './components/ErrorBanner';
 import { AudioStreamer, getAudioInputDevices } from './utils/audioStreamer';
 import { globalTTS, getAudioOutputDevices } from './utils/ttsService';
@@ -453,9 +454,20 @@ export default function App() {
       return 'realtime_classroom';
     }
   });
+  const [isRoleLocked, setIsRoleLocked] = useState(() => {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      return p.get('lock_role') === 'true' || p.get('locked') === '1';
+    } catch (e) {
+      return false;
+    }
+  });
   const [userRole, setUserRole] = useState(() => {
     try {
       const p = new URLSearchParams(window.location.search);
+      if (p.get('lock_role') === 'true' || p.get('locked') === '1') {
+        return 'student';
+      }
       const r = p.get('role');
       if (r && (r === 'teacher' || r === 'student')) return r;
       return localStorage.getItem('classbridge_user_role') || 'teacher';
@@ -476,6 +488,26 @@ export default function App() {
   const [isClassroomModalOpen, setIsClassroomModalOpen] = useState(false);
   const [studentCount, setStudentCount] = useState(0);
   const [hasTeacher, setHasTeacher] = useState(() => userRole === 'teacher');
+
+  // Teacher Identity & Setup State
+  const [teacherName, setTeacherName] = useState(() => {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      return p.get('teacher_name') || localStorage.getItem('classbridge_teacher_name') || '';
+    } catch (e) {
+      return '';
+    }
+  });
+  const [isTeacherSetupOpen, setIsTeacherSetupOpen] = useState(false);
+  const teacherNameRef = useRef(teacherName);
+
+  useEffect(() => {
+    teacherNameRef.current = teacherName;
+  }, [teacherName]);
+
+  // Online Classroom Hand Raises & Q&A Comments State
+  const [handRaises, setHandRaises] = useState([]);
+  const [qaComments, setQaComments] = useState([]);
 
   // Online Classroom Student Identity & Attendance Roster State
   const [studentName, setStudentName] = useState(() => {
@@ -615,6 +647,9 @@ export default function App() {
             // Received by Student tabs
             if (userRoleRef.current === 'student') {
               setHasTeacher(Boolean(msg.has_teacher));
+              if (msg.teacher_name) {
+                setTeacherName(msg.teacher_name);
+              }
               if (msg.student_count !== undefined) {
                 setStudentCount(msg.student_count);
               }
@@ -636,6 +671,9 @@ export default function App() {
             }
           } else if (msg.type === 'room_presence') {
             if (msg.student_count !== undefined) setStudentCount((c) => Math.max(c, msg.student_count));
+            if (msg.teacher_name && userRoleRef.current === 'student') {
+              setTeacherName(msg.teacher_name);
+            }
             if (msg.has_teacher !== undefined && userRoleRef.current === 'student') {
               setHasTeacher(Boolean(msg.has_teacher));
             }
@@ -694,6 +732,45 @@ export default function App() {
                 setRemoteVideoFrame(null);
               }
             }
+          } else if (msg.type === 'hand_raise') {
+            const isRaised = msg.raise_action !== 'lower' && msg.is_raised !== false;
+            setHandRaises((prev) => {
+              if (isRaised) {
+                if (prev.some((h) => (msg.student_tab_id && h.student_tab_id === msg.student_tab_id) || (msg.roll_no && h.roll_no === msg.roll_no))) return prev;
+                return [...prev, {
+                  student_tab_id: msg.student_tab_id,
+                  name: msg.name || 'Student',
+                  roll_no: msg.roll_no || '',
+                  timestamp: msg.timestamp || Date.now()
+                }];
+              } else {
+                return prev.filter((h) => (!msg.student_tab_id || h.student_tab_id !== msg.student_tab_id) && (!msg.roll_no || h.roll_no !== msg.roll_no));
+              }
+            });
+          } else if (msg.type === 'lower_all_hands') {
+            setHandRaises([]);
+          } else if (msg.type === 'qa_comment') {
+            if (msg.comment) {
+              setQaComments((prev) => {
+                if (prev.some((c) => c.id === msg.comment.id)) return prev;
+                return [...prev, msg.comment];
+              });
+            }
+          } else if (msg.type === 'keyword_announcement') {
+            if (msg.segment) {
+              setSegments((prev) => {
+                if (prev.some((s) => s.id === msg.segment.id)) return prev;
+                return [...prev, msg.segment];
+              });
+              if (isReadAloudEnabled) {
+                const textToRead = (msg.segment.translations && msg.segment.translations[targetLang]) || msg.segment.text_vernacular || msg.segment.text_source || msg.segment.text_en;
+                globalTTS.queueSentence(textToRead, targetLang);
+              }
+            }
+          } else if (msg.type === 'set_teacher_name') {
+            if (msg.teacher_name) {
+              setTeacherName(msg.teacher_name);
+            }
           }
         } catch (e) {
           console.warn("BroadcastChannel message error:", e);
@@ -726,6 +803,7 @@ export default function App() {
           type: 'teacher_announce',
           room_id: roomCode,
           has_teacher: true,
+          teacher_name: teacherNameRef.current,
           student_count: count
         });
       } else {
@@ -764,6 +842,7 @@ export default function App() {
           type: 'teacher_announce',
           room_id: roomCodeRef.current,
           has_teacher: true,
+          teacher_name: teacherNameRef.current,
           student_count: count
         });
       } else {
@@ -989,7 +1068,7 @@ export default function App() {
     try {
       const isClassroom = classMode === 'realtime_classroom' || classMode === 'online_classroom';
       const wsUrl = isClassroom
-        ? `${WS_BASE_URL}/ws/classroom/${encodeURIComponent(roomCode)}?role=${userRole}&source_lang=${sourceLang}&target_lang=${targetLang}`
+        ? `${WS_BASE_URL}/ws/classroom/${encodeURIComponent(roomCode)}?role=${userRole}&source_lang=${sourceLang}&target_lang=${targetLang}${userRole === 'teacher' && teacherName ? `&teacher_name=${encodeURIComponent(teacherName)}` : ''}`
         : `${WS_BASE_URL}/ws/lecture?target_lang=${targetLang}&source_lang=${sourceLang}`;
 
       const ws = new WebSocket(wsUrl);
@@ -1021,6 +1100,15 @@ export default function App() {
             if (data.student_count !== undefined) {
               setStudentCount((prev) => Math.max(prev, data.student_count));
             }
+            if (data.teacher_name && userRoleRef.current === 'student') {
+              setTeacherName(data.teacher_name);
+            }
+            if (data.hand_raises && Array.isArray(data.hand_raises)) {
+              setHandRaises(data.hand_raises);
+            }
+            if (data.qa_comments && Array.isArray(data.qa_comments)) {
+              setQaComments(data.qa_comments);
+            }
             if (userRoleRef.current === 'teacher') {
               setHasTeacher(true);
               if (data.roster && Array.isArray(data.roster)) {
@@ -1038,6 +1126,9 @@ export default function App() {
           } else if (data.type === 'room_presence') {
             if (data.student_count !== undefined) {
               setStudentCount((prev) => Math.max(prev, data.student_count));
+            }
+            if (data.teacher_name && userRoleRef.current === 'student') {
+              setTeacherName(data.teacher_name);
             }
             if (userRoleRef.current === 'teacher') {
               setHasTeacher(true);
@@ -1067,6 +1158,44 @@ export default function App() {
               if (!data.is_camera_on) {
                 setRemoteVideoFrame(null);
               }
+            }
+          } else if (data.type === 'hand_raise') {
+            if (data.hand_raises && Array.isArray(data.hand_raises)) {
+              setHandRaises(data.hand_raises);
+            } else if (data.hand_data) {
+              const hd = data.hand_data;
+              setHandRaises((prev) => {
+                if (hd.is_raised) {
+                  if (prev.some((h) => h.id === hd.id || (h.student_tab_id && h.student_tab_id === hd.student_tab_id))) return prev;
+                  return [...prev, hd];
+                } else {
+                  return prev.filter((h) => h.id !== hd.id && (!hd.student_tab_id || h.student_tab_id !== hd.student_tab_id));
+                }
+              });
+            }
+          } else if (data.type === 'lower_all_hands') {
+            setHandRaises([]);
+          } else if (data.type === 'qa_comment') {
+            if (data.comment) {
+              setQaComments((prev) => {
+                if (prev.some((c) => c.id === data.comment.id)) return prev;
+                return [...prev, data.comment];
+              });
+            }
+          } else if (data.type === 'keyword_announcement') {
+            if (data.segment) {
+              setSegments((prev) => {
+                if (prev.some((s) => s.id === data.segment.id)) return prev;
+                return [...prev, data.segment];
+              });
+              if (isReadAloudEnabled) {
+                const textToRead = (data.segment.translations && data.segment.translations[targetLang]) || data.segment.text_vernacular || data.segment.text_source || data.segment.text_en;
+                globalTTS.queueSentence(textToRead, targetLang);
+              }
+            }
+          } else if (data.type === 'set_teacher_name') {
+            if (data.teacher_name) {
+              setTeacherName(data.teacher_name);
             }
           } else if (data.type === 'history') {
             if (data.segments && Array.isArray(data.segments)) {
@@ -1507,6 +1636,7 @@ export default function App() {
   };
 
   const handleUserRoleChange = (role) => {
+    if (isRoleLocked && role === 'teacher') return;
     const cleanRole = role === 'teacher' ? 'teacher' : 'student';
     userRoleRef.current = cleanRole;
     setUserRole(cleanRole);
@@ -1521,6 +1651,7 @@ export default function App() {
           type: 'teacher_announce',
           room_id: (roomCodeRef.current || 'EDU-02').trim().toUpperCase(),
           has_teacher: true,
+          teacher_name: teacherNameRef.current,
           student_count: studentTabsMapRef.current.size,
           is_camera_on: isTeacherCameraOnRef.current,
           is_screen_sharing: isTeacherScreenSharingRef.current
@@ -1560,6 +1691,223 @@ export default function App() {
       }
     }
   }, [classMode, userRole, studentName, studentRollNo]);
+
+  // Auto-open teacher setup modal when entering online_classroom as teacher if name missing
+  useEffect(() => {
+    if (classMode === 'online_classroom' && userRole === 'teacher') {
+      if (!teacherName) {
+        setIsTeacherSetupOpen(true);
+      }
+    }
+  }, [classMode, userRole, teacherName]);
+
+  const handleTeacherSetupSubmit = ({ teacherName: tName, name, sourceLang: sLang, targetLang: tLang }) => {
+    const cleanName = (tName || name || '').trim();
+    if (cleanName) {
+      setTeacherName(cleanName);
+      try {
+        localStorage.setItem('classbridge_teacher_name', cleanName);
+      } catch (e) {}
+    }
+    if (sLang) {
+      setSourceLang(sLang);
+      try {
+        localStorage.setItem('classbridge_source_lang', sLang);
+      } catch (e) {}
+    }
+    if (tLang) {
+      handleLanguageChange(tLang);
+    }
+    setIsTeacherSetupOpen(false);
+
+    // Announce to WebSocket
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify({
+          action: 'set_teacher_name',
+          teacher_name: cleanName
+        }));
+      } catch (e) {}
+    }
+
+    // Announce to BroadcastChannel
+    if (broadcastChannelRef.current) {
+      try {
+        broadcastChannelRef.current.postMessage({
+          type: 'set_teacher_name',
+          room_id: (roomCodeRef.current || 'EDU-02').trim().toUpperCase(),
+          teacher_name: cleanName
+        });
+      } catch (e) {}
+    }
+  };
+
+  const handleToggleHandRaise = () => {
+    const isRaised = handRaises.some(
+      (h) => (h.student_tab_id && h.student_tab_id === tabIdRef.current) || (studentRollNo && h.roll_no === studentRollNo)
+    );
+    const nextAction = isRaised ? 'lower' : 'raise';
+    const payload = {
+      action: 'hand_raise',
+      student_tab_id: tabIdRef.current,
+      name: studentName || 'Student',
+      roll_no: studentRollNo || '',
+      raise_action: nextAction,
+      is_raised: nextAction === 'raise',
+      timestamp: Date.now()
+    };
+
+    setHandRaises((prev) => {
+      if (nextAction === 'raise') {
+        if (prev.some((h) => h.student_tab_id === tabIdRef.current || (studentRollNo && h.roll_no === studentRollNo))) return prev;
+        return [...prev, {
+          student_tab_id: tabIdRef.current,
+          name: studentName || 'Student',
+          roll_no: studentRollNo || '',
+          timestamp: Date.now()
+        }];
+      } else {
+        return prev.filter((h) => h.student_tab_id !== tabIdRef.current && (!studentRollNo || h.roll_no !== studentRollNo));
+      }
+    });
+
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify(payload));
+      } catch (e) {}
+    }
+
+    if (broadcastChannelRef.current) {
+      try {
+        broadcastChannelRef.current.postMessage({
+          type: 'hand_raise',
+          room_id: (roomCodeRef.current || 'EDU-02').trim().toUpperCase(),
+          ...payload
+        });
+      } catch (e) {}
+    }
+  };
+
+  const handleLowerAllHands = () => {
+    setHandRaises([]);
+
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify({ action: 'lower_all_hands' }));
+      } catch (e) {}
+    }
+
+    if (broadcastChannelRef.current) {
+      try {
+        broadcastChannelRef.current.postMessage({
+          type: 'lower_all_hands',
+          room_id: (roomCodeRef.current || 'EDU-02').trim().toUpperCase()
+        });
+      } catch (e) {}
+    }
+  };
+
+  const handleSendQaComment = (text) => {
+    if (!text || !text.trim()) return;
+    const cleanText = text.trim();
+    const commentObj = {
+      id: 'qa_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now(),
+      sender_name: userRole === 'teacher' ? (teacherName || 'Teacher') : (studentName || 'Student'),
+      sender_role: userRole,
+      sender_roll_no: userRole === 'student' ? (studentRollNo || '') : '',
+      text: cleanText,
+      timestamp: Date.now()
+    };
+
+    setQaComments((prev) => [...prev, commentObj]);
+
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify({
+          action: 'qa_comment',
+          comment: commentObj,
+          text: cleanText
+        }));
+      } catch (e) {}
+    }
+
+    if (broadcastChannelRef.current) {
+      try {
+        broadcastChannelRef.current.postMessage({
+          type: 'qa_comment',
+          room_id: (roomCodeRef.current || 'EDU-02').trim().toUpperCase(),
+          comment: commentObj
+        });
+      } catch (e) {}
+    }
+  };
+
+  const handleBroadcastKeyword = async (keywordText) => {
+    if (!keywordText || !keywordText.trim()) return;
+    const clean = keywordText.trim();
+
+    // Multi-lingual translations for all target languages (ta, ml, hi, en)
+    const targetLangs = ['ta', 'ml', 'hi', 'en'];
+    const translations = { [sourceLang]: clean };
+
+    await Promise.all(
+      targetLangs.map(async (tLang) => {
+        if (tLang === sourceLang) return;
+        try {
+          const trans = await translateTextClient(clean, sourceLang, tLang);
+          translations[tLang] = trans || clean;
+        } catch (e) {
+          translations[tLang] = clean;
+        }
+      })
+    );
+
+    const segId = segments.length + 1;
+    const keywordSegment = {
+      id: segId,
+      speaker: userRole === 'teacher' ? (teacherName || 'Teacher') : 'Teacher',
+      text_source: clean,
+      text_en: sourceLang === 'en' ? clean : (translations['en'] || clean),
+      text_vernacular: translations[targetLang] || clean,
+      translations: translations,
+      confidence: 100.0,
+      is_keyword: true,
+      timestamp: 'KEYWORD',
+      source_lang: sourceLang,
+      target_lang: targetLang
+    };
+
+    setSegments((prev) => [...prev, keywordSegment]);
+
+    if (isReadAloudEnabled) {
+      const textToRead = translations[targetLang] || clean;
+      globalTTS.queueSentence(textToRead, targetLang);
+    }
+
+    // Send via WebSocket
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify({
+          action: 'keyword_caption',
+          keyword: clean,
+          text: clean,
+          segment: keywordSegment
+        }));
+      } catch (e) {}
+    }
+
+    // Send via BroadcastChannel
+    if (broadcastChannelRef.current) {
+      try {
+        broadcastChannelRef.current.postMessage({
+          type: 'keyword_announcement',
+          room_id: (roomCodeRef.current || 'EDU-02').trim().toUpperCase(),
+          keyword: clean,
+          segment: keywordSegment
+        });
+      } catch (e) {}
+    }
+  };
 
   const handleStudentRegisterSubmit = ({ name, roll_no, target_lang }) => {
     setStudentName(name);
@@ -2191,6 +2539,7 @@ export default function App() {
         onChangeClassMode={handleClassModeChange}
         userRole={userRole}
         onChangeUserRole={handleUserRoleChange}
+        isRoleLocked={isRoleLocked}
         roomCode={roomCode}
         studentCount={studentCount}
         hasTeacher={hasTeacher}
@@ -2231,6 +2580,8 @@ export default function App() {
       {classMode === 'online_classroom' ? (
         <OnlineClassStage
           userRole={userRole}
+          teacherName={teacherName || (userRole === 'teacher' ? 'Teacher' : 'Instructor')}
+          onOpenTeacherSetup={() => setIsTeacherSetupOpen(true)}
           roomCode={roomCode}
           studentName={studentName}
           studentRollNo={studentRollNo}
@@ -2253,6 +2604,12 @@ export default function App() {
           isReadAloud={isReadAloudEnabled}
           onToggleReadAloud={toggleReadAloud}
           selectedDeviceId={selectedDeviceId}
+          handRaises={handRaises}
+          onToggleHandRaise={handleToggleHandRaise}
+          onLowerAllHands={handleLowerAllHands}
+          qaComments={qaComments}
+          onSendQaComment={handleSendQaComment}
+          onBroadcastKeyword={handleBroadcastKeyword}
         />
       ) : (
         <main className={`google-main-stage view-${viewMode} mobile-${mobileActiveTab}`}>
@@ -2354,6 +2711,18 @@ export default function App() {
         roomCode={roomCode}
         onSubmit={handleStudentRegisterSubmit}
         isEditing={Boolean(studentName && studentRollNo)}
+      />
+
+      <TeacherSetupModal
+        isOpen={isTeacherSetupOpen}
+        onClose={() => setIsTeacherSetupOpen(false)}
+        initialName={teacherName}
+        sourceLang={sourceLang}
+        onChangeSourceLang={handleSourceLanguageChange}
+        targetLang={targetLang}
+        onChangeTargetLang={handleLanguageChange}
+        roomCode={roomCode}
+        onSubmit={handleTeacherSetupSubmit}
       />
 
       <AttendanceRosterModal

@@ -168,6 +168,83 @@ def test_all():
     assert len(r.content) > 1000
     print(f"[OK] Captions PDF Export passed: {len(r.content)} bytes of PDF binary")
 
+    # 10. Online Classroom Advanced Features (Teacher Setup, Q&A, Keyword Broadcast, Hand Raises)
+    print("\nTesting Online Classroom WebSocket Protocol & Advanced Features...")
+
+    # 10A. Teacher Flow: setup, Q&A comment broadcast, lower all hands
+    with client.websocket_connect("/ws/classroom/TEST-ONLINE-CLASS?role=teacher&teacher_name=Prof.%20Sharma&source_lang=en&target_lang=ta") as ws_teacher:
+        msgs = [ws_teacher.receive_json() for _ in range(3)]
+        t_hs = next((m for m in msgs if m.get("type") == "handshake"), None)
+        assert t_hs is not None, "Teacher handshake missing"
+        assert t_hs["teacher_name"] == "Prof. Sharma"
+        assert t_hs["role"] == "teacher"
+        print(f"[OK] Teacher handshake verified with name: {t_hs['teacher_name']}")
+
+        # Teacher Q&A
+        ws_teacher.send_json({"action": "qa_comment", "text": "Welcome students to today's machine learning session."})
+        m_qa = ws_teacher.receive_json()
+        assert m_qa["type"] == "qa_comment"
+        assert "Welcome" in m_qa["comment"]["text"]
+        print(f"[OK] Teacher Q&A comment verified: '{m_qa['comment']['text'][:35]}...'")
+
+        # Teacher Lower All Hands
+        ws_teacher.send_json({"action": "lower_all_hands"})
+        m_low = ws_teacher.receive_json()
+        assert m_low["type"] == "hand_raise"
+        assert m_low["hand_raises_count"] == 0
+        print("[OK] Teacher lower all hands verified (hand_raises_count = 0)")
+
+    # 10B. Student Flow: locked student connection, registration, hand raise, Q&A comment
+    with client.websocket_connect("/ws/classroom/TEST-ONLINE-CLASS?role=student&source_lang=en&target_lang=ta") as ws_student:
+        s_hs = ws_student.receive_json()
+        while s_hs.get("type") != "handshake":
+            s_hs = ws_student.receive_json()
+        assert s_hs["role"] == "student"
+        print("[OK] Student connected with role=student verified")
+
+        # Student identify
+        ws_student.send_json({
+            "action": "student_identify",
+            "name": "Kavitha S",
+            "roll_no": "22CS104",
+            "target_lang": "ta",
+            "student_tab_id": "tab_kavitha_104"
+        })
+        reg = ws_student.receive_json()
+        assert reg["type"] == "student_registered"
+        assert reg["student"]["name"] == "Kavitha S"
+        assert reg["student"]["roll_no"] == "22CS104"
+        print(f"[OK] Student registered: {reg['student']['name']} ({reg['student']['roll_no']})")
+
+        # Student Hand Raise
+        ws_student.send_json({
+            "action": "hand_raise",
+            "student_tab_id": "tab_kavitha_104",
+            "name": "Kavitha S",
+            "roll_no": "22CS104",
+            "raise_action": "raise"
+        })
+        hr = ws_student.receive_json()
+        while hr.get("type") != "hand_raise":
+            hr = ws_student.receive_json()
+        assert hr["type"] == "hand_raise"
+        assert hr["hand_raises_count"] == 1
+        print(f"[OK] Student hand raised broadcast received (count = {hr['hand_raises_count']})")
+
+        # Student Q&A Comment
+        ws_student.send_json({
+            "action": "qa_comment",
+            "text": "Why is the loss function convex in linear regression?",
+            "name": "Kavitha S",
+            "roll_no": "22CS104"
+        })
+        qa = ws_student.receive_json()
+        while qa.get("type") != "qa_comment":
+            qa = ws_student.receive_json()
+        assert qa["type"] == "qa_comment"
+        assert "convex" in qa["comment"]["text"]
+        print(f"[OK] Student Q&A comment broadcast received: '{qa['comment']['text'][:35]}...'")
+
     print("\n========================================================")
     print("   ALL CLASSBRIDGE BACKEND UNIT & INTEGRATION TESTS PASSED!")
     print("========================================================")

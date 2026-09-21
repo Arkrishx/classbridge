@@ -24,6 +24,7 @@ export default function ClassModeBar({
   studentCount = 0,
   hasTeacher = false,
   isCameraActive = false,
+  isRoleLocked = false,
   onOpenAttendanceRoster,
   onOpenClassroomModal,
 }) {
@@ -31,7 +32,7 @@ export default function ClassModeBar({
   const isTeacherOnline = userRole === 'teacher' || Boolean(hasTeacher);
 
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
-  const studentInviteUrl = `${currentOrigin}?room=${encodeURIComponent(roomCode)}&mode=${classMode === 'online_classroom' ? 'online' : 'offline'}&role=student`;
+  const studentInviteUrl = `${currentOrigin}?room=${encodeURIComponent(roomCode)}&mode=${classMode === 'online_classroom' ? 'online' : 'offline'}&role=student&lock_role=true`;
 
   const handleCopyStudentLink = async (e) => {
     if (e) e.stopPropagation();
@@ -111,27 +112,36 @@ export default function ClassModeBar({
         {classMode === 'realtime_classroom' && (
           <div className="class-context-deck">
             {/* Direct Role Toggle (Teacher vs Student) */}
-            <div className="role-switch-pills" title="Toggle your classroom role">
-              <button
-                type="button"
-                className={`role-pill ${userRole === 'teacher' ? 'active-teacher' : ''}`}
-                onClick={() => onChangeUserRole && onChangeUserRole('teacher')}
-                title="Teacher: Broadcast your microphone to the entire classroom"
-              >
-                <Crown size={13} />
-                <span>Teacher (Host)</span>
-              </button>
+            {isRoleLocked ? (
+              <div className="role-switch-pills role-locked-deck" title="Student role is locked for this invite link">
+                <div className="role-pill active-student" style={{ cursor: 'default', background: 'rgba(66, 133, 244, 0.18)', borderColor: 'rgba(66, 133, 244, 0.4)' }}>
+                  <Headphones size={13} color="var(--google-blue)" />
+                  <span style={{ fontWeight: 700 }}>🔒 Student (Locked)</span>
+                </div>
+              </div>
+            ) : (
+              <div className="role-switch-pills" title="Toggle your classroom role">
+                <button
+                  type="button"
+                  className={`role-pill ${userRole === 'teacher' ? 'active-teacher' : ''}`}
+                  onClick={() => onChangeUserRole && onChangeUserRole('teacher')}
+                  title="Teacher: Broadcast your microphone to the entire classroom"
+                >
+                  <Crown size={13} />
+                  <span>Teacher (Host)</span>
+                </button>
 
-              <button
-                type="button"
-                className={`role-pill ${userRole === 'student' ? 'active-student' : ''}`}
-                onClick={() => onChangeUserRole && onChangeUserRole('student')}
-                title="Student: Listen to teacher mic with locked student mic to prevent room feedback"
-              >
-                <Headphones size={13} />
-                <span>Student (Listener)</span>
-              </button>
-            </div>
+                <button
+                  type="button"
+                  className={`role-pill ${userRole === 'student' ? 'active-student' : ''}`}
+                  onClick={() => onChangeUserRole && onChangeUserRole('student')}
+                  title="Student: Listen to teacher mic with locked student mic to prevent room feedback"
+                >
+                  <Headphones size={13} />
+                  <span>Student (Listener)</span>
+                </button>
+              </div>
+            )}
 
             {/* Room Code & Connected Students Badge */}
             <button
@@ -176,27 +186,36 @@ export default function ClassModeBar({
         {classMode === 'online_classroom' && (
           <div className="class-context-deck online-deck">
             {/* Direct Role Toggle (Teacher vs Student) */}
-            <div className="role-switch-pills" title="Toggle your online classroom role">
-              <button
-                type="button"
-                className={`role-pill ${userRole === 'teacher' ? 'active-teacher' : ''}`}
-                onClick={() => onChangeUserRole && onChangeUserRole('teacher')}
-                title="Teacher: Broadcast your camera & microphone to the entire online classroom"
-              >
-                <Crown size={13} />
-                <span>Teacher (Host)</span>
-              </button>
+            {isRoleLocked ? (
+              <div className="role-switch-pills role-locked-deck" title="Student role is locked for this invite link">
+                <div className="role-pill active-student" style={{ cursor: 'default', background: 'rgba(66, 133, 244, 0.18)', borderColor: 'rgba(66, 133, 244, 0.4)' }}>
+                  <Headphones size={13} color="var(--google-blue)" />
+                  <span style={{ fontWeight: 700 }}>🔒 Student (Locked)</span>
+                </div>
+              </div>
+            ) : (
+              <div className="role-switch-pills" title="Toggle your online classroom role">
+                <button
+                  type="button"
+                  className={`role-pill ${userRole === 'teacher' ? 'active-teacher' : ''}`}
+                  onClick={() => onChangeUserRole && onChangeUserRole('teacher')}
+                  title="Teacher: Broadcast your camera & microphone to the entire online classroom"
+                >
+                  <Crown size={13} />
+                  <span>Teacher (Host)</span>
+                </button>
 
-              <button
-                type="button"
-                className={`role-pill ${userRole === 'student' ? 'active-student' : ''}`}
-                onClick={() => onChangeUserRole && onChangeUserRole('student')}
-                title="Student: View teacher camera stream & synchronized multi-lingual subtitles"
-              >
-                <Headphones size={13} />
-                <span>Student (Listener)</span>
-              </button>
-            </div>
+                <button
+                  type="button"
+                  className={`role-pill ${userRole === 'student' ? 'active-student' : ''}`}
+                  onClick={() => onChangeUserRole && onChangeUserRole('student')}
+                  title="Student: View teacher camera stream & synchronized multi-lingual subtitles"
+                >
+                  <Headphones size={13} />
+                  <span>Student (Listener)</span>
+                </button>
+              </div>
+            )}
 
             {/* Room Code & Connected Students Badge */}
             <button

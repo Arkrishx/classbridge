@@ -4556,6 +4556,516 @@ body {
   }
 }
 
+/* ==========================================================================
+   Online Class Advanced Suite (7 Features: Recording, Keyword, Q&A, Hand Raise,
+   Teacher Setup, Locked Link, Subtitle Exports)
+   ========================================================================== */
+
+/* 1. Teacher Setup Badge & Trigger in Meet Header */
+.teacher-setup-trigger-badge {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+.teacher-setup-trigger-badge:hover {
+  background: rgba(245, 158, 11, 0.25) !important;
+  border-color: rgba(245, 158, 11, 0.6) !important;
+  transform: translateY(-1px);
+}
+
+/* 2. Live Recording Indicator Pill & Animations */
+.recording-indicator-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(234, 67, 53, 0.18);
+  border: 1px solid rgba(234, 67, 53, 0.45);
+  padding: 4px 10px;
+  border-radius: 20px;
+  color: #ea4335;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  backdrop-filter: blur(8px);
+}
+
+.rec-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ea4335;
+  box-shadow: 0 0 8px #ea4335;
+  animation: recPulse 1.2s infinite ease-in-out;
+}
+
+@keyframes recPulse {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(0.75); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* 3. Hand Raise Active Pulse & Badges */
+.meet-dock-btn.hand-raised-active {
+  background: #f59e0b !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.7);
+  animation: handRaisedPulse 1.6s infinite ease-in-out;
+}
+
+@keyframes handRaisedPulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+  70% { transform: scale(1.06); box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+
+.meet-btn-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #ea4335;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--bg-surface, #1e2430);
+}
+
+/* 4. Teacher Keyword Broadcaster Floating Drawer */
+.keyword-broadcast-drawer {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 520px;
+  background: rgba(20, 24, 34, 0.96);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5), 0 0 24px rgba(245, 158, 11, 0.15);
+  border-radius: 16px;
+  padding: 16px 20px;
+  z-index: 50;
+  animation: drawerSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes drawerSlideUp {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 16px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.keyword-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.close-mini-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  color: var(--text-muted, #9aa0a6);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.close-mini-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+.keyword-drawer-form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.keyword-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  border-radius: 24px;
+  padding: 10px 16px;
+  font-size: 14px;
+  outline: none;
+}
+.keyword-input:focus {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+}
+
+.send-keyword-btn {
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  color: #ffffff !important;
+  border-radius: 24px;
+  padding: 10px 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);
+}
+.send-keyword-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.45);
+}
+
+.keyword-drawer-hint {
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.55);
+  margin-top: 8px;
+  text-align: center;
+}
+
+/* 5. Highlighted Keyword Overlay */
+.keyword-overlay-highlight {
+  border: 2px solid rgba(245, 158, 11, 0.8) !important;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(15, 23, 42, 0.9)) !important;
+  box-shadow: 0 8px 30px rgba(245, 158, 11, 0.3) !important;
+  animation: keywordPulse 2s infinite ease-in-out;
+}
+
+@keyframes keywordPulse {
+  0% { border-color: rgba(245, 158, 11, 0.6); }
+  50% { border-color: rgba(245, 158, 11, 1); }
+  100% { border-color: rgba(245, 158, 11, 0.6); }
+}
+
+.keyword-badge-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #f59e0b;
+  color: #0f172a;
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 6px;
+  width: fit-content;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+/* 6. Sidebar Tabs & Export Actions */
+.sidebar-tabs-bar {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  padding: 6px 10px;
+  gap: 6px;
+}
+
+.sidebar-tab-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.sidebar-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-main);
+}
+.sidebar-tab-btn.active {
+  background: var(--bg-surface);
+  color: var(--google-blue, #4285f4);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.tab-counter-badge {
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: rgba(66, 133, 244, 0.15);
+  color: var(--google-blue, #4285f4);
+}
+.tab-counter-badge.amber {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+}
+
+.caption-export-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.export-btn:hover {
+  border-color: var(--google-blue, #4285f4);
+  color: var(--google-blue, #4285f4);
+  transform: translateY(-1px);
+}
+.export-btn.pdf:hover {
+  border-color: #ea4335;
+  color: #ea4335;
+}
+
+/* 7. Q&A Sidebar */
+.qa-sidebar-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  flex: 1;
+  overflow: hidden;
+}
+
+.qa-messages-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.qa-comment-card {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+.qa-comment-card.teacher-card {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.qa-comment-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.qa-sender-name {
+  font-weight: 700;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.qa-role-tag {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(66, 133, 244, 0.15);
+  color: var(--google-blue, #4285f4);
+}
+.qa-role-tag.teacher {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+}
+
+.qa-roll-no {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.qa-timestamp {
+  font-size: 10.5px;
+  color: var(--text-dim);
+}
+
+.qa-comment-body {
+  color: var(--text-main);
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.qa-input-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+}
+
+.qa-input {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 13px;
+  border-radius: 20px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  color: var(--text-main);
+  outline: none;
+}
+.qa-input:focus {
+  border-color: var(--google-blue, #4285f4);
+}
+
+.qa-send-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--google-blue, #4285f4);
+  color: #ffffff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.qa-send-btn:hover {
+  transform: scale(1.08);
+}
+.qa-send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.qa-empty-state, .hand-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  gap: 8px;
+  font-size: 13px;
+}
+
+/* 8. Hand Raises List */
+.hands-sidebar-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  flex: 1;
+  overflow: hidden;
+}
+
+.hands-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hand-raise-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 10px;
+  animation: handRowSlide 0.2s ease-out;
+}
+
+@keyframes handRowSlide {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.hand-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.hand-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hand-name {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-main);
+}
+
+.hand-roll {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.hand-time {
+  font-size: 10.5px;
+  color: var(--text-dim);
+}
+
+.lower-all-btn {
+  margin: 10px 12px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(234, 67, 53, 0.4);
+  background: rgba(234, 67, 53, 0.1);
+  color: #ea4335;
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.lower-all-btn:hover {
+  background: rgba(234, 67, 53, 0.2);
+  transform: translateY(-1px);
+}
+
 
 
 

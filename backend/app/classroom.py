@@ -16,6 +16,9 @@ class ClassroomRoom:
         self.current_time_offset: float = 0.0
         self.source_lang: str = source_lang
         self.default_target_lang: str = default_target_lang
+        self.teacher_name: str = "Teacher"
+        self.hand_raises: Dict[str, Dict[str, Any]] = {}
+        self.qa_comments: List[Dict[str, Any]] = []
         self.is_camera_on: bool = False
         self.is_screen_sharing: bool = False
         self.created_at: float = time.time()
@@ -48,6 +51,7 @@ class ClassroomRoom:
     def to_dict(self) -> Dict[str, Any]:
         return {
             "room_id": self.room_id,
+            "teacher_name": self.teacher_name,
             "has_teacher": self.has_teacher,
             "student_count": self.student_count,
             "total_segments": len(self.segments),
@@ -56,6 +60,8 @@ class ClassroomRoom:
             "is_camera_on": self.is_camera_on,
             "is_screen_sharing": self.is_screen_sharing,
             "roster": self.get_roster(),
+            "hand_raises": list(self.hand_raises.values()),
+            "qa_comments": self.qa_comments[-30:],
             "created_at": self.created_at,
             "last_active": self.last_active
         }
@@ -80,12 +86,14 @@ class ClassroomManager:
     def get_room(self, room_id: str) -> Optional[ClassroomRoom]:
         return self.rooms.get(room_id.strip().upper())
 
-    async def register_teacher(self, room_id: str, websocket: WebSocket, source_lang: str = "en", target_lang: str = "ta") -> ClassroomRoom:
+    async def register_teacher(self, room_id: str, websocket: WebSocket, source_lang: str = "en", target_lang: str = "ta", teacher_name: str = "Teacher") -> ClassroomRoom:
         room = self.get_or_create_room(room_id, default_target_lang=target_lang, source_lang=source_lang)
         room.teacher_ws = websocket
         room.source_lang = source_lang
+        if teacher_name and teacher_name.strip():
+            room.teacher_name = teacher_name.strip()
         room.last_active = time.time()
-        logger.info(f"Teacher registered for room {room.room_id}. Total students: {room.student_count}")
+        logger.info(f"Teacher '{room.teacher_name}' registered for room {room.room_id}. Total students: {room.student_count}")
         await self.broadcast_presence(room.room_id)
         return room
 
@@ -116,6 +124,9 @@ class ClassroomManager:
             room.students.remove(websocket)
             removed_student = room.student_roster.pop(websocket, None)
             if removed_student:
+                sid = removed_student.get('id')
+                if sid in room.hand_raises:
+                    room.hand_raises.pop(sid, None)
                 logger.info(f"Student {removed_student.get('name')} ({removed_student.get('roll_no')}) disconnected from room {room.room_id}")
             logger.info(f"Student disconnected from room {room.room_id}. Remaining: {room.student_count}")
             await self.broadcast_roster(room.room_id)
@@ -164,12 +175,14 @@ class ClassroomManager:
         presence_msg = {
             "type": "room_presence",
             "room_id": room.room_id,
+            "teacher_name": room.teacher_name,
             "has_teacher": room.has_teacher,
             "student_count": room.student_count,
             "source_lang": room.source_lang,
             "is_camera_on": room.is_camera_on,
             "is_screen_sharing": room.is_screen_sharing,
-            "total_segments": len(room.segments)
+            "total_segments": len(room.segments),
+            "hand_raises_count": len(room.hand_raises)
         }
         await self.broadcast_to_room(room.room_id, presence_msg, include_teacher=True)
 
@@ -215,6 +228,54 @@ class ClassroomManager:
             "is_screen_sharing": is_screen_sharing
         }
         await self.broadcast_to_room(room.room_id, state_msg, include_teacher=True)
+
+    async def broadcast_hand_raise(self, room_id: str, hand_data: Dict[str, Any]):
+        room = self.get_room(room_id)
+        if not room:
+            return
+        sid = hand_data.get("student_tab_id") or hand_data.get("id") or "anon"
+        is_raised = bool(hand_data.get("is_raised", True))
+        if is_raised:
+            room.hand_raises[sid] = hand_data
+        else:
+            room.hand_raises.pop(sid, None)
+        room.last_active = time.time()
+        msg = {
+            "type": "hand_raise",
+            "room_id": room.room_id,
+            "hand_data": hand_data,
+            "hand_raises": list(room.hand_raises.values()),
+            "hand_raises_count": len(room.hand_raises)
+        }
+        await self.broadcast_to_room(room.room_id, msg, include_teacher=True)
+
+    async def broadcast_qa_comment(self, room_id: str, comment_data: Dict[str, Any]):
+        room = self.get_room(room_id)
+        if not room:
+            return
+        room.qa_comments.append(comment_data)
+        if len(room.qa_comments) > 100:
+            room.qa_comments.pop(0)
+        room.last_active = time.time()
+        msg = {
+            "type": "qa_comment",
+            "room_id": room.room_id,
+            "comment": comment_data,
+            "total_comments": len(room.qa_comments)
+        }
+        await self.broadcast_to_room(room.room_id, msg, include_teacher=True)
+
+    async def broadcast_keyword_caption(self, room_id: str, keyword_data: Dict[str, Any]):
+        room = self.get_room(room_id)
+        if not room:
+            return
+        room.last_active = time.time()
+        msg = {
+            "type": "keyword_announcement",
+            "room_id": room.room_id,
+            "keyword": keyword_data
+        }
+        await self.broadcast_to_room(room.room_id, msg, include_teacher=True)
 
     def add_segment_to_room(self, room_id: str, segment: Dict[str, Any]):
         room = self.get_room(room_id)

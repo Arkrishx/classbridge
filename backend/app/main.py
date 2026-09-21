@@ -1,6 +1,7 @@
 import io
 import json
 import base64
+import time
 import logging
 import urllib.parse
 import urllib.request
@@ -560,7 +561,8 @@ async def websocket_classroom_endpoint(
     room_id: str,
     role: str = Query(default="student"),
     source_lang: str = Query(default="en"),
-    target_lang: str = Query(default="ta")
+    target_lang: str = Query(default="ta"),
+    teacher_name: Optional[str] = Query(default="Teacher")
 ):
     await websocket.accept()
     clean_room = room_id.strip().upper()
@@ -568,10 +570,10 @@ async def websocket_classroom_endpoint(
     if role != "teacher":
         role = "student"
 
-    logger.info(f"Classroom WS connection: room={clean_room}, role={role}, source={source_lang}, target={target_lang}")
+    logger.info(f"Classroom WS connection: room={clean_room}, role={role}, source={source_lang}, target={target_lang}, teacher_name={teacher_name}")
 
     if role == "teacher":
-        room = await classroom_manager.register_teacher(clean_room, websocket, source_lang=source_lang, target_lang=target_lang)
+        room = await classroom_manager.register_teacher(clean_room, websocket, source_lang=source_lang, target_lang=target_lang, teacher_name=teacher_name or "Teacher")
     else:
         room = await classroom_manager.register_student(clean_room, websocket)
 
@@ -581,11 +583,14 @@ async def websocket_classroom_endpoint(
             "type": "handshake",
             "room_id": clean_room,
             "role": role,
+            "teacher_name": room.teacher_name,
             "has_teacher": room.has_teacher,
             "student_count": room.student_count,
             "source_lang": room.source_lang,
             "is_camera_on": room.is_camera_on,
             "is_screen_sharing": room.is_screen_sharing,
+            "hand_raises": list(room.hand_raises.values()),
+            "qa_comments": room.qa_comments[-50:],
             "roster": room.get_roster() if role == "teacher" else None,
             "message": f"Connected to room {clean_room} as {role}."
         })
@@ -756,6 +761,69 @@ async def websocket_classroom_endpoint(
                             is_scr = bool(payload.get("is_screen_sharing", False))
                             await classroom_manager.broadcast_video_state(clean_room, is_cam, is_scr)
 
+                        elif action == "set_teacher_name":
+                            new_name = payload.get("teacher_name", "").strip()
+                            if new_name:
+                                room.teacher_name = new_name
+                                await classroom_manager.broadcast_presence(clean_room)
+
+                        elif action == "keyword_caption":
+                            keyword_text = (payload.get("text") or payload.get("keyword") or "").strip()
+                            if keyword_text:
+                                multi_trans = translator_service.translate_all_targets(
+                                    keyword_text,
+                                    source_lang=room.source_lang,
+                                    target_languages=["ta", "ml", "hi", "en"]
+                                )
+                                seg_id = len(room.segments) + 1
+                                start_t = room.current_time_offset
+                                end_t = start_t + 5.0
+                                room.current_time_offset = end_t
+                                segment_data = {
+                                    "id": seg_id,
+                                    "start": start_t,
+                                    "end": end_t,
+                                    "timestamp": "KEYWORD",
+                                    "text_source": keyword_text,
+                                    "text_en": keyword_text if room.source_lang == "en" else multi_trans["translations"].get("en", keyword_text),
+                                    "text_vernacular": multi_trans["translations"].get(target_lang, keyword_text),
+                                    "translations": multi_trans["translations"],
+                                    "confidence": 100.0,
+                                    "is_keyword": True,
+                                    "domain_terms": multi_trans["domain_terms"],
+                                    "source_lang": room.source_lang,
+                                    "target_lang": target_lang
+                                }
+                                classroom_manager.add_segment_to_room(clean_room, segment_data)
+                                await classroom_manager.broadcast_to_room(clean_room, {
+                                    "type": "caption",
+                                    "segment": segment_data
+                                })
+                                await classroom_manager.broadcast_keyword_caption(clean_room, segment_data)
+
+                        elif action == "qa_comment":
+                            c_dict = payload.get("comment") if isinstance(payload.get("comment"), dict) else {}
+                            c_text = (payload.get("text") or c_dict.get("text") or "").strip()
+                            if c_text:
+                                comment_data = {
+                                    "id": c_dict.get("id") or payload.get("id") or f"c_{time.time()}",
+                                    "sender_name": c_dict.get("sender_name") or payload.get("sender") or room.teacher_name,
+                                    "sender_roll_no": c_dict.get("sender_roll_no") or payload.get("roll_no", "HOST"),
+                                    "text": c_text,
+                                    "sender_role": "teacher",
+                                    "timestamp": c_dict.get("timestamp") or time.time()
+                                }
+                                await classroom_manager.broadcast_qa_comment(clean_room, comment_data)
+
+                        elif action == "lower_all_hands":
+                            room.hand_raises.clear()
+                            await classroom_manager.broadcast_to_room(clean_room, {
+                                "type": "hand_raise",
+                                "room_id": clean_room,
+                                "hand_raises": [],
+                                "hand_raises_count": 0
+                            })
+
                         elif action == "request_roster":
                             await websocket.send_json({
                                 "type": "roster_update",
@@ -771,7 +839,7 @@ async def websocket_classroom_endpoint(
                         pass
 
             else:
-                # Student role: read-only captions & video stream, plus identity registration
+                # Student role: read-only captions & video stream, plus identity registration, hand raise, Q&A comment
                 if "text" in message and message["text"]:
                     try:
                         payload = json.loads(message["text"])
@@ -797,6 +865,32 @@ async def websocket_classroom_endpoint(
                                     "student": s_info
                                 })
                                 await classroom_manager.broadcast_roster(clean_room)
+
+                        elif action == "hand_raise":
+                            is_r = payload.get("raise_action") != "lower" if "raise_action" in payload else bool(payload.get("is_raised", True))
+                            hand_info = {
+                                "id": payload.get("student_tab_id") or f"ws_{abs(hash(websocket))}",
+                                "student_tab_id": payload.get("student_tab_id", ""),
+                                "name": payload.get("name", "Student"),
+                                "roll_no": payload.get("roll_no", ""),
+                                "is_raised": is_r,
+                                "timestamp": payload.get("timestamp") or time.time()
+                            }
+                            await classroom_manager.broadcast_hand_raise(clean_room, hand_info)
+
+                        elif action == "qa_comment":
+                            c_dict = payload.get("comment") if isinstance(payload.get("comment"), dict) else {}
+                            c_text = (payload.get("text") or c_dict.get("text") or "").strip()
+                            if c_text:
+                                comment_data = {
+                                    "id": c_dict.get("id") or payload.get("id") or f"c_{time.time()}",
+                                    "sender_name": c_dict.get("sender_name") or payload.get("name") or payload.get("sender") or "Student",
+                                    "sender_roll_no": c_dict.get("sender_roll_no") or payload.get("roll_no", ""),
+                                    "text": c_text,
+                                    "sender_role": "student",
+                                    "timestamp": c_dict.get("timestamp") or time.time()
+                                }
+                                await classroom_manager.broadcast_qa_comment(clean_room, comment_data)
                     except json.JSONDecodeError:
                         pass
 

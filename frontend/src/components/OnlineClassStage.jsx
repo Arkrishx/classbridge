@@ -19,11 +19,26 @@ import {
   Crown,
   Headphones,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Hand,
+  MessageSquare,
+  Download,
+  FileText,
+  Send,
+  Circle,
+  Tag,
+  Megaphone,
+  Settings,
+  X,
+  Clock,
+  ArrowRight
 } from 'lucide-react';
+import { exportCaptionsAsTxt, exportCaptionsAsPdf } from '../utils/captionExport';
 
 export default function OnlineClassStage({
   userRole = 'teacher',
+  teacherName = 'Teacher',
+  onOpenTeacherSetup,
   roomCode = 'EDU-02',
   studentName = '',
   studentRollNo = '',
@@ -46,6 +61,12 @@ export default function OnlineClassStage({
   isReadAloud = false,
   onToggleReadAloud,
   selectedDeviceId = 'default',
+  handRaises = [],
+  onToggleHandRaise,
+  onLowerAllHands,
+  qaComments = [],
+  onSendQaComment,
+  onBroadcastKeyword,
 }) {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const isCameraActiveRef = useRef(false);
@@ -53,7 +74,24 @@ export default function OnlineClassStage({
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [layoutMode, setLayoutMode] = useState('split'); // 'split' | 'docked'
+  const [sidebarTab, setSidebarTab] = useState('subtitles'); // 'subtitles' | 'qa' | 'hands'
 
+  // Teacher Keyword Broadcast Input State
+  const [isKeywordDrawerOpen, setIsKeywordDrawerOpen] = useState(false);
+  const [keywordInput, setKeywordInput] = useState('');
+
+  // Q&A Comment Input State
+  const [qaInput, setQaInput] = useState('');
+  const qaListRef = useRef(null);
+
+  // Session Recording State (Browser MediaRecorder)
+  const [isSessionRecording, setIsSessionRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const mediaRecorderRef = useRef(null);
+  const recordedChunksRef = useRef([]);
+  const recordingIntervalRef = useRef(null);
+
+  // Teacher Camera & Screen Media Refs
   const localVideoRef = useRef(null);
   const offscreenCanvasRef = useRef(null);
   const localStreamRef = useRef(null);
@@ -65,6 +103,11 @@ export default function OnlineClassStage({
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
   const animFrameRef = useRef(null);
+
+  // Hand raise state for student
+  const isMyHandRaised = handRaises.some(
+    (h) => (h.name && h.name === studentName) || (h.roll_no && h.roll_no === studentRollNo)
+  );
 
   // ==========================================
   // TEACHER: Camera & Mic Capture Setup
@@ -263,6 +306,119 @@ export default function OnlineClassStage({
     };
   }, [userRole]);
 
+  // ==========================================
+  // SESSION RECORDING (MediaRecorder)
+  // ==========================================
+  const startSessionRecording = () => {
+    if (!localStreamRef.current) {
+      alert("Please start your camera or screen share first to record the session.");
+      return;
+    }
+
+    try {
+      let mimeType = 'video/webm;codecs=vp8,opus';
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = MediaRecorder.isTypeSupported('video/webm') ? 'video/webm' : 'video/mp4';
+      }
+
+      recordedChunksRef.current = [];
+      const recorder = new MediaRecorder(localStreamRef.current, { mimeType });
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        if (recordedChunksRef.current.length > 0) {
+          const blob = new Blob(recordedChunksRef.current, { type: mimeType });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          const dateStr = new Date().toISOString().slice(0, 10);
+          a.href = url;
+          a.download = `ClassBridge_Lecture_${roomCode}_${dateStr}.webm`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+      };
+
+      recorder.start(1000); // 1-second chunks
+      setIsSessionRecording(true);
+      setRecordingDuration(0);
+
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingDuration((prev) => prev + 1);
+      }, 1000);
+    } catch (err) {
+      console.error("Session recording failed:", err);
+      alert("Session recording is not supported on this browser or stream configuration.");
+    }
+  };
+
+  const stopSessionRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    if (recordingIntervalRef.current) {
+      clearInterval(recordingIntervalRef.current);
+      recordingIntervalRef.current = null;
+    }
+    setIsSessionRecording(false);
+  };
+
+  const toggleSessionRecording = () => {
+    if (isSessionRecording) {
+      stopSessionRecording();
+    } else {
+      startSessionRecording();
+    }
+  };
+
+  const formatRecordingTime = (secs) => {
+    const m = Math.floor(secs / 60).toString().padStart(2, '0');
+    const s = (secs % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
+  // ==========================================
+  // TEACHER KEYWORD BROADCAST
+  // ==========================================
+  const handleKeywordSubmit = (e) => {
+    e.preventDefault();
+    const clean = keywordInput.trim();
+    if (!clean) return;
+
+    if (onBroadcastKeyword) {
+      onBroadcastKeyword(clean);
+    }
+    setKeywordInput('');
+    setIsKeywordDrawerOpen(false);
+  };
+
+  // ==========================================
+  // Q&A COMMENT SUBMISSION
+  // ==========================================
+  const handleQaSubmit = (e) => {
+    e.preventDefault();
+    const clean = qaInput.trim();
+    if (!clean) return;
+
+    if (onSendQaComment) {
+      onSendQaComment(clean);
+    }
+    setQaInput('');
+
+    setTimeout(() => {
+      if (qaListRef.current) {
+        qaListRef.current.scrollTop = qaListRef.current.scrollHeight;
+      }
+    }, 80);
+  };
+
   // Fullscreen toggle
   const toggleFullscreen = () => {
     if (!stageContainerRef.current) return;
@@ -288,7 +444,7 @@ export default function OnlineClassStage({
     >
       {/* Main Video Viewport (Google Meet Style) */}
       <div className="video-viewport">
-        {/* Top Floating Status Pill */}
+        {/* Top Floating Status Pill & Meta Badges */}
         <div className="video-top-overlay">
           <div className="video-meta-tag">
             <span className="live-dot pulse-animation" />
@@ -297,10 +453,19 @@ export default function OnlineClassStage({
             <span>Room: {roomCode}</span>
           </div>
 
+          {/* Recording Timer Indicator */}
+          {isSessionRecording && (
+            <div className="recording-indicator-pill pulse-animation">
+              <span className="rec-dot" />
+              <span>REC {formatRecordingTime(recordingDuration)}</span>
+            </div>
+          )}
+
           {userRole === 'teacher' ? (
-            <div className="teacher-live-badge">
+            <div className="teacher-live-badge" onClick={onOpenTeacherSetup} title="Click to edit your Host profile or Teaching Language">
               <Crown size={13} color="#f59e0b" />
-              <span>Host (Broadcasting)</span>
+              <span><b>{teacherName || 'Host'}</b> (Host)</span>
+              <Settings size={12} color="var(--text-dim)" style={{ marginLeft: '4px' }} />
               {isCameraActive && (
                 <div className="audio-meter-bar" title="Live Mic Level">
                   <div className="audio-meter-fill" style={{ width: `${audioLevel}%` }} />
@@ -368,7 +533,7 @@ export default function OnlineClassStage({
                     <Video size={40} color="var(--google-blue)" />
                   </div>
                   <div className="placeholder-title">Connecting to Teacher's Video Stream...</div>
-                  <div className="placeholder-sub">Receiving live lecture broadcast from room {roomCode}.</div>
+                  <div className="placeholder-sub">Receiving live lecture broadcast from {teacherName} in room {roomCode}.</div>
                 </div>
               ) : (
                 <div className="camera-placeholder">
@@ -376,7 +541,7 @@ export default function OnlineClassStage({
                     <Crown size={40} color="var(--google-blue)" />
                   </div>
                   <div className="placeholder-title">
-                    {hasTeacher ? "Teacher's Camera is Paused" : "Teacher is Currently Offline"}
+                    {hasTeacher ? `${teacherName}'s Camera is Paused` : "Teacher is Currently Offline"}
                   </div>
                   <div className="placeholder-sub">
                     {hasTeacher
@@ -390,7 +555,13 @@ export default function OnlineClassStage({
 
           {/* Subtitles Overlay Bar (Floating at bottom of video) */}
           {latestSegment && (
-            <div className="video-caption-overlay">
+            <div className={`video-caption-overlay ${latestSegment.is_keyword ? 'keyword-overlay-highlight' : ''}`}>
+              {latestSegment.is_keyword && (
+                <div className="keyword-badge-tag">
+                  <Tag size={12} />
+                  <span>KEYWORD CONCEPT</span>
+                </div>
+              )}
               <div className="overlay-caption-source">
                 {latestSegment.text_source || latestSegment.text_en}
               </div>
@@ -398,6 +569,38 @@ export default function OnlineClassStage({
                 {(latestSegment.translations && latestSegment.translations[targetLang]) ||
                   latestSegment.text_vernacular ||
                   latestSegment.text_source}
+              </div>
+            </div>
+          )}
+
+          {/* Teacher Keyword Broadcaster Floating Drawer */}
+          {isKeywordDrawerOpen && userRole === 'teacher' && (
+            <div className="keyword-broadcast-drawer">
+              <div className="keyword-drawer-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>
+                  <Megaphone size={15} color="#f59e0b" />
+                  <span>Broadcast Keyword / Concept Caption</span>
+                </div>
+                <button type="button" className="close-mini-btn" onClick={() => setIsKeywordDrawerOpen(false)}>
+                  <X size={14} />
+                </button>
+              </div>
+              <form onSubmit={handleKeywordSubmit} className="keyword-drawer-form">
+                <input
+                  type="text"
+                  className="google-input keyword-input"
+                  placeholder="e.g. Photosynthesis, Eigenvector, Backpropagation..."
+                  value={keywordInput}
+                  onChange={(e) => setKeywordInput(e.target.value)}
+                  autoFocus
+                />
+                <button type="submit" className="google-pill-btn primary send-keyword-btn">
+                  <span>Send</span>
+                  <ArrowRight size={14} />
+                </button>
+              </form>
+              <div className="keyword-drawer-hint">
+                Instantly translated to all target languages (Tamil, Malayalam, Hindi, English) and highlighted for students!
               </div>
             </div>
           )}
@@ -437,6 +640,44 @@ export default function OnlineClassStage({
                 {isScreenSharing ? <MonitorOff size={18} /> : <Monitor size={18} />}
               </button>
 
+              {/* Session Recording Button */}
+              <button
+                type="button"
+                className={`meet-dock-btn ${isSessionRecording ? 'rec-active' : 'secondary'}`}
+                onClick={toggleSessionRecording}
+                title={isSessionRecording ? "Stop Session Recording and Save Video" : "Start Session Video & Audio Recording"}
+              >
+                <Circle size={17} fill={isSessionRecording ? "#ea4335" : "none"} color={isSessionRecording ? "#ea4335" : "currentColor"} />
+              </button>
+
+              {/* Keyword Broadcaster Toggle */}
+              <button
+                type="button"
+                className={`meet-dock-btn ${isKeywordDrawerOpen ? 'active-gold' : 'secondary'}`}
+                onClick={() => setIsKeywordDrawerOpen((prev) => !prev)}
+                title="Broadcast Keyword Caption (Auto-translated to students' language)"
+              >
+                <Megaphone size={17} />
+              </button>
+
+              {/* Hand Raises Counter Button */}
+              {handRaises.length > 0 && (
+                <button
+                  type="button"
+                  className="meet-dock-btn warning hand-raise-alert-btn pulse-animation"
+                  onClick={() => {
+                    setLayoutMode('split');
+                    setSidebarTab('hands');
+                  }}
+                  title={`${handRaises.length} Student${handRaises.length === 1 ? '' : 's'} Raised Hand`}
+                >
+                  <Hand size={17} />
+                  <span className="dock-pill-badge" style={{ background: '#f59e0b', color: '#000' }}>
+                    {handRaises.length}
+                  </span>
+                </button>
+              )}
+
               <div className="dock-divider" />
 
               {/* Attendance Roster Drawer Toggle */}
@@ -449,10 +690,31 @@ export default function OnlineClassStage({
                 <Users size={17} />
                 <span className="dock-pill-badge">{studentCount}</span>
               </button>
+
+              {/* Teacher Setup / Profile Button */}
+              <button
+                type="button"
+                className="meet-dock-btn secondary"
+                onClick={onOpenTeacherSetup}
+                title="Teacher Settings (Name & Language)"
+              >
+                <Settings size={17} />
+              </button>
             </>
           ) : (
             /* Student Controls */
             <>
+              {/* Hand Raise Toggle */}
+              <button
+                type="button"
+                className={`meet-dock-btn ${isMyHandRaised ? 'hand-raised-active pulse-animation' : 'secondary'}`}
+                onClick={onToggleHandRaise}
+                title={isMyHandRaised ? "Lower Your Hand" : "Raise Hand to ask teacher a question"}
+              >
+                <Hand size={18} color={isMyHandRaised ? "#fbbf24" : "currentColor"} />
+              </button>
+
+              {/* Read Aloud TTS Toggle */}
               <button
                 type="button"
                 className={`meet-dock-btn ${isReadAloud ? 'active' : 'secondary'}`}
@@ -462,6 +724,23 @@ export default function OnlineClassStage({
                 {isReadAloud ? <Volume2 size={18} /> : <VolumeX size={18} />}
               </button>
 
+              {/* Q&A Chat Shortcut */}
+              <button
+                type="button"
+                className={`meet-dock-btn ${sidebarTab === 'qa' ? 'active' : 'secondary'}`}
+                onClick={() => {
+                  setLayoutMode('split');
+                  setSidebarTab('qa');
+                }}
+                title="Open Q&A Chat"
+              >
+                <MessageSquare size={17} />
+                {qaComments.length > 0 && (
+                  <span className="dock-pill-badge">{qaComments.length}</span>
+                )}
+              </button>
+
+              {/* Edit Student Profile */}
               <button
                 type="button"
                 className="meet-dock-btn secondary"
@@ -478,7 +757,7 @@ export default function OnlineClassStage({
             type="button"
             className="meet-dock-btn secondary"
             onClick={() => setLayoutMode(layoutMode === 'split' ? 'docked' : 'split')}
-            title="Toggle Layout (Side-by-side Captions vs Docked)"
+            title="Toggle Layout (Side-by-side Panel vs Docked)"
           >
             <Layout size={17} />
           </button>
@@ -495,47 +774,189 @@ export default function OnlineClassStage({
         </div>
       </div>
 
-      {/* Synchronized Side Dual Captions & Chat Stage */}
+      {/* Synchronized Side Dual Captions & Q&A Chat Stage */}
       {layoutMode === 'split' && (
         <div className="online-caption-sidebar">
-          <div className="sidebar-header">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Radio size={15} color="var(--google-blue)" />
-              <span style={{ fontWeight: 700, fontSize: '13.5px', color: 'var(--text-main)' }}>
-                Live Dual Subtitles
-              </span>
-            </div>
-            <div style={{ fontSize: '11px', color: 'var(--text-dim)' }}>
-              {sourceLangName} ➔ {targetLangName}
-            </div>
-          </div>
-
-          <div className="sidebar-transcript-list">
-            {segments.length === 0 ? (
-              <div className="empty-transcript-state">
-                <Sparkles size={24} color="var(--google-blue)" style={{ opacity: 0.5, marginBottom: '6px' }} />
-                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>
-                  Awaiting Lecture Speech
-                </div>
-                <div style={{ fontSize: '11.5px', color: 'var(--text-dim)', marginTop: '2px' }}>
-                  {userRole === 'teacher'
-                    ? "Speak into your microphone to generate real-time multi-lingual subtitles"
-                    : "Live captions will appear here as the teacher speaks"}
-                </div>
-              </div>
-            ) : (
-              segments.slice(-15).map((seg) => {
-                const vern = (seg.translations && seg.translations[targetLang]) || seg.text_vernacular || seg.text_source;
-                return (
-                  <div key={seg.id} className="online-transcript-bubble">
-                    <div className="bubble-source">{seg.text_source || seg.text_en}</div>
-                    <div className="bubble-vernacular">{vern}</div>
-                    <div className="bubble-time">{seg.timestamp || 'Live'}</div>
-                  </div>
-                );
-              })
+          {/* Tabs: Subtitles vs Q&A Chat vs Hand Raises */}
+          <div className="sidebar-tab-bar">
+            <button
+              type="button"
+              className={`sidebar-tab-btn ${sidebarTab === 'subtitles' ? 'active' : ''}`}
+              onClick={() => setSidebarTab('subtitles')}
+            >
+              <Radio size={13} />
+              <span>Subtitles</span>
+            </button>
+            <button
+              type="button"
+              className={`sidebar-tab-btn ${sidebarTab === 'qa' ? 'active' : ''}`}
+              onClick={() => setSidebarTab('qa')}
+            >
+              <MessageSquare size={13} />
+              <span>Q&A ({qaComments.length})</span>
+            </button>
+            {handRaises.length > 0 && (
+              <button
+                type="button"
+                className={`sidebar-tab-btn tab-hands ${sidebarTab === 'hands' ? 'active' : ''}`}
+                onClick={() => setSidebarTab('hands')}
+              >
+                <Hand size={13} />
+                <span>Hands ({handRaises.length})</span>
+              </button>
             )}
           </div>
+
+          {/* TAB 1: Subtitles View */}
+          {sidebarTab === 'subtitles' && (
+            <>
+              <div className="sidebar-header">
+                <div style={{ fontSize: '11.5px', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Globe size={13} color="var(--google-blue)" />
+                  <span>{sourceLangName} ➔ {targetLangName}</span>
+                </div>
+                {/* 1-Click Caption Export Options */}
+                <div className="caption-export-actions">
+                  <button
+                    type="button"
+                    className="export-mini-btn"
+                    onClick={() => exportCaptionsAsTxt(segments, sourceLang, targetLang)}
+                    title="Export Captions as Plain Text (.txt)"
+                  >
+                    <FileText size={12} />
+                    <span>TXT</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="export-mini-btn pdf-btn"
+                    onClick={() => exportCaptionsAsPdf(segments, sourceLang, targetLang)}
+                    title="Export Academic Publication PDF (.pdf)"
+                  >
+                    <Download size={12} />
+                    <span>PDF</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="sidebar-transcript-list">
+                {segments.length === 0 ? (
+                  <div className="empty-transcript-state">
+                    <Sparkles size={24} color="var(--google-blue)" style={{ opacity: 0.5, marginBottom: '6px' }} />
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>
+                      Awaiting Lecture Speech
+                    </div>
+                    <div style={{ fontSize: '11.5px', color: 'var(--text-dim)', marginTop: '2px' }}>
+                      {userRole === 'teacher'
+                        ? "Speak into your microphone to generate real-time multi-lingual subtitles"
+                        : "Live captions will appear here as the teacher speaks"}
+                    </div>
+                  </div>
+                ) : (
+                  segments.slice(-25).map((seg) => {
+                    const vern = (seg.translations && seg.translations[targetLang]) || seg.text_vernacular || seg.text_source;
+                    return (
+                      <div key={seg.id} className={`online-transcript-bubble ${seg.is_keyword ? 'bubble-keyword' : ''}`}>
+                        {seg.is_keyword && (
+                          <div className="bubble-keyword-pill">
+                            <Tag size={10} />
+                            <span>KEYWORD CONCEPT</span>
+                          </div>
+                        )}
+                        <div className="bubble-source">{seg.text_source || seg.text_en}</div>
+                        <div className="bubble-vernacular">{vern}</div>
+                        <div className="bubble-time">{seg.timestamp || 'Live'}</div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </>
+          )}
+
+          {/* TAB 2: Q&A & Comments View */}
+          {sidebarTab === 'qa' && (
+            <div className="qa-sidebar-container">
+              <div className="qa-messages-list" ref={qaListRef}>
+                {qaComments.length === 0 ? (
+                  <div className="empty-transcript-state">
+                    <MessageSquare size={24} color="var(--google-blue)" style={{ opacity: 0.5, marginBottom: '6px' }} />
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>
+                      No Questions Yet
+                    </div>
+                    <div style={{ fontSize: '11.5px', color: 'var(--text-dim)', marginTop: '2px' }}>
+                      {userRole === 'teacher'
+                        ? "Students can ask questions or post comments here in real time."
+                        : "Have a question about the lecture? Ask below!"}
+                    </div>
+                  </div>
+                ) : (
+                  qaComments.map((c) => (
+                    <div key={c.id} className={`qa-comment-card ${c.role === 'teacher' ? 'teacher-comment' : ''}`}>
+                      <div className="qa-card-meta">
+                        <span className="qa-sender-name">
+                          {c.role === 'teacher' ? <Crown size={12} color="#f59e0b" style={{ display: 'inline', marginRight: '3px' }} /> : null}
+                          {c.sender}
+                        </span>
+                        {c.roll_no && <span className="qa-roll-badge">{c.roll_no}</span>}
+                        <span className="qa-time-stamp">
+                          {c.timestamp ? new Date(c.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Now'}
+                        </span>
+                      </div>
+                      <div className="qa-card-text">{c.text}</div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Q&A Input Box */}
+              <form onSubmit={handleQaSubmit} className="qa-input-form">
+                <input
+                  type="text"
+                  className="google-input qa-input"
+                  placeholder={userRole === 'teacher' ? "Post an announcement or answer..." : "Ask a question (tagged with your Roll No)..."}
+                  value={qaInput}
+                  onChange={(e) => setQaInput(e.target.value)}
+                />
+                <button type="submit" className="google-icon-btn send-qa-btn" title="Send Question / Comment">
+                  <Send size={15} color="var(--google-blue)" />
+                </button>
+              </form>
+            </div>
+          )}
+
+          {/* TAB 3: Hand Raises View */}
+          {sidebarTab === 'hands' && (
+            <div className="hands-sidebar-container">
+              <div className="hands-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '13px' }}>
+                  <Hand size={15} color="#f59e0b" />
+                  <span>Raised Hands ({handRaises.length})</span>
+                </div>
+                {userRole === 'teacher' && onLowerAllHands && (
+                  <button type="button" className="lower-all-btn" onClick={onLowerAllHands}>
+                    Lower All
+                  </button>
+                )}
+              </div>
+              <div className="hands-list">
+                {handRaises.map((h, i) => (
+                  <div key={h.id || i} className="hand-raise-row">
+                    <div className="hand-row-avatar">
+                      <Hand size={14} color="#f59e0b" />
+                    </div>
+                    <div className="hand-row-info">
+                      <div className="hand-row-name">{h.name || 'Student'}</div>
+                      <div className="hand-row-roll">{h.roll_no || 'Roll N/A'}</div>
+                    </div>
+                    <div className="hand-row-time">
+                      <Clock size={11} />
+                      <span>{h.timestamp ? new Date(h.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Raised'}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
