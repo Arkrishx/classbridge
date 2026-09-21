@@ -2622,31 +2622,94 @@ export default function App() {
       ];
     }
 
+    const fullText = segments.map((s) => (s.text_en || s.text_source || '')).join(' ').toLowerCase();
+
+    let inferredTitle = "Machine Learning & Optimization";
+    let formulas = [
+      {
+        name: "Gradient Descent Parameter Update",
+        latex: "θ_{t+1} = θ_t - η ∇J(θ_t)",
+        description: "Iteratively steps parameter vector θ in the negative gradient direction scaled by learning rate η.",
+        variables: "θ: weights/parameters, η: learning rate, ∇J: gradient of loss"
+      },
+      {
+        name: "Eigenvalue Characteristic Equation",
+        latex: "A v = λ v  ⟺  det(A - λ I) = 0",
+        description: "Relates square transformation matrix A to eigenvalue λ and eigenvector v.",
+        variables: "A: transformation matrix, v: eigenvector, λ: eigenvalue, I: identity matrix"
+      }
+    ];
+
+    if (fullText.includes("thermodynamics") || fullText.includes("heat") || fullText.includes("internal energy")) {
+      inferredTitle = "Thermodynamics & Heat Transfer";
+      formulas = [
+        {
+          name: "First Law of Thermodynamics",
+          latex: "ΔU = Q - W",
+          description: "Change in internal energy equals heat added minus work done.",
+          variables: "ΔU: internal energy, Q: heat added, W: work done"
+        },
+        {
+          name: "Fourier's Law of Thermal Conduction",
+          latex: "q = -k ∇T",
+          description: "Heat flux is proportional to negative temperature gradient.",
+          variables: "q: heat flux, k: thermal conductivity, ∇T: temperature gradient"
+        }
+      ];
+    } else if (fullText.includes("photosynthesis") || fullText.includes("chloroplast") || fullText.includes("glucose")) {
+      inferredTitle = "Photosynthesis & Cellular Energy";
+      formulas = [
+        {
+          name: "Photosynthesis Balanced Chemical Equation",
+          latex: "6 CO_2 + 6 H_2O + \\text{light} \\rightarrow C_6H_{12}O_6 + 6 O_2",
+          description: "Conversion of carbon dioxide and water into glucose and oxygen via light.",
+          variables: "CO2: carbon dioxide, H2O: water, C6H12O6: glucose, O2: oxygen"
+        }
+      ];
+    }
+
+    // Build Concept Map nodes and edges
+    const nodes = [
+      { id: "concept_root", label: inferredTitle, detail: "Core Lecture Topic" }
+    ];
+    defs.forEach((d, idx) => {
+      nodes.push({ id: `concept_${idx + 1}`, label: d.term, detail: d.category || "STEM Principle" });
+    });
+    if (formulas.length > 0) {
+      nodes.push({ id: "concept_formula", label: "Governing Law", detail: formulas[0].name });
+    }
+    const edges = nodes.slice(1).map((n) => ({ from: "concept_root", to: n.id }));
+
+    const diagram = {
+      title: `${inferredTitle} Concept Map`,
+      source: "Generated from lecture concepts",
+      nodes: nodes,
+      edges: edges
+    };
+
+    const visuals = {
+      lossCurve: { caption: "Convergence profile: cost function decreases as iterations increase." },
+      network: { caption: "System architecture and information flow through layers." },
+      equation: {
+        latex: formulas[0]?.latex || "θ_{t+1} = θ_t - η ∇J(θ_t)",
+        caption: `Governing equation: ${formulas[0]?.name || "Parameter Update"}`
+      }
+    };
+
     const guideData = {
-      title: "Machine Learning & STEM Fundamentals",
+      title: inferredTitle,
       date: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
       target_language: langObj.name,
       native_language: langObj.native,
       segment_count: segments.length,
       overview: {
-        en: `Comprehensive study guide synthesized from ${segments.length} lecture segments focusing on gradient descent, eigenvalues, backpropagation, and core STEM principles.`,
+        en: `Comprehensive study guide synthesized from ${segments.length} lecture segments focusing on ${defs.map(d => d.term).join(', ')}.`,
         vernacular: overviewVernacular
       },
+      diagram: diagram,
+      visuals: visuals,
       definitions: defs,
-      formulas: [
-        {
-          name: "Gradient Descent Parameter Update",
-          latex: "θ_{t+1} = θ_t - η ∇J(θ_t)",
-          description: "Iteratively steps parameter vector θ in the negative gradient direction scaled by learning rate η.",
-          variables: "θ: weights/parameters, η: learning rate, ∇J: gradient of loss"
-        },
-        {
-          name: "Eigenvalue Characteristic Equation",
-          latex: "A v = λ v  ⟺  det(A - λ I) = 0",
-          description: "Relates square transformation matrix A to eigenvalue λ and eigenvector v.",
-          variables: "A: transformation matrix, v: eigenvector, λ: eigenvalue, I: identity matrix"
-        }
-      ],
+      formulas: formulas,
       takeaways: segments.slice(0, 5).map((s, idx) => ({
         point: s.text_en,
         vernacular_point: s.text_vernacular,
