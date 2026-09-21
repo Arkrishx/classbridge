@@ -500,6 +500,7 @@ async def websocket_lecture_endpoint(
                         spoken_text = payload.get("text", "").strip()
                         conf = float(payload.get("confidence", 95.0))
                         duration = float(payload.get("duration", 4.0))
+                        sender_tab_id = payload.get("sender_tab_id")
 
                         if spoken_text:
                             start_t = active_session["current_time_offset"]
@@ -529,7 +530,8 @@ async def websocket_lecture_endpoint(
                                 "confidence": conf,
                                 "domain_terms": trans_res["domain_terms"],
                                 "source_lang": active_session.get("source_lang", "en"),
-                                "target_lang": active_session["target_lang"]
+                                "target_lang": active_session["target_lang"],
+                                "sender_tab_id": sender_tab_id
                             }
 
                             active_session["segments"].append(segment_data)
@@ -711,6 +713,7 @@ async def websocket_classroom_endpoint(
                             spoken_text = payload.get("text", "").strip()
                             conf = float(payload.get("confidence", 95.0))
                             duration = float(payload.get("duration", 4.0))
+                            sender_tab_id = payload.get("sender_tab_id")
 
                             if spoken_text:
                                 start_t = room.current_time_offset
@@ -740,7 +743,8 @@ async def websocket_classroom_endpoint(
                                     "confidence": conf,
                                     "domain_terms": multi_trans["domain_terms"],
                                     "source_lang": room.source_lang,
-                                    "target_lang": target_lang
+                                    "target_lang": target_lang,
+                                    "sender_tab_id": sender_tab_id
                                 }
 
                                 classroom_manager.add_segment_to_room(clean_room, segment_data)

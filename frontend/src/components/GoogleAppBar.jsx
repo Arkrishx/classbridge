@@ -40,6 +40,8 @@ export default function GoogleAppBar({
   studentCount = 0,
   hasTeacher = false,
   onOpenClassroomModal,
+  onGenerateStudyGuide,
+  isGeneratingGuide = false,
 }) {
   const formatTime = (secs) => {
     const mins = Math.floor(secs / 60);
@@ -215,6 +217,31 @@ export default function GoogleAppBar({
           <Clock size={12} color="var(--google-yellow)" className="timer-icon" />
           <span className="google-timer-mono">{formatTime(sessionSeconds)}</span>
         </div>
+
+        {/* Study Guide Generator Quick Action (All Modes) */}
+        {onGenerateStudyGuide && (
+          <button
+            className="google-pill-btn primary study-guide-topbar-btn"
+            onClick={onGenerateStudyGuide}
+            disabled={isGeneratingGuide}
+            title="Generate AI Study Guide from Lecture Transcripts"
+            type="button"
+            style={{
+              padding: '4px 12px',
+              fontSize: '12px',
+              fontWeight: 600,
+              gap: '6px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              borderRadius: '16px',
+              height: '30px',
+              cursor: isGeneratingGuide ? 'wait' : 'pointer'
+            }}
+          >
+            <Sparkles size={13} className={isGeneratingGuide ? "spin-fast" : ""} color="#fff" />
+            <span>{isGeneratingGuide ? 'Generating...' : 'Study Guide'}</span>
+          </button>
+        )}
 
         {/* Glossary Modal Button */}
         <button

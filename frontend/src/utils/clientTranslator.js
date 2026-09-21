@@ -174,8 +174,12 @@ export async function translateTextClient(text, targetLang = 'ta', glossary = {}
 
     if (c5Res.ok) {
       const c5Data = await c5Res.json();
-      if (Array.isArray(c5Data) && Array.isArray(c5Data[0]) && c5Data[0][0]) {
-        rawTranslation = c5Data[0][0].trim();
+      if (Array.isArray(c5Data)) {
+        if (typeof c5Data[0] === 'string' && c5Data[0].trim()) {
+          rawTranslation = c5Data[0].trim();
+        } else if (Array.isArray(c5Data[0]) && typeof c5Data[0][0] === 'string' && c5Data[0][0].trim()) {
+          rawTranslation = c5Data[0][0].trim();
+        }
       }
     }
   } catch (err) {
@@ -397,8 +401,11 @@ export function applyDomainAdaptationClient(enText, translatedText, targetLang, 
         definition: termInfo.definition || ''
       });
 
-      // Replace generic or English term with canonical vernacular translation
-      const rawTermRegex = new RegExp(escapeRegExp(key), 'gi');
+      // Replace generic or English term with canonical vernacular translation using word boundaries
+      const isWordChars = /^[\w\s-]+$/.test(key);
+      const rawTermRegex = isWordChars
+        ? new RegExp(`\\b${escapeRegExp(key)}\\b`, 'gi')
+        : new RegExp(escapeRegExp(key), 'gi');
       if (rawTermRegex.test(adaptedText)) {
         adaptedText = adaptedText.replace(rawTermRegex, vernacularTerm);
       }

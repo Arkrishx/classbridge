@@ -92,7 +92,7 @@ class DomainAdaptationGlossary:
             en_term = item["term"]
             # Look for generic translations or English loan word occurrences in the MT output
             # If MT output kept raw english term, replace it with domain-adapted bilingual version
-            pattern = re.compile(re.escape(en_term), re.IGNORECASE)
+            pattern = re.compile(r'\b' + re.escape(en_term) + r'\b', re.IGNORECASE)
             if pattern.search(adapted_text):
                 adapted_text = pattern.sub(target_term, adapted_text)
 

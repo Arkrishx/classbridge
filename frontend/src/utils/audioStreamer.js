@@ -23,6 +23,17 @@ export const BCP47_MAP = {
   hi: 'hi-IN'
 };
 
+/**
+ * Punctuation and whitespace-agnostic text normalizer for accurate deduplication
+ */
+export function normalizeSpeechText(text) {
+  return (text || '')
+    .toLowerCase()
+    .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'’]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export class AudioStreamer {
   constructor({
     onAudioData,
@@ -57,8 +68,10 @@ export class AudioStreamer {
     // Buffers, timers, and state
     this.currentInterimText = '';
     this.lastCommittedText = '';
+    this.lastCommittedNorm = '';
     this.pauseTimer = null;
     this.restartTimer = null;
+    this.watchdogTimer = null;
     this.volumeAnimId = null;
     this.currentSimVolume = 0;
     this.targetSimVolume = 0;
@@ -115,10 +128,11 @@ export class AudioStreamer {
     clean = dedupedWords.join(' ');
     if (!clean || clean.length < 2) return;
 
-    const lowerClean = clean.toLowerCase();
+    const normClean = normalizeSpeechText(clean);
+    if (!normClean || normClean.length < 2) return;
 
-    // Prevent duplicate rapid-fire commits of the identical sentence
-    if (lowerClean === this.lastCommittedText.toLowerCase()) {
+    // Prevent duplicate rapid-fire commits of identical or punctuation-variant sentence
+    if (normClean === this.lastCommittedNorm) {
       return;
     }
 
@@ -129,11 +143,20 @@ export class AudioStreamer {
     const now = Date.now();
     // Prune entries older than 8 seconds
     this.recentCommitted = this.recentCommitted.filter((item) => (now - item.time) < 8000);
-    if (this.recentCommitted.some((item) => item.text === lowerClean)) {
+    
+    // Check exact normalized match
+    if (this.recentCommitted.some((item) => item.norm === normClean)) {
       return;
     }
-    this.recentCommitted.push({ text: lowerClean, time: now });
+
+    // Check sub-phrase repetition within 3.5 seconds (prevents stutter repeats like "to the store" right after "went to the store")
+    if (this.recentCommitted.some((item) => (now - item.time) < 3500 && normClean.length > 4 && item.norm.endsWith(normClean))) {
+      return;
+    }
+
+    this.recentCommitted.push({ text: clean, norm: normClean, time: now });
     this.lastCommittedText = clean;
+    this.lastCommittedNorm = normClean;
 
     if (this.pauseTimer) {
       clearTimeout(this.pauseTimer);
@@ -165,12 +188,12 @@ export class AudioStreamer {
     clean = dedupedWords.join(' ');
     if (!clean) return;
 
-    const lowerClean = clean.toLowerCase();
-    // If identical to last committed text, don't display as interim
-    if (lowerClean === this.lastCommittedText.toLowerCase()) {
+    const normClean = normalizeSpeechText(clean);
+    // If identical to last committed text (ignoring punctuation), don't display as interim
+    if (normClean === this.lastCommittedNorm) {
       return;
     }
-    if (this.recentCommitted && this.recentCommitted.some((item) => item.text === lowerClean)) {
+    if (this.recentCommitted && this.recentCommitted.some((item) => item.norm === normClean)) {
       return;
     }
 
@@ -186,7 +209,7 @@ export class AudioStreamer {
       this.onInterimSpeech(clean);
     }
 
-    // Reset conversational pause auto-commit timer (1200ms pause)
+    // Reset conversational pause auto-commit timer (1800ms natural conversational pause)
     if (this.pauseTimer) {
       clearTimeout(this.pauseTimer);
     }
@@ -202,7 +225,7 @@ export class AudioStreamer {
           this.onStatusChange('listening');
         }
       }
-    }, 1200);
+    }, 1800);
   }
 
   /**
@@ -320,6 +343,7 @@ export class AudioStreamer {
 
     if (SpeechRec) {
       this.initSpeechRecognition(SpeechRec);
+      this.startWatchdog(SpeechRec);
     } else {
       console.warn("Web Speech API not supported; using raw PCM backend transcription.");
       if (this.mediaRecorder) {
@@ -331,6 +355,18 @@ export class AudioStreamer {
     }
 
     return true;
+  }
+
+  startWatchdog(SpeechRec) {
+    if (this.watchdogTimer) {
+      clearInterval(this.watchdogTimer);
+    }
+    this.watchdogTimer = setInterval(() => {
+      if (this.isRecording && !this.recognition && !this.isStarting) {
+        console.log("[AudioStreamer] Watchdog auto-reviving SpeechRecognition engine...");
+        this.initSpeechRecognition(SpeechRec);
+      }
+    }, 3500);
   }
 
   startPcmFallback() {
@@ -461,6 +497,7 @@ export class AudioStreamer {
       };
 
       rec.onerror = (e) => {
+        this.isStarting = false;
         const err = e.error;
         console.warn("Speech recognition event:", err);
 
@@ -511,6 +548,7 @@ export class AudioStreamer {
 
       rec.onend = () => {
         this.isStarting = false;
+        this.recognition = null;
         // If there was uncommitted interim speech, commit it safely
         if (this.currentInterimText && this.currentInterimText.trim().length > 1) {
           const textToCommit = this.currentInterimText.trim();
@@ -534,6 +572,7 @@ export class AudioStreamer {
       rec.start();
     } catch (err) {
       this.isStarting = false;
+      this.recognition = null;
       console.warn("Speech recognition start note:", err);
       if (this.isRecording) {
         if (this.restartTimer) clearTimeout(this.restartTimer);
@@ -603,6 +642,12 @@ export class AudioStreamer {
 
   stop() {
     this.isRecording = false;
+    this.isStarting = false;
+
+    if (this.watchdogTimer) {
+      clearInterval(this.watchdogTimer);
+      this.watchdogTimer = null;
+    }
 
     if (this.restartTimer) {
       clearTimeout(this.restartTimer);

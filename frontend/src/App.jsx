@@ -624,8 +624,20 @@ export default function App() {
           if (!msg || (msg.room_id && msg.room_id.trim().toUpperCase() !== (roomCodeRef.current || 'EDU-02').trim().toUpperCase())) return;
 
           if (msg.type === 'caption' && msg.segment) {
+            // Suppress echo from our own tab
+            if (msg.segment.sender_tab_id && msg.segment.sender_tab_id === tabIdRef.current) {
+              return;
+            }
+            const normIncoming = (msg.segment.text_source || msg.segment.text_en || '').toLowerCase().replace(/[^a-z0-9\s]/gi, '').replace(/\s+/g, ' ').trim();
+            if (!normIncoming) return;
+
             setSegments((prev) => {
-              if (prev.some((s) => s.id === msg.segment.id || (s.text_source || s.text_en).trim().toLowerCase() === (msg.segment.text_source || msg.segment.text_en).trim().toLowerCase())) {
+              const recent = prev.slice(-6);
+              if (recent.some((s) => {
+                if (s.id === msg.segment.id) return true;
+                const sNorm = (s.text_source || s.text_en || '').toLowerCase().replace(/[^a-z0-9\s]/gi, '').replace(/\s+/g, ' ').trim();
+                return sNorm === normIncoming;
+              })) {
                 return prev;
               }
               if (isReadAloudEnabled) {
@@ -1255,9 +1267,21 @@ export default function App() {
               setSegments(data.segments);
             }
           } else if (data.type === 'caption' && data.segment) {
+            // Suppress echo from our own tab
+            if (data.segment.sender_tab_id && data.segment.sender_tab_id === tabIdRef.current) {
+              return;
+            }
+            const normIncoming = (data.segment.text_source || data.segment.text_en || '').toLowerCase().replace(/[^a-z0-9\s]/gi, '').replace(/\s+/g, ' ').trim();
+            if (!normIncoming) return;
+
             setSegments((prev) => {
-              // Prevent duplicate if already committed optimistically
-              if (prev.some((s) => s.id === data.segment.id || (s.text_source || s.text_en).trim().toLowerCase() === (data.segment.text_source || data.segment.text_en).trim().toLowerCase())) {
+              // Prevent duplicate across last 6 segments
+              const recent = prev.slice(-6);
+              if (recent.some((s) => {
+                if (s.id === data.segment.id) return true;
+                const sNorm = (s.text_source || s.text_en || '').toLowerCase().replace(/[^a-z0-9\s]/gi, '').replace(/\s+/g, ' ').trim();
+                return sNorm === normIncoming;
+              })) {
                 return prev;
               }
               if (isReadAloudEnabled) {
@@ -1439,19 +1463,23 @@ export default function App() {
         ...translationResults
       ].filter(([, value]) => value));
       setSegments((prev) => {
-        // Prevent duplicate commits & collapse
+        const normClean = cleanText.toLowerCase().replace(/[^a-z0-9\s]/gi, '').replace(/\s+/g, ' ').trim();
+        if (!normClean) return prev;
+
+        // Prevent duplicate commits across last 6 segments
+        const recent = prev.slice(-6);
+        if (recent.some((s) => {
+          const sNorm = (s.text_source || s.text_en || '').toLowerCase().replace(/[^a-z0-9\s]/gi, '').replace(/\s+/g, ' ').trim();
+          return sNorm === normClean;
+        })) {
+          return prev;
+        }
+
+        // If the new phrase extends the previous segment (e.g. partial utterance updated to full)
         if (prev.length > 0) {
           const last = prev[prev.length - 1];
-          const lastEn = (last.text_source || last.text_en).trim().toLowerCase();
-          const currEn = cleanText.toLowerCase();
-
-          // If exact duplicate of last segment, skip
-          if (lastEn === currEn) {
-            return prev;
-          }
-
-          // If the new phrase extends the previous segment (e.g. partial utterance updated to full)
-          if (currEn.startsWith(lastEn) && (currEn.length - lastEn.length) < 50) {
+          const lastNorm = (last.text_source || last.text_en || '').toLowerCase().replace(/[^a-z0-9\s]/gi, '').replace(/\s+/g, ' ').trim();
+          if (normClean.startsWith(lastNorm) && (normClean.length - lastNorm.length) < 60) {
             const updated = [...prev];
             updated[updated.length - 1] = {
               ...last,
@@ -1463,13 +1491,14 @@ export default function App() {
               confidence: confidence,
               domain_terms: transResult.domain_terms,
               source_lang: sourceLang,
-              target_lang: targetLang
+              target_lang: targetLang,
+              sender_tab_id: tabIdRef.current
             };
             return updated;
           }
 
           // If the previous segment already contains the current text, skip
-          if (lastEn.endsWith(currEn) || lastEn.includes(currEn)) {
+          if (lastNorm.endsWith(normClean) || lastNorm.includes(normClean)) {
             return prev;
           }
         }
@@ -1498,7 +1527,8 @@ export default function App() {
             confidence: confidence,
             domain_terms: transResult.domain_terms,
             source_lang: sourceLang,
-            target_lang: targetLang
+            target_lang: targetLang,
+            sender_tab_id: tabIdRef.current
           }
         ];
       });
@@ -1524,7 +1554,8 @@ export default function App() {
             confidence: confidence,
             domain_terms: transResult.domain_terms,
             source_lang: sourceLang,
-            target_lang: targetLang
+            target_lang: targetLang,
+            sender_tab_id: tabIdRef.current
           }
         });
       }
@@ -1538,7 +1569,8 @@ export default function App() {
         action: 'process_text_segment',
         text: cleanText,
         confidence: confidence,
-        duration: 4.0
+        duration: 4.0,
+        sender_tab_id: tabIdRef.current
       }));
     }
   };
@@ -2767,6 +2799,8 @@ export default function App() {
         studentCount={studentCount}
         hasTeacher={hasTeacher}
         onOpenClassroomModal={() => setIsClassroomModalOpen(true)}
+        onGenerateStudyGuide={handleGenerateStudyGuide}
+        isGeneratingGuide={isGeneratingGuide}
       />
 
       {/* 1.5. Prominent Class Operating Mode Switcher Bar (Real-Time Offline Class vs Online Class) */}
@@ -2850,6 +2884,8 @@ export default function App() {
           onEndSession={handleEndOnlineSession}
           onOpenHistory={() => setIsHistoryOpen(true)}
           onOpenDemoShowcase={handleOpenDemoShowcase}
+          onGenerateStudyGuide={handleGenerateStudyGuide}
+          isGeneratingGuide={isGeneratingGuide}
         />
       ) : (
         <main className={`google-main-stage view-${viewMode} mobile-${mobileActiveTab}`}>
@@ -2880,6 +2916,8 @@ export default function App() {
                 classMode={classMode}
                 roomCode={roomCode}
                 userRole={userRole}
+                onGenerateStudyGuide={handleGenerateStudyGuide}
+                isGeneratingGuide={isGeneratingGuide}
               />
             </section>
           )}

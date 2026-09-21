@@ -620,17 +620,17 @@ class LectureQAService:
                 )
                 if target_lang == "ml":
                     final_vernacular = (
-                        f"ഈ വിഷയം ('{concept_name}') നിലവിലെ പ്രഭാഷണത്തിൽ ഉൾപ്പെടുത്തിയിട്ടില്ല. "
+                        f"ഈ വിഷയം ('{concept_title}') നിലവിലെ പ്രഭാഷണത്തിൽ ഉൾപ്പെടുത്തിയിട്ടില്ല. "
                         f"ലളിതമായ വിവരണം: {internet_def.get('text_target', '')}"
                     )
                 elif target_lang == "hi":
                     final_vernacular = (
-                        f"यह विषय ('{concept_name}') वर्तमान व्याख्यान में शामिल नहीं है। "
+                        f"यह विषय ('{concept_title}') वर्तमान व्याख्यान में शामिल नहीं है। "
                         f"सरल संदर्भ परिभाषा: {internet_def.get('text_target', '')}"
                     )
                 elif target_lang == "ta":
                     final_vernacular = (
-                        f"இந்தத் தலைப்பு ('{concept_name}') தற்போதைய விரிவுரையில் இடம்பெறவில்லை. "
+                        f"இந்தத் தலைப்பு ('{concept_title}') தற்போதைய விரிவுரையில் இடம்பெறவில்லை. "
                         f"எளிய குறிப்பு வரையறை: {internet_def.get('text_target', '')}"
                     )
                 else:

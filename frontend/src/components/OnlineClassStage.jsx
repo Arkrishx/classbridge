@@ -56,6 +56,8 @@ export default function OnlineClassStage({
   onBroadcastVideoState,
   isRecording = false,
   onToggleRecording,
+  onGenerateStudyGuide,
+  isGeneratingGuide = false,
   segments = [],
   sourceLang = 'en',
   targetLang = 'ta',
@@ -77,7 +79,11 @@ export default function OnlineClassStage({
 }) {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const isCameraActiveRef = useRef(false);
-  const [isMicMuted, setIsMicMuted] = useState(false);
+  const [isMicMuted, setIsMicMuted] = useState(!isRecording);
+
+  useEffect(() => {
+    setIsMicMuted(!isRecording);
+  }, [isRecording]);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [layoutMode, setLayoutMode] = useState('split'); // 'split' | 'docked'
@@ -727,16 +733,29 @@ export default function OnlineClassStage({
           <button type="button" className="meet-dock-btn secondary demo-showcase-icon" onClick={onOpenDemoShowcase} title="Load the ready-to-present ClassBridge demo">
             <Sparkles size={17} />
           </button>
+          {onGenerateStudyGuide && (
+            <button
+              type="button"
+              className={`meet-dock-btn ${isGeneratingGuide ? 'active pulse-animation' : 'secondary'} study-guide-meet-btn`}
+              onClick={onGenerateStudyGuide}
+              disabled={isGeneratingGuide}
+              title="Generate AI Study Guide from Lecture Transcripts"
+              style={{ minWidth: '40px' }}
+            >
+              <Sparkles size={17} color={isGeneratingGuide ? "#fbbf24" : "var(--google-blue)"} />
+              <span className="dock-btn-text" style={{ fontSize: '11px', fontWeight: 600 }}>{isGeneratingGuide ? 'Generating...' : 'Study Guide'}</span>
+            </button>
+          )}
           {userRole === 'teacher' ? (
             <>
               {/* Mic Toggle */}
               <button
                 type="button"
-                className={`meet-dock-btn ${isMicMuted ? 'danger' : 'active'}`}
+                className={`meet-dock-btn ${isRecording ? 'active' : 'danger'}`}
                 onClick={toggleMic}
-                title={isMicMuted ? "Unmute Microphone" : "Mute Microphone"}
+                title={isRecording ? "Mute Microphone" : "Unmute Microphone"}
               >
-                {isMicMuted ? <MicOff size={18} /> : <Mic size={18} />}
+                {!isRecording ? <MicOff size={18} /> : <Mic size={18} />}
               </button>
 
               {/* Camera Toggle */}
@@ -976,8 +995,29 @@ export default function OnlineClassStage({
                   <Globe size={13} color="var(--google-blue)" />
                   <span>{sourceLangName} ➔ {targetLangName}</span>
                 </div>
-                {/* 1-Click Caption Export Options */}
+                {/* 1-Click Caption Export Options & Study Guide */}
                 <div className="caption-export-actions">
+                  {onGenerateStudyGuide && (
+                    <button
+                      type="button"
+                      className="export-mini-btn study-guide-btn"
+                      onClick={onGenerateStudyGuide}
+                      disabled={isGeneratingGuide}
+                      title="Generate AI Study Guide from Lecture Transcripts"
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(26,115,232,0.18), rgba(168,85,247,0.18))',
+                        color: 'var(--google-blue)',
+                        borderColor: 'rgba(26,115,232,0.3)',
+                        fontWeight: 600,
+                        gap: '4px',
+                        display: 'inline-flex',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <Sparkles size={11} className={isGeneratingGuide ? "spin-fast" : ""} />
+                      <span>{isGeneratingGuide ? 'Generating...' : 'Study Guide'}</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="export-mini-btn export-btn"

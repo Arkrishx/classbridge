@@ -28,6 +28,8 @@ export default function CaptionPane({
   classMode = 'realtime_classroom',
   roomCode = 'EDU-02',
   userRole = 'teacher',
+  onGenerateStudyGuide,
+  isGeneratingGuide = false,
 }) {
   const bottomRef = useRef(null);
   const [copied, setCopied] = useState(false);
@@ -169,6 +171,29 @@ export default function CaptionPane({
                 <span>{isExportingPdf ? '...' : '.PDF'}</span>
               </button>
             </>
+          )}
+
+          {onGenerateStudyGuide && (
+            <button
+              className="chip-btn study-guide-caption-btn"
+              style={{
+                padding: '3px 10px',
+                fontSize: '11.5px',
+                background: 'rgba(26, 115, 232, 0.15)',
+                borderColor: 'rgba(26, 115, 232, 0.4)',
+                color: 'var(--google-blue)',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+              onClick={onGenerateStudyGuide}
+              disabled={isGeneratingGuide}
+              title="Generate comprehensive AI Study Guide from lecture captions"
+            >
+              <Sparkles size={12} className={isGeneratingGuide ? "spin-fast" : ""} />
+              <span>{isGeneratingGuide ? 'Generating...' : 'Study Guide'}</span>
+            </button>
           )}
 
           <button
