@@ -3801,6 +3801,71 @@ body {
   }
 }
 
+/* Classroom Room & Role Chip in GoogleAppBar */
+.google-chip-action.classroom-chip {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.google-chip-action.classroom-chip.teacher {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+}
+
+.google-chip-action.classroom-chip.teacher:hover {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.6);
+  transform: translateY(-1px);
+}
+
+.google-chip-action.classroom-chip.student {
+  background: rgba(66, 133, 244, 0.12);
+  border: 1px solid rgba(66, 133, 244, 0.35);
+  color: var(--google-blue);
+}
+
+.google-chip-action.classroom-chip.student:hover {
+  background: rgba(66, 133, 244, 0.2);
+  border-color: rgba(66, 133, 244, 0.6);
+  transform: translateY(-1px);
+}
+
+.google-chip-action.classroom-chip.solo {
+  background: rgba(52, 168, 83, 0.1);
+  border: 1px solid rgba(52, 168, 83, 0.3);
+  color: var(--google-green);
+}
+
+/* Student Locked Mic Button in Bottom Dock */
+.google-circle-btn.student-locked {
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.google-circle-btn.student-locked:hover {
+  transform: scale(1.05);
+  background: rgba(66, 133, 244, 0.22) !important;
+}
+
+.dock-audio-indicator.student-listening {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+}
+
+
 
 
 

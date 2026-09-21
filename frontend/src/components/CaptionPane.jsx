@@ -241,8 +241,8 @@ export default function CaptionPane({
                   </div>
 
                   <div className="caption-vernacular">
-                    <span className="caption-lang-tag target">{(seg.target_lang || targetLang).toUpperCase()}</span>
-                    {seg.text_vernacular}
+                    <span className="caption-lang-tag target">{targetLang.toUpperCase()}</span>
+                    {seg.translations?.[targetLang] || seg.text_vernacular}
                   </div>
 
                   {seg.domain_terms && seg.domain_terms.length > 0 && (
@@ -251,10 +251,10 @@ export default function CaptionPane({
                         <span
                           key={idx}
                           className="domain-chip"
-                          title={`STEM Concept: ${dt.en} (${dt.category})\n${dt.definition}`}
+                          title={`STEM Concept: ${dt.en} (${dt.category})\n${dt.definition || ''}`}
                         >
                           <Tag size={9} />
-                          <b>{dt.en}</b>: {dt.adapted_vernacular || dt.en}
+                          <b>{dt.en}</b>: {dt.translations?.[targetLang] || dt.adapted_vernacular || dt.en}
                         </span>
                       ))}
                     </div>

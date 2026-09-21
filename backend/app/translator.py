@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from deep_translator import GoogleTranslator
 from backend.app.config import settings
 from backend.app.glossary import glossary_engine
@@ -90,6 +90,39 @@ class TranslationService:
             "source_lang": src,
             "target_lang": tgt,
             "domain_terms": domain_terms
+        }
+
+    def translate_all_targets(
+        self,
+        text: str,
+        source_lang: Optional[str] = "en",
+        target_languages: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
+        """
+        Translates text to all target Indic languages (ta, ml, hi) and English,
+        returning a multi-language map optimized for classroom broadcast.
+        """
+        targets = target_languages or ["ta", "ml", "hi", "en"]
+        src = (source_lang or "en").lower()
+        clean_text = text.strip()
+        
+        translations = {}
+        all_domain_terms = []
+
+        for tgt in targets:
+            res = self.translate_segment(clean_text, target_lang=tgt, source_lang=src)
+            translations[tgt] = res["adapted_translation"]
+            if res["domain_terms"] and not all_domain_terms:
+                all_domain_terms = res["domain_terms"]
+
+        # Ensure source text is mapped
+        if src not in translations:
+            translations[src] = clean_text
+
+        return {
+            "text_source": clean_text,
+            "translations": translations,
+            "domain_terms": all_domain_terms
         }
 
 # Global singleton

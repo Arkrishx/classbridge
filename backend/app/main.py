@@ -17,6 +17,7 @@ from backend.app.glossary import glossary_engine
 from backend.app.rag import rag_index, qa_service, TranscriptSegment
 from backend.app.study_guide import study_guide_generator
 from backend.app.pdf_export import pdf_export_service
+from backend.app.classroom import classroom_manager
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("classbridge.main")
@@ -155,6 +156,47 @@ def reset_session():
     active_session["current_time_offset"] = 0.0
     rag_index.clear()
     return {"status": "session_cleared"}
+
+# Classroom REST Endpoints
+@app.get("/api/classroom/rooms")
+def get_active_rooms():
+    return {
+        "rooms": classroom_manager.get_all_rooms_summary()
+    }
+
+@app.get("/api/classroom/{room_id}")
+def get_room_details(room_id: str):
+    room = classroom_manager.get_room(room_id)
+    if not room:
+        return {
+            "room_id": room_id.upper(),
+            "exists": False,
+            "has_teacher": False,
+            "student_count": 0,
+            "segments_count": 0
+        }
+    return {
+        "room_id": room.room_id,
+        "exists": True,
+        "has_teacher": room.has_teacher,
+        "student_count": room.student_count,
+        "segments_count": len(room.segments),
+        "source_lang": room.source_lang,
+        "default_target_lang": room.default_target_lang,
+        "recent_segments": room.segments[-20:]
+    }
+
+@app.post("/api/classroom/{room_id}/reset")
+async def reset_classroom_room(room_id: str):
+    room = classroom_manager.get_room(room_id)
+    if room:
+        room.segments.clear()
+        room.current_time_offset = 0.0
+        await classroom_manager.broadcast_to_room(room.room_id, {
+            "type": "room_cleared",
+            "message": "Lecture session has been cleared by the teacher."
+        })
+    return {"status": "room_cleared", "room_id": room_id.upper()}
 
 class TranslateRequest(BaseModel):
     text: str
@@ -487,6 +529,219 @@ async def websocket_lecture_endpoint(
             })
         except Exception:
             pass
+
+
+# Classroom WebSocket Streaming Endpoint
+@app.websocket("/ws/classroom/{room_id}")
+async def websocket_classroom_endpoint(
+    websocket: WebSocket,
+    room_id: str,
+    role: str = Query(default="student"),
+    source_lang: str = Query(default="en"),
+    target_lang: str = Query(default="ta")
+):
+    await websocket.accept()
+    clean_room = room_id.strip().upper()
+    role = role.strip().lower()
+    if role != "teacher":
+        role = "student"
+
+    logger.info(f"Classroom WS connection: room={clean_room}, role={role}, source={source_lang}, target={target_lang}")
+
+    if role == "teacher":
+        room = await classroom_manager.register_teacher(clean_room, websocket, source_lang=source_lang, target_lang=target_lang)
+    else:
+        room = await classroom_manager.register_student(clean_room, websocket)
+
+    try:
+        # Handshake confirmation
+        await websocket.send_json({
+            "type": "handshake",
+            "room_id": clean_room,
+            "role": role,
+            "has_teacher": room.has_teacher,
+            "student_count": room.student_count,
+            "source_lang": room.source_lang,
+            "message": f"Connected to room {clean_room} as {role}."
+        })
+
+        # Send existing transcript history to new joiner
+        if room.segments:
+            await websocket.send_json({
+                "type": "history",
+                "room_id": clean_room,
+                "segments": room.segments
+            })
+
+        while True:
+            message = await websocket.receive()
+
+            if role == "teacher":
+                # Teacher can broadcast audio bytes or text actions
+                if "bytes" in message and message["bytes"]:
+                    raw_bytes = message["bytes"]
+                    if len(raw_bytes) > 2000:
+                        offset = room.current_time_offset
+                        asr_results = asr_processor.transcribe_audio_bytes(raw_bytes, time_offset=offset)
+                        if not asr_results:
+                            asr_results = asr_processor.transcribe_pcm16(raw_bytes, time_offset=offset)
+
+                        if asr_results:
+                            for item in asr_results:
+                                spoken_text = item["text"]
+                                conf = item["confidence"]
+                                start_t = item["start"]
+                                end_t = item["end"]
+                                room.current_time_offset = max(room.current_time_offset, end_t)
+
+                                # Translate to ALL target languages (ta, ml, hi, en) for instantaneous student vernacular switching
+                                multi_trans = translator_service.translate_all_targets(
+                                    spoken_text,
+                                    source_lang=room.source_lang,
+                                    target_languages=["ta", "ml", "hi", "en"]
+                                )
+
+                                seg_id = len(room.segments) + 1
+                                s_min, s_sec = int(start_t // 60), int(start_t % 60)
+                                e_min, e_sec = int(end_t // 60), int(end_t % 60)
+                                timestamp_str = f"{s_min:02d}:{s_sec:02d} - {e_min:02d}:{e_sec:02d}"
+
+                                segment_data = {
+                                    "id": seg_id,
+                                    "start": start_t,
+                                    "end": end_t,
+                                    "timestamp": timestamp_str,
+                                    "text_source": spoken_text,
+                                    "text_en": spoken_text if room.source_lang == "en" else multi_trans["translations"].get("en", spoken_text),
+                                    "text_vernacular": multi_trans["translations"].get(target_lang, spoken_text),
+                                    "translations": multi_trans["translations"],
+                                    "confidence": conf,
+                                    "domain_terms": multi_trans["domain_terms"],
+                                    "source_lang": room.source_lang,
+                                    "target_lang": target_lang
+                                }
+
+                                classroom_manager.add_segment_to_room(clean_room, segment_data)
+                                rag_index.add_segment(TranscriptSegment(
+                                    segment_id=seg_id,
+                                    start=start_t,
+                                    end=end_t,
+                                    text_en=segment_data["text_en"],
+                                    text_vernacular=segment_data["text_vernacular"],
+                                    confidence=conf,
+                                    domain_terms=multi_trans["domain_terms"]
+                                ))
+
+                                # Broadcast to ALL connected students and teacher
+                                await classroom_manager.broadcast_to_room(clean_room, {
+                                    "type": "caption",
+                                    "segment": segment_data
+                                })
+                        else:
+                            await websocket.send_json({
+                                "type": "silence",
+                                "message": "Ambient audio detected / no speech."
+                            })
+
+                elif "text" in message and message["text"]:
+                    try:
+                        payload = json.loads(message["text"])
+                        action = payload.get("action")
+
+                        if action == "process_text_segment":
+                            spoken_text = payload.get("text", "").strip()
+                            conf = float(payload.get("confidence", 95.0))
+                            duration = float(payload.get("duration", 4.0))
+
+                            if spoken_text:
+                                start_t = room.current_time_offset
+                                end_t = start_t + duration
+                                room.current_time_offset = end_t
+
+                                multi_trans = translator_service.translate_all_targets(
+                                    spoken_text,
+                                    source_lang=room.source_lang,
+                                    target_languages=["ta", "ml", "hi", "en"]
+                                )
+
+                                seg_id = len(room.segments) + 1
+                                s_min, s_sec = int(start_t // 60), int(start_t % 60)
+                                e_min, e_sec = int(end_t // 60), int(end_t % 60)
+                                timestamp_str = f"{s_min:02d}:{s_sec:02d} - {e_min:02d}:{e_sec:02d}"
+
+                                segment_data = {
+                                    "id": seg_id,
+                                    "start": start_t,
+                                    "end": end_t,
+                                    "timestamp": timestamp_str,
+                                    "text_source": spoken_text,
+                                    "text_en": spoken_text if room.source_lang == "en" else multi_trans["translations"].get("en", spoken_text),
+                                    "text_vernacular": multi_trans["translations"].get(target_lang, spoken_text),
+                                    "translations": multi_trans["translations"],
+                                    "confidence": conf,
+                                    "domain_terms": multi_trans["domain_terms"],
+                                    "source_lang": room.source_lang,
+                                    "target_lang": target_lang
+                                }
+
+                                classroom_manager.add_segment_to_room(clean_room, segment_data)
+                                rag_index.add_segment(TranscriptSegment(
+                                    segment_id=seg_id,
+                                    start=start_t,
+                                    end=end_t,
+                                    text_en=segment_data["text_en"],
+                                    text_vernacular=segment_data["text_vernacular"],
+                                    confidence=conf,
+                                    domain_terms=multi_trans["domain_terms"]
+                                ))
+
+                                await classroom_manager.broadcast_to_room(clean_room, {
+                                    "type": "caption",
+                                    "segment": segment_data
+                                })
+
+                        elif action == "set_source_language":
+                            new_src = payload.get("language", "en")
+                            room.source_lang = new_src
+                            await classroom_manager.broadcast_presence(clean_room)
+
+                        elif action == "clear_room":
+                            room.segments.clear()
+                            room.current_time_offset = 0.0
+                            await classroom_manager.broadcast_to_room(clean_room, {
+                                "type": "room_cleared",
+                                "message": "Lecture session has been cleared by the teacher."
+                            })
+
+                        elif action == "ping":
+                            await websocket.send_json({"type": "pong"})
+
+                    except json.JSONDecodeError:
+                        pass
+
+            else:
+                # Student role: read-only captions stream
+                if "text" in message and message["text"]:
+                    try:
+                        payload = json.loads(message["text"])
+                        action = payload.get("action")
+                        if action == "ping":
+                            await websocket.send_json({"type": "pong"})
+                        elif action == "request_history":
+                            await websocket.send_json({
+                                "type": "history",
+                                "room_id": clean_room,
+                                "segments": room.segments
+                            })
+                    except json.JSONDecodeError:
+                        pass
+
+    except WebSocketDisconnect:
+        logger.info(f"Classroom WS disconnected: room={clean_room}, role={role}")
+    except Exception as e:
+        logger.error(f"Classroom WS error in room {clean_room}: {e}")
+    finally:
+        await classroom_manager.remove_connection(clean_room, websocket, role)
 
 
 if __name__ == "__main__":

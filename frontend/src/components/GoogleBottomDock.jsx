@@ -33,6 +33,9 @@ export default function GoogleBottomDock({
   onClearSession,
   onOpenAudioDevices,
   segmentCount = 0,
+  classMode = 'realtime_classroom',
+  userRole = 'student',
+  onOpenClassroomModal,
 }) {
   const [quickInput, setQuickInput] = useState('');
 
@@ -50,15 +53,35 @@ export default function GoogleBottomDock({
       <div className="google-meet-dock">
         {/* 1. Primary Tactile Record Circle Button (Google Meet Style) */}
         <div className="dock-mic-group">
-          <button
-            className={`google-circle-btn mic-btn ${isRecording ? 'active-recording' : 'idle'}`}
-            onClick={onToggleRecord}
-            title={isRecording ? "Stop Live Mic (Teacher)" : "Start Live Mic (Teacher Speech Capture)"}
-            type="button"
-          >
-            {isRecording ? <MicOff size={20} /> : <Mic size={20} />}
-            {isRecording && <span className="google-mic-ripple" />}
-          </button>
+          {classMode === 'realtime_classroom' && userRole === 'student' ? (
+            <button
+              className="google-circle-btn mic-btn student-locked"
+              onClick={onOpenClassroomModal}
+              title="Student Mode: Listening to Teacher's broadcast mic. Microphone is locked to prevent classroom room audio feedback."
+              type="button"
+              style={{
+                background: 'rgba(66, 133, 244, 0.12)',
+                borderColor: 'rgba(66, 133, 244, 0.35)',
+                color: 'var(--google-blue)',
+              }}
+            >
+              <Headphones size={20} />
+            </button>
+          ) : (
+            <button
+              className={`google-circle-btn mic-btn ${isRecording ? 'active-recording' : 'idle'}`}
+              onClick={onToggleRecord}
+              title={
+                classMode === 'realtime_classroom'
+                  ? (isRecording ? "Stop Broadcast Mic (Teacher)" : "Start Live Broadcast Mic to All Students")
+                  : (isRecording ? "Stop Live Mic" : "Start Live Mic")
+              }
+              type="button"
+            >
+              {isRecording ? <MicOff size={20} /> : <Mic size={20} />}
+              {isRecording && <span className="google-mic-ripple" />}
+            </button>
+          )}
 
           {/* Dynamic 5-Bar Google Color Audio Waveform Visualizer */}
           {isRecording && (
@@ -72,6 +95,15 @@ export default function GoogleBottomDock({
               </div>
               <span className="dock-status-text">
                 {liveMicStatus === 'speaking' ? 'Speaking' : 'Listening'}
+              </span>
+            </div>
+          )}
+
+          {classMode === 'realtime_classroom' && userRole === 'student' && (
+            <div className="dock-audio-indicator student-listening" title="Student Listening Mode Active">
+              <span className="google-status-dot" style={{ background: 'var(--google-green)', width: 6, height: 6 }} />
+              <span className="dock-status-text" style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
+                Teacher Mic Stream
               </span>
             </div>
           )}
@@ -96,17 +128,28 @@ export default function GoogleBottomDock({
             className="dock-quick-input"
             value={quickInput}
             onChange={(e) => setQuickInput(e.target.value)}
-            placeholder='Dictate or type lecture note (e.g. "Gradient descent and eigenvalues")...'
-            title="Fast Dictation Bar: Type or press Win+H to voice type directly into captions"
+            placeholder={
+              classMode === 'realtime_classroom' && userRole === 'student'
+                ? 'Student Mode: Receiving live teacher captions in your selected language...'
+                : 'Dictate or type lecture note (e.g. "Gradient descent and eigenvalues")...'
+            }
+            title={
+              classMode === 'realtime_classroom' && userRole === 'student'
+                ? 'Student Mode: Captions stream automatically from teacher mic'
+                : 'Fast Dictation Bar: Type or press Win+H to voice type directly into captions'
+            }
+            disabled={classMode === 'realtime_classroom' && userRole === 'student'}
           />
-          <button
-            type="submit"
-            className="dock-send-btn"
-            disabled={!quickInput.trim()}
-            title="Commit spoken phrase immediately to live subtitles"
-          >
-            <Send size={12} />
-          </button>
+          {!(classMode === 'realtime_classroom' && userRole === 'student') && (
+            <button
+              type="submit"
+              className="dock-send-btn"
+              disabled={!quickInput.trim()}
+              title="Commit spoken phrase immediately to live subtitles"
+            >
+              <Send size={12} />
+            </button>
+          )}
         </form>
 
         {/* 4. Segmented View Mode Deck (Google Meet Style) */}

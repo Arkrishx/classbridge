@@ -10,6 +10,7 @@ import StudyGuideModal from './components/StudyGuideModal';
 import GlossaryModal from './components/GlossaryModal';
 import AboutModal from './components/AboutModal';
 import AudioDeviceModal from './components/AudioDeviceModal';
+import ClassroomModal from './components/ClassroomModal';
 import ErrorBanner from './components/ErrorBanner';
 import { AudioStreamer, getAudioInputDevices } from './utils/audioStreamer';
 import { globalTTS, getAudioOutputDevices } from './utils/ttsService';
@@ -435,13 +436,47 @@ export default function App() {
   const [viewMode, setViewMode] = useState('split');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
+  // Classroom Real-Time Broadcasting & Multi-Student State
+  const [classMode, setClassMode] = useState(() => {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get('mode')) return p.get('mode');
+      return localStorage.getItem('classbridge_class_mode') || 'realtime_classroom';
+    } catch (e) {
+      return 'realtime_classroom';
+    }
+  });
+  const [userRole, setUserRole] = useState(() => {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      const r = p.get('role');
+      if (r && (r === 'teacher' || r === 'student')) return r;
+      return localStorage.getItem('classbridge_user_role') || 'teacher';
+    } catch (e) {
+      return 'teacher';
+    }
+  });
+  const [roomCode, setRoomCode] = useState(() => {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      const rm = p.get('room');
+      if (rm) return rm.trim().toUpperCase();
+      return localStorage.getItem('classbridge_room_code') || 'EDU-02';
+    } catch (e) {
+      return 'EDU-02';
+    }
+  });
+  const [isClassroomModalOpen, setIsClassroomModalOpen] = useState(false);
+  const [studentCount, setStudentCount] = useState(0);
+  const [hasTeacher, setHasTeacher] = useState(false);
+
   const wsRef = useRef(null);
   const streamerRef = useRef(null);
   const timerRef = useRef(null);
+  const broadcastChannelRef = useRef(null);
 
   // Initialize Connection, Audio Devices & Load Glossary
   useEffect(() => {
-    connectWebSocket();
     loadGlossary();
     loadAudioDevices();
 
@@ -457,16 +492,48 @@ export default function App() {
       navigator.mediaDevices.addEventListener('devicechange', loadAudioDevices);
     }
 
+    // Setup BroadcastChannel for zero-latency local cross-tab / cross-window synchronization
+    if (typeof window !== 'undefined' && window.BroadcastChannel) {
+      const bc = new BroadcastChannel('classbridge_classroom_channel');
+      broadcastChannelRef.current = bc;
+      bc.onmessage = (event) => {
+        try {
+          const msg = event.data;
+          if (!msg || (msg.room_id && msg.room_id !== roomCode)) return;
+          if (msg.type === 'caption' && msg.segment) {
+            setSegments((prev) => {
+              if (prev.some((s) => s.id === msg.segment.id || (s.text_source || s.text_en).trim().toLowerCase() === (msg.segment.text_source || msg.segment.text_en).trim().toLowerCase())) {
+                return prev;
+              }
+              if (isReadAloudEnabled) {
+                const textToRead = (msg.segment.translations && msg.segment.translations[targetLang]) || msg.segment.text_vernacular || msg.segment.text_source;
+                globalTTS.queueSentence(textToRead, targetLang);
+              }
+              return [...prev, msg.segment];
+            });
+          } else if (msg.type === 'room_cleared') {
+            setSegments([]);
+          } else if (msg.type === 'room_presence') {
+            if (msg.student_count !== undefined) setStudentCount((c) => Math.max(c, msg.student_count));
+            if (msg.has_teacher !== undefined) setHasTeacher(msg.has_teacher);
+          }
+        } catch (e) {
+          console.warn("BroadcastChannel message error:", e);
+        }
+      };
+    }
+
     return () => {
       if (wsRef.current) wsRef.current.close();
       if (streamerRef.current) streamerRef.current.stop();
       if (timerRef.current) clearInterval(timerRef.current);
+      if (broadcastChannelRef.current) broadcastChannelRef.current.close();
       globalTTS.stop();
       if (typeof navigator !== 'undefined' && navigator.mediaDevices?.removeEventListener) {
         navigator.mediaDevices.removeEventListener('devicechange', loadAudioDevices);
       }
     };
-  }, []);
+  }, [roomCode, targetLang, isReadAloudEnabled]);
 
   const loadAudioDevices = async () => {
     try {
@@ -595,8 +662,18 @@ export default function App() {
   };
 
   const connectWebSocket = () => {
+    if (wsRef.current) {
+      try {
+        wsRef.current.close();
+      } catch (e) {}
+    }
+
     try {
-      const wsUrl = `${WS_BASE_URL}/ws/lecture?target_lang=${targetLang}&source_lang=${sourceLang}`;
+      const isClassroom = classMode === 'realtime_classroom';
+      const wsUrl = isClassroom
+        ? `${WS_BASE_URL}/ws/classroom/${encodeURIComponent(roomCode)}?role=${userRole}&source_lang=${sourceLang}&target_lang=${targetLang}`
+        : `${WS_BASE_URL}/ws/lecture?target_lang=${targetLang}&source_lang=${sourceLang}`;
+
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
@@ -608,18 +685,33 @@ export default function App() {
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          if (data.type === 'caption' && data.segment) {
+          if (data.type === 'handshake') {
+            setConnectionStatus('connected');
+            if (data.student_count !== undefined) setStudentCount(data.student_count);
+            if (data.has_teacher !== undefined) setHasTeacher(data.has_teacher);
+          } else if (data.type === 'room_presence') {
+            if (data.student_count !== undefined) setStudentCount(data.student_count);
+            if (data.has_teacher !== undefined) setHasTeacher(data.has_teacher);
+          } else if (data.type === 'history') {
+            if (data.segments && Array.isArray(data.segments)) {
+              setSegments(data.segments);
+            }
+          } else if (data.type === 'caption' && data.segment) {
             setSegments((prev) => {
               // Prevent duplicate if already committed optimistically
-              if (prev.some((s) => (s.text_source || s.text_en).trim().toLowerCase() === (data.segment.text_source || data.segment.text_en).trim().toLowerCase())) {
+              if (prev.some((s) => s.id === data.segment.id || (s.text_source || s.text_en).trim().toLowerCase() === (data.segment.text_source || data.segment.text_en).trim().toLowerCase())) {
                 return prev;
               }
               if (isReadAloudEnabled) {
-                const textToRead = data.segment.text_vernacular || data.segment.text_source || data.segment.text_en;
-                globalTTS.queueSentence(textToRead, data.segment.target_lang || targetLang);
+                const textToRead = (data.segment.translations && data.segment.translations[targetLang]) || data.segment.text_vernacular || data.segment.text_source || data.segment.text_en;
+                globalTTS.queueSentence(textToRead, targetLang);
               }
               return [...prev, data.segment];
             });
+          } else if (data.type === 'room_cleared') {
+            setSegments([]);
+          } else if (data.type === 'teacher_status') {
+            if (data.status === 'offline') setHasTeacher(false);
           } else if (data.type === 'silence') {
             // Ambient noise / silence detected
           } else if (data.type === 'error') {
@@ -641,6 +733,16 @@ export default function App() {
       setConnectionStatus('browser_assisted');
     }
   };
+
+  // Reconnect WebSocket whenever classroom mode, role, or room changes
+  useEffect(() => {
+    connectWebSocket();
+    return () => {
+      if (wsRef.current) {
+        try { wsRef.current.close(); } catch (e) {}
+      }
+    };
+  }, [classMode, userRole, roomCode]);
 
   const handleLanguageChange = (newTarget) => {
     if (!newTarget) return;
@@ -820,11 +922,38 @@ export default function App() {
         const textToRead = transResult.adapted_translation || cleanText;
         globalTTS.queueSentence(textToRead, targetLang);
       }
+
+      // If in teacher role, broadcast across local tabs immediately for 0ms multi-window demo
+      if (classMode === 'realtime_classroom' && userRole === 'teacher' && broadcastChannelRef.current) {
+        broadcastChannelRef.current.postMessage({
+          type: 'caption',
+          room_id: roomCode,
+          segment: {
+            id: Date.now(),
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            text_source: cleanText,
+            text_en: cleanText,
+            text_vernacular: transResult.adapted_translation,
+            translations: {
+              [sourceLang]: cleanText,
+              [targetLang]: transResult.adapted_translation,
+              ta: targetLang === 'ta' ? transResult.adapted_translation : undefined,
+              ml: targetLang === 'ml' ? transResult.adapted_translation : undefined,
+              hi: targetLang === 'hi' ? transResult.adapted_translation : undefined,
+              en: cleanText
+            },
+            confidence: confidence,
+            domain_terms: transResult.domain_terms,
+            source_lang: sourceLang,
+            target_lang: targetLang
+          }
+        });
+      }
     } catch (err) {
       console.error("Error processing live speech segment:", err);
     }
 
-    // Also send to backend WebSocket if connected so backend RAG & session stay synced
+    // Also send to backend WebSocket if connected so backend fans out to other classroom devices
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({
         action: 'process_text_segment',
@@ -837,6 +966,12 @@ export default function App() {
 
   // Toggle Microphone
   const toggleRecording = async () => {
+    // If student in classroom mode, mic is locked to prevent classroom audio feedback
+    if (classMode === 'realtime_classroom' && userRole === 'student') {
+      setIsClassroomModalOpen(true);
+      return;
+    }
+
     if (isRecording) {
       if (streamerRef.current) {
         streamerRef.current.stop();
@@ -915,24 +1050,34 @@ export default function App() {
           adapted_vernacular: (dt.translations && dt.translations[targetLang]) || dt.adapted_vernacular || dt.en
         }));
 
+        const segData = {
+          id: segId,
+          start: item.start,
+          end: item.end,
+          timestamp: item.timestamp,
+          text_en: item.text_en,
+          text_source: item.text_en,
+          text_vernacular: vernText,
+          translations: item.translations,
+          confidence: item.confidence,
+          domain_terms: adaptedTerms,
+          source_lang: sourceLang,
+          target_lang: targetLang
+        };
+
         setSegments((prev) => {
           if (prev.some((s) => s.text_en === item.text_en)) return prev;
-          return [
-            ...prev,
-            {
-              id: segId,
-              start: item.start,
-              end: item.end,
-              timestamp: item.timestamp,
-              text_en: item.text_en,
-              text_vernacular: vernText,
-              translations: item.translations,
-              confidence: item.confidence,
-              domain_terms: adaptedTerms,
-              target_lang: targetLang
-            }
-          ];
+          return [...prev, segData];
         });
+
+        // Broadcast to student tabs immediately
+        if (classMode === 'realtime_classroom' && userRole === 'teacher' && broadcastChannelRef.current) {
+          broadcastChannelRef.current.postMessage({
+            type: 'caption',
+            room_id: roomCode,
+            segment: segData
+          });
+        }
 
         // Also notify backend if websocket connected
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -956,11 +1101,44 @@ export default function App() {
     setSessionSeconds(0);
     setHighlightedSegmentId(null);
 
-    try {
-      await fetch(`${API_BASE_URL}/api/session/reset`, { method: 'POST' });
-    } catch (e) {
-      // Ignored if backend offline
+    if (broadcastChannelRef.current) {
+      broadcastChannelRef.current.postMessage({
+        type: 'room_cleared',
+        room_id: roomCode
+      });
     }
+
+    if (classMode === 'realtime_classroom' && userRole === 'teacher') {
+      try {
+        await fetch(`${API_BASE_URL}/api/classroom/${encodeURIComponent(roomCode)}/reset`, { method: 'POST' });
+      } catch (e) {}
+    } else {
+      try {
+        await fetch(`${API_BASE_URL}/api/session/reset`, { method: 'POST' });
+      } catch (e) {}
+    }
+  };
+
+  const handleClassModeChange = (mode) => {
+    setClassMode(mode);
+    try {
+      localStorage.setItem('classbridge_class_mode', mode);
+    } catch (e) {}
+  };
+
+  const handleUserRoleChange = (role) => {
+    setUserRole(role);
+    try {
+      localStorage.setItem('classbridge_user_role', role);
+    } catch (e) {}
+  };
+
+  const handleRoomCodeChange = (code) => {
+    const clean = code.trim().toUpperCase() || 'EDU-02';
+    setRoomCode(clean);
+    try {
+      localStorage.setItem('classbridge_room_code', clean);
+    } catch (e) {}
   };
 
   // Grounded Q&A with Caption Grounding & Internet Definition
@@ -1495,6 +1673,12 @@ export default function App() {
         onExportTxt={handleExportCaptionsTxt}
         onExportPdf={handleExportCaptionsPdf}
         segmentCount={segments.length}
+        classMode={classMode}
+        userRole={userRole}
+        roomCode={roomCode}
+        studentCount={studentCount}
+        hasTeacher={hasTeacher}
+        onOpenClassroomModal={() => setIsClassroomModalOpen(true)}
       />
 
       {/* Error & Warning Notification Toast */}
@@ -1590,9 +1774,27 @@ export default function App() {
         onClearSession={clearSession}
         onOpenAudioDevices={() => setIsDeviceModalOpen(true)}
         segmentCount={segments.length}
+        classMode={classMode}
+        userRole={userRole}
+        onOpenClassroomModal={() => setIsClassroomModalOpen(true)}
       />
 
       {/* Modals */}
+      <ClassroomModal
+        isOpen={isClassroomModalOpen}
+        onClose={() => setIsClassroomModalOpen(false)}
+        classMode={classMode}
+        onChangeClassMode={handleClassModeChange}
+        userRole={userRole}
+        onChangeUserRole={handleUserRoleChange}
+        roomCode={roomCode}
+        onChangeRoomCode={handleRoomCodeChange}
+        studentCount={studentCount}
+        hasTeacher={hasTeacher}
+        connectionStatus={connectionStatus}
+        onClearRoom={clearSession}
+      />
+
       <StudyGuideModal
         guide={studyGuide}
         onClose={() => setStudyGuide(null)}

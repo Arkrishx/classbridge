@@ -13,6 +13,8 @@ import {
   Settings2,
   FileText,
   FileDown,
+  Users,
+  Crown,
 } from 'lucide-react';
 
 export default function GoogleAppBar({
@@ -32,6 +34,12 @@ export default function GoogleAppBar({
   onExportTxt,
   onExportPdf,
   segmentCount = 0,
+  classMode = 'realtime_classroom',
+  userRole = 'student',
+  roomCode = 'EDU-02',
+  studentCount = 0,
+  hasTeacher = false,
+  onOpenClassroomModal,
 }) {
   const formatTime = (secs) => {
     const mins = Math.floor(secs / 60);
@@ -114,6 +122,42 @@ export default function GoogleAppBar({
 
       {/* 3. Right: System Actions, Audio Hardware Chip & Modals */}
       <div className="google-bar-right">
+        {/* Classroom Room & Role Chip (Teacher vs Student) */}
+        {classMode !== 'solo' ? (
+          <button
+            className={`google-chip-action classroom-chip ${userRole === 'teacher' ? 'teacher' : 'student'}`}
+            onClick={onOpenClassroomModal}
+            title={`Classroom Room: ${roomCode} (${userRole === 'teacher' ? 'Host' : 'Student'}). Click to manage room & share link.`}
+            type="button"
+          >
+            {userRole === 'teacher' ? (
+              <>
+                <Crown size={13} color="#f59e0b" />
+                <span className="google-chip-text">
+                  <b>{roomCode}</b> • 👥 {studentCount}
+                </span>
+              </>
+            ) : (
+              <>
+                <Headphones size={13} color="var(--google-blue)" />
+                <span className="google-chip-text">
+                  <b>{roomCode}</b> • {hasTeacher ? '🟢 Live' : '⚪ Wait'}
+                </span>
+              </>
+            )}
+          </button>
+        ) : (
+          <button
+            className="google-chip-action classroom-chip solo"
+            onClick={onOpenClassroomModal}
+            title="Solo Studio Mode. Click to switch to Real-Time Classroom."
+            type="button"
+          >
+            <Radio size={13} color="var(--google-green)" />
+            <span className="google-chip-text">Solo</span>
+          </button>
+        )}
+
         {/* Audio Hardware Chip (Desktop & Tablet) */}
         <button
           className="google-chip-action device-chip"
