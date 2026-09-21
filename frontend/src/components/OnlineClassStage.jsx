@@ -637,8 +637,7 @@ export default function OnlineClassStage({
                   style={{
                     width: '100%',
                     height: '100%',
-                    objectFit: 'contain',
-                    transform: isTeacherScreenSharing ? 'none' : 'scaleX(-1)'
+                    objectFit: 'contain'
                   }}
                 />
               ) : isTeacherCameraOn ? (
