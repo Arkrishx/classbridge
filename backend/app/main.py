@@ -68,6 +68,18 @@ class CaptionsExportRequest(BaseModel):
     target_lang: Optional[str] = "ta"
     title: Optional[str] = "ClassBridge Live Bilingual Lecture Captions"
 
+class GenerativeChatRequest(BaseModel):
+    question: str
+    source_lang: Optional[str] = "en"
+    target_lang: Optional[str] = "ta"
+    segments: Optional[List[Dict[str, Any]]] = None
+    mode: Optional[str] = "solo"  # solo | offline | online
+
+class GenerativeStudyGuideRequest(BaseModel):
+    target_lang: Optional[str] = "ta"
+    segments: Optional[List[Dict[str, Any]]] = None
+    mode: Optional[str] = "solo"  # solo | offline | online
+
 
 # REST Endpoints
 @app.get("/api/health")
@@ -306,6 +318,239 @@ def generate_study_guide(req: StudyGuideRequest):
     segs = req.segments if req.segments is not None else active_session["segments"]
     target_lang = req.target_lang or active_session["target_lang"]
     guide = study_guide_generator.generate(segs, target_lang=target_lang)
+    return guide
+
+@app.post("/api/generate/chat")
+def generative_chat(req: GenerativeChatRequest):
+    """
+    Always-generative Bridge AI chatbot endpoint.
+    Produces a fresh Gemini answer every call — no cache, no echoing stored data.
+    Falls back to RAG QA service if Gemini key is unavailable.
+    """
+    if not req.question.strip():
+        raise HTTPException(status_code=400, detail="Question cannot be empty.")
+
+    source_lang = req.source_lang or "en"
+    target_lang = req.target_lang or "ta"
+    segs = req.segments if req.segments is not None else active_session.get("segments", [])
+    mode = req.mode or "solo"
+
+    lang_meta = settings.SUPPORTED_LANGUAGES.get(target_lang, {"name": "Tamil", "native": "தமிழ்"})
+    lang_name = lang_meta.get("name", "Tamil")
+    lang_native = lang_meta.get("native", "தமிழ்")
+
+    # Build transcript context
+    transcript_lines = []
+    for s in segs:
+        ts = s.get("timestamp") or s.get("start", "")
+        txt = s.get("text_en") or s.get("text_source") or ""
+        if txt.strip():
+            transcript_lines.append(f"[{ts}] {txt}")
+    transcript_block = "\n".join(transcript_lines) if transcript_lines else ""
+
+    mode_label = {"solo": "Solo Studio Recording", "offline": "Offline Classroom Session", "online": "Online Live Class"}.get(mode, "Lecture Session")
+
+    if settings.GEMINI_API_KEY:
+        try:
+            from google import genai
+            from backend.app.rag import extract_json_from_response
+            client = genai.Client(api_key=settings.GEMINI_API_KEY)
+
+            context_section = (
+                f"Live {mode_label} Transcript (chronological, with timestamps):\n{transcript_block}"
+                if transcript_block
+                else f"No transcript recorded yet for this {mode_label}."
+            )
+
+            prompt = (
+                f"You are BridgeAI, an expert, warm, and encouraging AI tutor embedded inside ClassBridge — "
+                f"a real-time STEM lecture companion for college students studying in their vernacular language.\n"
+                f"Student question: \"{req.question}\"\n"
+                f"Session mode: {mode_label}\n"
+                f"Target vernacular language: {lang_name} ({lang_native}, code: '{target_lang}')\n\n"
+                f"{context_section}\n\n"
+                f"Instructions (MUST follow):\n"
+                f"1. Generate a FRESH, ORIGINAL response — do NOT echo or repeat transcript text verbatim.\n"
+                f"2. If the question relates to something in the transcript, ground your answer with [timestamp] citations.\n"
+                f"3. If not in transcript, provide a high-quality 2-3 sentence educational synthesis using your general knowledge.\n"
+                f"4. Always respond with an English explanation AND a full, accurate translation in {lang_name}.\n"
+                f"5. Extract 2-4 related STEM concepts.\n"
+                f"6. Set 'found_in_lecture': true if grounded in the transcript, false otherwise.\n"
+                f"7. Your answer must be INSIGHTFUL — explain WHY and HOW, not just what.\n\n"
+                f"Return ONLY valid JSON:\n"
+                f'{{ "found_in_lecture": true, "answer": "<insightful grounded explanation>", '
+                f'"vernacular_answer": "<fluent {lang_name} translation>", '
+                f'"related_concepts": ["concept1", "concept2"] }}'
+            )
+
+            models_to_try = ["gemini-flash-lite-latest", "gemini-3-flash-preview", "gemini-flash-latest"]
+            for model_name in models_to_try:
+                try:
+                    resp = client.models.generate_content(
+                        model=model_name,
+                        contents=prompt,
+                        config=dict(response_mime_type="application/json")
+                    )
+                    if resp and resp.text:
+                        q_data = extract_json_from_response(resp.text)
+                        if q_data and q_data.get("answer"):
+                            logger.info(f"[/api/generate/chat] Fresh Gemini answer via {model_name}")
+                            return {
+                                "found_in_lecture": bool(q_data.get("found_in_lecture", False)),
+                                "question": req.question,
+                                "answer": q_data["answer"].strip(),
+                                "vernacular_answer": (q_data.get("vernacular_answer") or "").strip(),
+                                "citations": [],
+                                "related_concepts": q_data.get("related_concepts", []),
+                                "concept_name": req.question,
+                                "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                                "source": "gemini_generative"
+                            }
+                except Exception as m_err:
+                    logger.info(f"[/api/generate/chat] Model {model_name} failed: {m_err}")
+        except Exception as e:
+            logger.warning(f"[/api/generate/chat] Gemini error: {e}")
+
+    # Fallback to RAG QA service
+    result = qa_service.answer_question(
+        question=req.question,
+        source_lang=source_lang,
+        target_lang=target_lang,
+        segments=segs
+    )
+    result["generated_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    result["source"] = "rag_fallback"
+    return result
+
+@app.post("/api/generate/study-guide")
+def generative_study_guide(req: GenerativeStudyGuideRequest):
+    """
+    Always-generative study guide endpoint.
+    Produces a FRESH Gemini-synthesized study guide every call — no cache, no static templates.
+    Falls back to heuristic synthesis if Gemini key is unavailable.
+    """
+    segs = req.segments if req.segments is not None else active_session.get("segments", [])
+    target_lang = req.target_lang or active_session.get("target_lang", "ta")
+    mode = req.mode or "solo"
+
+    if not segs:
+        from backend.app.study_guide import study_guide_generator
+        empty = study_guide_generator._generate_empty_guide(target_lang)
+        empty["generated_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        empty["source"] = "empty"
+        return empty
+
+    lang_meta = settings.SUPPORTED_LANGUAGES.get(target_lang, {"name": "Tamil", "native": "தமிழ்"})
+    lang_name = lang_meta.get("name", "Tamil")
+    lang_native = lang_meta.get("native", "தமிழ்")
+    mode_label = {"solo": "Solo Studio Recording", "offline": "Offline Classroom", "online": "Online Live Class"}.get(mode, "Lecture Session")
+
+    full_text_en = " ".join(s.get("text_en", "") or s.get("text_source", "") for s in segs)
+
+    if settings.GEMINI_API_KEY:
+        try:
+            from google import genai
+            from backend.app.rag import extract_json_from_response
+            client = genai.Client(api_key=settings.GEMINI_API_KEY)
+
+            prompt = f"""You are ClassBridge, an expert AI educational assistant for STEM college students.
+Session Mode: {mode_label}
+Student's vernacular language: {lang_name} ({lang_native}, code: '{target_lang}')
+
+Lecture Transcript:
+{full_text_en}
+
+TASK: Generate a COMPLETELY FRESH, ORIGINAL, comprehensive study guide from this transcript.
+- Do NOT reuse or echo the transcript sentences verbatim in the definitions or overview.
+- Generate NEW explanatory content that synthesizes, explains, and expands upon the lecture concepts.
+- The definitions must be academically precise and written in fresh language (not copied from transcript).
+- If no mathematical formulas appear in the transcript, 'formulas' MUST be an empty array [].
+- Flashcards must have insightful exam-ready questions, not just restated definitions.
+- generated_at: use "{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}"
+
+Return ONLY valid JSON matching this schema exactly:
+{{
+  "title": "<Concise descriptive title for this specific lecture>",
+  "date": "{__import__('datetime').datetime.now().strftime('%B %d, %Y')}",
+  "target_language": "{lang_name}",
+  "native_language": "{lang_native}",
+  "generated_at": "{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}",
+  "source": "gemini_generative",
+  "overview": {{
+    "en": "<Fresh 2-4 sentence executive overview — synthesize don't copy>",
+    "vernacular": "<Accurate translation in {lang_name}>"
+  }},
+  "diagram": {{
+    "title": "<Concept Map title>",
+    "source": "BridgeAI Generative Concept Map",
+    "nodes": [
+      {{"id": "concept_1", "label": "<Key Concept>", "detail": "<Category>"}},
+      {{"id": "concept_2", "label": "<Key Concept>", "detail": "<Category>"}}
+    ],
+    "edges": [
+      {{"from": "concept_1", "to": "concept_2"}}
+    ]
+  }},
+  "definitions": [
+    {{
+      "term": "<English technical term>",
+      "vernacular_term": "<Vernacular translation with English in parentheses>",
+      "category": "<STEM Domain>",
+      "definition": "<Fresh academic textbook-style definition — NOT copied from transcript>",
+      "vernacular_definition": "<Accurate {lang_name} explanation>"
+    }}
+  ],
+  "formulas": [
+    {{
+      "name": "<Formula or Law name>",
+      "latex": "<LaTeX equation>",
+      "description": "<What the formula computes>",
+      "variables": "<Variable descriptions>"
+    }}
+  ],
+  "takeaways": [
+    {{
+      "point": "<Key takeaway in English — insight not transcript echo>",
+      "vernacular_point": "<Key takeaway in {lang_name}>",
+      "timestamp": "<Approximate timestamp from transcript>"
+    }}
+  ],
+  "flashcards": [
+    {{
+      "id": 1,
+      "front": "<Exam-style question in English>",
+      "vernacular_front": "<Question in {lang_name}>",
+      "back": "<Concise answer>",
+      "category": "<Domain>"
+    }}
+  ]
+}}
+"""
+            models_to_try = ["gemini-flash-lite-latest", "gemini-3-flash-preview", "gemini-flash-latest"]
+            for model_name in models_to_try:
+                try:
+                    resp = client.models.generate_content(
+                        model=model_name,
+                        contents=prompt,
+                        config=dict(response_mime_type="application/json")
+                    )
+                    if resp and resp.text:
+                        data = extract_json_from_response(resp.text)
+                        if data and (data.get("definitions") or data.get("overview")):
+                            data["segment_count"] = len(segs)
+                            data["generated_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                            data["source"] = "gemini_generative"
+                            logger.info(f"[/api/generate/study-guide] Fresh guide via {model_name}")
+                            return data
+                except Exception as m_err:
+                    logger.info(f"[/api/generate/study-guide] Model {model_name} failed: {m_err}")
+        except Exception as e:
+            logger.warning(f"[/api/generate/study-guide] Gemini error: {e}")
+
+    # Fallback to heuristic synthesis
+    guide = study_guide_generator.generate(segs, target_lang=target_lang)
+    guide["generated_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    guide["source"] = "heuristic_fallback"
     return guide
 
 @app.post("/api/study-guide/pdf")
