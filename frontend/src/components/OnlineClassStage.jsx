@@ -67,6 +67,10 @@ export default function OnlineClassStage({
   isReadAloud = false,
   onToggleReadAloud,
   selectedDeviceId = 'default',
+  interimSpeech = '',
+  interimVernacular = '',
+  liveMicStatus = 'idle',
+  streamAudioLevel = 0,
   handRaises = [],
   onToggleHandRaise,
   onLowerAllHands,
@@ -579,7 +583,7 @@ export default function OnlineClassStage({
               <Settings size={12} color="var(--text-dim)" style={{ marginLeft: '4px' }} />
               {isCameraActive && (
                 <div className="audio-meter-bar" title="Live Mic Level">
-                  <div className="audio-meter-fill" style={{ width: `${audioLevel}%` }} />
+                  <div className="audio-meter-fill" style={{ width: `${streamAudioLevel || audioLevel}%` }} />
                 </div>
               )}
             </div>
@@ -672,22 +676,29 @@ export default function OnlineClassStage({
             </>
           )}
 
-          {/* Subtitles Overlay Bar (Floating at bottom of video) */}
-          {latestSegment && (
-            <div className={`video-caption-overlay ${latestSegment.is_keyword ? 'keyword-overlay-highlight' : ''}`}>
-              {latestSegment.is_keyword && (
+          {/* Subtitles Overlay Bar (Floating at bottom of video: Google Meet / Zoom Style) */}
+          {(interimSpeech || latestSegment) && (
+            <div className={`video-caption-overlay ${interimSpeech ? 'streaming-live-overlay' : (latestSegment?.is_keyword ? 'keyword-overlay-highlight' : '')}`}>
+              {interimSpeech ? (
+                <div className="keyword-badge-tag" style={{ background: 'rgba(59, 130, 246, 0.25)', borderColor: 'rgba(59, 130, 246, 0.5)', color: '#93c5fd' }}>
+                  <Radio size={12} className="pulse-animation" />
+                  <span>REAL-TIME STREAMING</span>
+                </div>
+              ) : latestSegment?.is_keyword && (
                 <div className="keyword-badge-tag">
                   <Tag size={12} />
                   <span>KEYWORD CONCEPT</span>
                 </div>
               )}
               <div className="overlay-caption-source">
-                {latestSegment.text_source || latestSegment.text_en}
+                {interimSpeech || latestSegment?.text_source || latestSegment?.text_en}
               </div>
               <div className="overlay-caption-target">
-                {(latestSegment.translations && latestSegment.translations[targetLang]) ||
-                  latestSegment.text_vernacular ||
-                  latestSegment.text_source}
+                {interimSpeech
+                  ? (interimVernacular || 'Translating in real time...')
+                  : ((latestSegment?.translations && latestSegment.translations[targetLang]) ||
+                    latestSegment?.text_vernacular ||
+                    latestSegment?.text_source)}
               </div>
             </div>
           )}
@@ -1040,7 +1051,7 @@ export default function OnlineClassStage({
               </div>
 
               <div className="sidebar-transcript-list">
-                {segments.length === 0 ? (
+                {segments.length === 0 && !interimSpeech ? (
                   <div className="empty-transcript-state">
                     <Sparkles size={24} color="var(--google-blue)" style={{ opacity: 0.5, marginBottom: '6px' }} />
                     <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>
@@ -1053,22 +1064,47 @@ export default function OnlineClassStage({
                     </div>
                   </div>
                 ) : (
-                  segments.slice(-25).map((seg) => {
-                    const vern = (seg.translations && seg.translations[targetLang]) || seg.text_vernacular || seg.text_source;
-                    return (
-                      <div key={seg.id} className={`online-transcript-bubble ${seg.is_keyword ? 'bubble-keyword' : ''}`}>
-                        {seg.is_keyword && (
-                          <div className="bubble-keyword-pill">
-                            <Tag size={10} />
-                            <span>KEYWORD CONCEPT</span>
-                          </div>
-                        )}
-                        <div className="bubble-source">{seg.text_source || seg.text_en}</div>
-                        <div className="bubble-vernacular">{vern}</div>
-                        <div className="bubble-time">{seg.timestamp || 'Live'}</div>
+                  <>
+                    {segments.slice(-25).map((seg) => {
+                      const vern = (seg.translations && seg.translations[targetLang]) || seg.text_vernacular || seg.text_source;
+                      return (
+                        <div key={seg.id} className={`online-transcript-bubble ${seg.is_keyword ? 'bubble-keyword' : ''}`}>
+                          {seg.is_keyword && (
+                            <div className="bubble-keyword-pill">
+                              <Tag size={10} />
+                              <span>KEYWORD CONCEPT</span>
+                            </div>
+                          )}
+                          <div className="bubble-source">{seg.text_source || seg.text_en}</div>
+                          <div className="bubble-vernacular">{vern}</div>
+                          <div className="bubble-time">{seg.timestamp || 'Live'}</div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Active Real-Time Streaming Speech Bubble */}
+                    {interimSpeech && (
+                      <div
+                        className="online-transcript-bubble live-streaming-bubble pulse-animation"
+                        style={{
+                          borderLeft: '3px solid var(--google-blue)',
+                          background: 'rgba(66, 133, 244, 0.08)',
+                          boxShadow: '0 0 12px rgba(66, 133, 244, 0.15)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10.5px', color: 'var(--google-blue)', fontWeight: 700, marginBottom: '4px' }}>
+                          <span className="live-dot pulse-animation" style={{ width: '6px', height: '6px', background: 'var(--google-blue)' }} />
+                          <span>STREAMING REAL-TIME TRANSLATION</span>
+                        </div>
+                        <div className="bubble-source" style={{ color: 'var(--text-main)', fontWeight: 500 }}>
+                          {interimSpeech}
+                        </div>
+                        <div className="bubble-vernacular" style={{ color: '#6ee7b7', fontWeight: 600, marginTop: '3px' }}>
+                          {interimVernacular || 'Translating...'}
+                        </div>
                       </div>
-                    );
-                  })
+                    )}
+                  </>
                 )}
               </div>
             </>

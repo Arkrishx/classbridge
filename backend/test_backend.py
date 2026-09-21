@@ -47,6 +47,14 @@ def test_all():
     assert "സ്വഭാവഗുണ മൂല്യം" in r.json()["adapted_translation"]
     print("[OK] Malayalam STEM glossary adaptation passed")
 
+    # Verify acoustic pronunciation correction in translate endpoint
+    r = client.post("/api/translate", json={"text": "radiant descent optimizes the lost function", "source_lang": "en", "target_lang": "ta"})
+    assert r.status_code == 200
+    res_acoustic = r.json()
+    assert any(dt["term"] == "gradient descent" for dt in res_acoustic.get("domain_terms", []))
+    assert any(dt["term"] == "loss function" for dt in res_acoustic.get("domain_terms", []))
+    print("[OK] Acoustic pronunciation normalization in translation passed (radiant descent -> gradient descent)")
+
     # Test ta -> en
     r = client.post("/api/translate", json={"text": "வணக்கம் மாணவர்களே", "source_lang": "ta", "target_lang": "en"})
     assert r.status_code == 200

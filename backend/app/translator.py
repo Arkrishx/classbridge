@@ -53,6 +53,10 @@ class TranslationService:
                 "domain_terms": []
             }
 
+        # Normalize ASR acoustic pronunciation errors if English source
+        if src == "en":
+            clean_text = glossary_engine.normalize_acoustic_transcript(clean_text)
+
         # If source and target language are identical, return identity directly
         if src == tgt:
             return {

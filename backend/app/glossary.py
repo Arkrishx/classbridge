@@ -27,13 +27,40 @@ class DomainAdaptationGlossary:
             print(f"[Glossary] Error loading glossary: {e}")
             self.terms = {}
 
+    def normalize_acoustic_transcript(self, text: str) -> str:
+        """Corrects common ASR pronunciation errors in STEM terms (e.g. radiant descent -> gradient descent)"""
+        if not text:
+            return ""
+        corrections = [
+            (re.compile(r'\b(?:radiant|radian|radial)\s+descent\b', re.I), "gradient descent"),
+            (re.compile(r'\bgradient\s+(?:percent|resent|present)\b', re.I), "gradient descent"),
+            (re.compile(r'\b(?:iron|ion|icon)\s+vectors?\b', re.I), "eigenvector"),
+            (re.compile(r'\b(?:iron|ion|icon)\s+values?\b', re.I), "eigenvalue"),
+            (re.compile(r'\b(?:lost|laws|law\'?s)\s+functions?\b', re.I), "loss function"),
+            (re.compile(r'\b(?:cause|costs)\s+functions?\b', re.I), "cost function"),
+            (re.compile(r'\b(?:bag|back)\s+(?:propagation|proportion)\b', re.I), "backpropagation"),
+            (re.compile(r'\b(?:running|earning)\s+rates?\b', re.I), "learning rate"),
+            (re.compile(r'\b(?:an\s+trophy|anthropos)\b', re.I), "entropy"),
+            (re.compile(r'\b(?:photo\s+synthesis|photo\s+synthetic)\b', re.I), "photosynthesis"),
+            (re.compile(r'\b(?:can\s+duction|con\s+duction)\b', re.I), "conduction"),
+            (re.compile(r'\b(?:moral|new\s*real)\s+nets?\b', re.I), "neural net"),
+            (re.compile(r'\bdeep\s+running\b', re.I), "deep learning"),
+            (re.compile(r'\bhigh\s+pothesis\b', re.I), "hypothesis"),
+            (re.compile(r'\bstandard\s+(?:aviation|naviation)\b', re.I), "standard deviation"),
+        ]
+        result = text
+        for pattern, replacement in corrections:
+            result = pattern.sub(replacement, result)
+        return result
+
     def get_all_terms(self) -> Dict[str, Dict[str, Any]]:
         return self.terms
 
     def detect_terms_in_text(self, text: str) -> List[Dict[str, Any]]:
         """Finds all STEM terms present in the English source text."""
         detected = []
-        lower_text = text.lower()
+        normalized = self.normalize_acoustic_transcript(text)
+        lower_text = normalized.lower()
         
         # Sort terms by length descending to match longest phrases first (e.g. 'stochastic gradient descent' before 'gradient descent')
         sorted_keys = sorted(self.terms.keys(), key=lambda k: len(k), reverse=True)

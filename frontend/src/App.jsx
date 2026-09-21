@@ -20,7 +20,7 @@ import TeacherSetupModal from './components/TeacherSetupModal';
 import ErrorBanner from './components/ErrorBanner';
 import { AudioStreamer, getAudioInputDevices } from './utils/audioStreamer';
 import { globalTTS, getAudioOutputDevices } from './utils/ttsService';
-import { translateTextClient, translateInterimDebounced } from './utils/clientTranslator';
+import { translateTextClient, translateInterimDebounced, translateStreamingFast } from './utils/clientTranslator';
 import { Radio, MessageSquare, Sparkles } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { exportCaptionsAsTxt, exportCaptionsAsPdf } from './utils/captionExport';
@@ -1597,6 +1597,11 @@ export default function App() {
       const streamer = new AudioStreamer({
         selectedDeviceId: selectedDeviceId,
         sourceLang: sourceLang,
+        domainContext: {
+          category: 'STEM',
+          recentTerms: segments.slice(-6).flatMap((s) => (s.domain_terms || []).map((dt) => (dt.term || '').toLowerCase()))
+        },
+        glossary: glossary,
         onAudioData: (buffer) => {
           if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             wsRef.current.send(buffer);
@@ -1609,7 +1614,7 @@ export default function App() {
           setInterimSpeech(text);
           if (text && text.trim()) {
             setLiveMicStatus('speaking');
-            translateInterimDebounced(text.trim(), targetLang, glossary, (vern) => {
+            translateStreamingFast(text.trim(), targetLang, glossary, (vern) => {
               setInterimVernacular(vern);
             }, sourceLang);
           } else {
@@ -2866,6 +2871,10 @@ export default function App() {
           onBroadcastVideoState={handleBroadcastVideoState}
           isRecording={isRecording}
           onToggleRecording={toggleRecording}
+          liveMicStatus={liveMicStatus}
+          streamAudioLevel={audioLevel}
+          interimSpeech={interimSpeech}
+          interimVernacular={interimVernacular}
           segments={segments}
           sourceLang={sourceLang}
           targetLang={targetLang}

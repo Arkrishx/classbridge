@@ -330,11 +330,17 @@ function translateWithOfflineDictionary(text, targetLang = 'ta', sourceLang = 'e
   return text;
 }
 
-// Debounced Interim Translator for live subtitle preview as user speaks
+// Dual-Engine Streaming Translator for zero-lag live subtitle preview
 let interimDebounceTimer = null;
 let lastInterimRequest = '';
 
-export function translateInterimDebounced(text, targetLang = 'ta', glossary = {}, onResult, sourceLang = 'en') {
+/**
+ * Dual-Engine Real-Time Streaming Translation
+ * 
+ * Engine A (0ms Synchronous): Instantly emits word/phrase translations using offline dictionary + glossary.
+ * Engine B (Sub-100ms Async): Simultaneously queries Tier 1 Google Translate to refine grammar & word order.
+ */
+export function translateStreamingFast(text, targetLang = 'ta', glossary = {}, onResult, sourceLang = 'en') {
   if (!text || !text.trim()) {
     onResult('');
     return;
@@ -352,6 +358,19 @@ export function translateInterimDebounced(text, targetLang = 'ta', glossary = {}
     return;
   }
 
+  // Engine A: 0ms Synchronous Token & Phrase Lexicon Translation
+  // Renders instantaneous vernacular subtitles on screen while syllables are being spoken
+  try {
+    const instantVern = translateWithOfflineDictionary(clean, targetLang, sourceLang);
+    const { adaptedText: instantAdapted } = (sourceLang === 'en')
+      ? applyDomainAdaptationClient(clean, instantVern, targetLang, glossary)
+      : { adaptedText: instantVern };
+    if (instantAdapted && instantAdapted.trim()) {
+      onResult(instantAdapted);
+    }
+  } catch (e) {}
+
+  // Engine B: High-Speed Async Machine Translation Refinement (<100ms)
   if (interimDebounceTimer) {
     clearTimeout(interimDebounceTimer);
   }
@@ -360,18 +379,17 @@ export function translateInterimDebounced(text, targetLang = 'ta', glossary = {}
   interimDebounceTimer = setTimeout(async () => {
     try {
       const res = await translateTextClient(clean, targetLang, glossary, sourceLang);
-      if (lastInterimRequest === clean) {
+      if (lastInterimRequest === clean && res?.adapted_translation) {
         onResult(res.adapted_translation);
       }
     } catch (e) {
-      // Fallback: apply offline dictionary directly
-      const fallbackTrans = translateWithOfflineDictionary(clean, targetLang, sourceLang);
-      const { adaptedText } = (sourceLang === 'en')
-        ? applyDomainAdaptationClient(clean, fallbackTrans, targetLang, glossary)
-        : { adaptedText: fallbackTrans };
-      onResult(adaptedText);
+      // Fallback already rendered by Engine A
     }
-  }, 100);
+  }, 75);
+}
+
+export function translateInterimDebounced(text, targetLang = 'ta', glossary = {}, onResult, sourceLang = 'en') {
+  return translateStreamingFast(text, targetLang, glossary, onResult, sourceLang);
 }
 
 export function applyDomainAdaptationClient(enText, translatedText, targetLang, glossary) {

@@ -16,6 +16,8 @@
  *    and flags virtual audio cables (AudioRelay, VB-Cable).
  */
 
+import { decodeAcousticTranscript } from './probabilisticAcousticDecoder.js';
+
 export const BCP47_MAP = {
   en: 'en-US',
   ta: 'ta-IN',
@@ -43,7 +45,9 @@ export class AudioStreamer {
     onError,
     onStatusChange,
     selectedDeviceId = 'default',
-    sourceLang = 'en'
+    sourceLang = 'en',
+    domainContext = {},
+    glossary = {}
   }) {
     this.onAudioData = onAudioData;
     this.onVolumeChange = onVolumeChange;
@@ -53,6 +57,8 @@ export class AudioStreamer {
     this.onStatusChange = onStatusChange;
     this.selectedDeviceId = selectedDeviceId;
     this.sourceLang = sourceLang || 'en';
+    this.domainContext = domainContext || {};
+    this.glossary = glossary || {};
 
     this.recognition = null;
     this.isRecording = false;
@@ -113,8 +119,20 @@ export class AudioStreamer {
     }
   }
 
+  setGlossary(glossary) {
+    this.glossary = glossary || {};
+  }
+
+  setDomainContext(domainContext) {
+    this.domainContext = domainContext || {};
+  }
+
   commitFinalText(text, confidence = 96) {
-    let clean = text.trim();
+    if (!text || !text.trim()) return;
+
+    // Apply Probabilistic Acoustic-Semantic Decoder to correct pronunciation errors in ASR
+    const { decodedText } = decodeAcousticTranscript(text, this.domainContext, this.glossary);
+    let clean = (decodedText || text).trim();
     if (!clean || clean.length < 2) return;
 
     // Deduplicate repeated consecutive words within the utterance (e.g. "visit visit visit" -> "visit")
@@ -174,7 +192,11 @@ export class AudioStreamer {
   }
 
   handleInterimText(text) {
-    let clean = text.trim();
+    if (!text || !text.trim()) return;
+
+    // Apply Probabilistic Acoustic-Semantic Decoder in real time to interim speech
+    const { decodedText } = decodeAcousticTranscript(text, this.domainContext, this.glossary);
+    let clean = (decodedText || text).trim();
     if (!clean) return;
 
     // Deduplicate repeated consecutive words in interim text
@@ -187,6 +209,32 @@ export class AudioStreamer {
     }
     clean = dedupedWords.join(' ');
     if (!clean) return;
+
+    // Progressive Clause Chunking (ASR Streaming Model):
+    // If interim text has reached a natural clause boundary (8+ words ending with a conjunction or comma),
+    // progressively commit the completed clause so translation streams in real time instead of waiting
+    // for a massive paragraph.
+    const cleanWords = clean.split(/\s+/);
+    if (cleanWords.length >= 8) {
+      const clauseConnectors = new Set(['and', 'because', 'so', 'therefore', 'where', 'which', 'while', 'hence', 'then', 'since', 'also']);
+      let splitIndex = -1;
+      for (let i = 5; i <= cleanWords.length - 3; i++) {
+        const w = cleanWords[i].toLowerCase().replace(/[^a-z]/g, '');
+        const prevW = cleanWords[i - 1];
+        if (prevW.endsWith(',') || prevW.endsWith(';') || clauseConnectors.has(w)) {
+          splitIndex = i;
+          break;
+        }
+      }
+
+      if (splitIndex !== -1) {
+        const completedClause = cleanWords.slice(0, splitIndex).join(' ');
+        const remainingInterim = cleanWords.slice(splitIndex).join(' ');
+        this.commitFinalText(completedClause, 95);
+        clean = remainingInterim.trim();
+        if (!clean) return;
+      }
+    }
 
     const normClean = normalizeSpeechText(clean);
     // If identical to last committed text (ignoring punctuation), don't display as interim
@@ -209,7 +257,7 @@ export class AudioStreamer {
       this.onInterimSpeech(clean);
     }
 
-    // Reset conversational pause auto-commit timer (1800ms natural conversational pause)
+    // Reset conversational pause auto-commit timer (950ms natural conversational pause for snappy clause completion)
     if (this.pauseTimer) {
       clearTimeout(this.pauseTimer);
     }
@@ -225,7 +273,7 @@ export class AudioStreamer {
           this.onStatusChange('listening');
         }
       }
-    }, 1800);
+    }, 950);
   }
 
   /**
