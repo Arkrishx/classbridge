@@ -68,45 +68,71 @@ export default function TeacherSetupModal({
   };
 
   return (
-    <div className="google-modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={onClose}>
       <div
-        className="google-modal-dialog student-register-dialog"
+        className="modal-card teacher-setup-modal"
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: '460px' }}
+        style={{ maxWidth: '480px', width: '100%' }}
       >
-        <div className="modal-header-gradient" style={{ background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(66, 133, 244, 0.08))' }}>
-          <div className="modal-title-wrap">
-            <div className="modal-icon-chip" style={{ background: 'rgba(245, 158, 11, 0.2)', borderColor: 'rgba(245, 158, 11, 0.4)' }}>
-              <Crown size={22} color="#f59e0b" />
+        <div className="modal-head">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.2))',
+                border: '1px solid rgba(245, 158, 11, 0.45)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Crown size={20} color="#f59e0b" />
             </div>
             <div>
-              <h3 className="modal-heading">Teacher Lecture Setup</h3>
-              <p className="modal-subheading">
-                Configure your host profile and teaching language for room <b>{roomCode}</b>
-              </p>
+              <div style={{ fontWeight: 700, fontSize: '17px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                Teacher Lecture Setup
+                <span className="google-tag-pill" style={{ fontSize: '11px', padding: '1px 8px' }}>
+                  Room {roomCode}
+                </span>
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                Configure your host profile and lecture language before starting
+              </div>
             </div>
           </div>
-          <button type="button" className="google-icon-btn close-btn" onClick={onClose} title="Close">
-            <X size={18} />
+          <button className="btn-minimal" onClick={onClose} style={{ padding: '6px' }} title="Close">
+            <X size={17} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="student-form">
+        <form onSubmit={handleSubmit} style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {error && (
-            <div className="form-error-banner">
+            <div
+              style={{
+                padding: '10px 14px',
+                borderRadius: '8px',
+                background: 'rgba(234, 67, 53, 0.12)',
+                border: '1px solid rgba(234, 67, 53, 0.3)',
+                color: '#f87171',
+                fontSize: '12.5px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
               <span>{error}</span>
             </div>
           )}
 
           {/* Teacher Name */}
-          <div className="form-group">
-            <label className="form-label" htmlFor="teacher-name-input">
+          <div>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
               <User size={14} color="#f59e0b" />
-              <span>Teacher Name / Title</span>
-              <span className="required-star">*</span>
+              <span>Teacher Name / Academic Title *</span>
             </label>
             <input
-              id="teacher-name-input"
               type="text"
               className="google-input"
               placeholder="e.g. Prof. Ramanathan, Dr. Anitha"
@@ -117,15 +143,24 @@ export default function TeacherSetupModal({
               }}
               autoFocus
               required
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                borderRadius: '10px',
+                border: '1px solid var(--border-subtle)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text-main)',
+                fontSize: '14px',
+                fontWeight: 600,
+              }}
             />
           </div>
 
           {/* Spoken / Teaching Language */}
-          <div className="form-group">
-            <label className="form-label">
+          <div>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
               <Mic size={14} color="var(--google-blue)" />
-              <span>Language You Will Speak (Teacher Mic)</span>
-              <span className="required-star">*</span>
+              <span>Teaching Language You Will Speak *</span>
             </label>
             <div className="lang-pill-grid">
               {SPOKEN_LANGUAGES.map((lang) => (
@@ -147,10 +182,10 @@ export default function TeacherSetupModal({
           </div>
 
           {/* Default Student Target Language */}
-          <div className="form-group">
-            <label className="form-label">
+          <div>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
               <Globe size={14} color="#34d399" />
-              <span>Default Translation Target</span>
+              <span>Default Translation Target for Students</span>
             </label>
             <div className="lang-pill-grid">
               {TARGET_LANGUAGES.map((lang) => (
@@ -171,17 +206,36 @@ export default function TeacherSetupModal({
             </div>
           </div>
 
-          <div className="modal-action-row" style={{ marginTop: '20px' }}>
-            <button type="button" className="google-pill-btn secondary" onClick={onClose}>
+          {/* Actions */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
+            <button
+              type="button"
+              className="google-pill-btn secondary"
+              onClick={onClose}
+              style={{ padding: '8px 18px', fontSize: '13px', borderRadius: '20px', cursor: 'pointer' }}
+            >
               Cancel
             </button>
             <button
               type="submit"
               className="google-pill-btn primary"
-              style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', border: 'none' }}
+              style={{
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                border: 'none',
+                color: '#ffffff',
+                fontWeight: 700,
+                fontSize: '13px',
+                padding: '9px 20px',
+                borderRadius: '20px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(245, 158, 11, 0.4)'
+              }}
             >
-              <Video size={15} style={{ marginRight: '6px' }} />
-              <span>Start Broadcasting</span>
+              <Video size={16} />
+              <span>Start Online Lecture</span>
             </button>
           </div>
         </form>

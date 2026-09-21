@@ -1633,6 +1633,14 @@ export default function App() {
     try {
       localStorage.setItem('classbridge_class_mode', mode);
     } catch (e) {}
+
+    if (mode === 'online_classroom') {
+      if (userRole === 'teacher') {
+        setIsTeacherSetupOpen(true);
+      } else if (!studentName || !studentRollNo) {
+        setIsStudentRegisterOpen(true);
+      }
+    }
   };
 
   const handleUserRoleChange = (role) => {
@@ -1643,6 +1651,10 @@ export default function App() {
     try {
       localStorage.setItem('classbridge_user_role', cleanRole);
     } catch (e) {}
+
+    if (classMode === 'online_classroom' && cleanRole === 'teacher') {
+      setIsTeacherSetupOpen(true);
+    }
 
     if (cleanRole === 'teacher') {
       setHasTeacher(true);
@@ -1914,6 +1926,112 @@ export default function App() {
     }
   };
 
+  const handleBroadcastVideoFrame = (frameData) => {
+    if (userRoleRef.current !== 'teacher') return;
+
+    // 1. Post to local tabs via BroadcastChannel for 0ms cross-window synchronization
+    if (broadcastChannelRef.current) {
+      try {
+        broadcastChannelRef.current.postMessage({
+          type: 'video_frame',
+          room_id: (roomCodeRef.current || 'EDU-02').trim().toUpperCase(),
+          frame: frameData
+        });
+      } catch (e) {}
+    }
+
+    // 2. Post to WebSocket for remote students
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify({
+          action: 'video_frame',
+          frame: frameData
+        }));
+      } catch (e) {}
+    }
+  };
+
+  const handleBroadcastVideoState = ({ is_camera_on, is_screen_sharing }) => {
+    if (userRoleRef.current !== 'teacher') return;
+    setIsTeacherCameraOn(Boolean(is_camera_on));
+    setIsTeacherScreenSharing(Boolean(is_screen_sharing));
+
+    if (broadcastChannelRef.current) {
+      try {
+        broadcastChannelRef.current.postMessage({
+          type: 'video_state',
+          room_id: (roomCodeRef.current || 'EDU-02').trim().toUpperCase(),
+          is_camera_on: Boolean(is_camera_on),
+          is_screen_sharing: Boolean(is_screen_sharing)
+        });
+      } catch (e) {}
+    }
+
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify({
+          action: 'video_state',
+          is_camera_on: Boolean(is_camera_on),
+          is_screen_sharing: Boolean(is_screen_sharing)
+        }));
+      } catch (e) {}
+    }
+  };
+
+  const handleEndOnlineSession = () => {
+    if (userRole === 'teacher') {
+      const confirmEnd = window.confirm("Are you sure you want to end this online classroom session for all students?");
+      if (!confirmEnd) return;
+
+      if (broadcastChannelRef.current) {
+        try {
+          broadcastChannelRef.current.postMessage({
+            type: 'teacher_leave',
+            room_id: (roomCodeRef.current || 'EDU-02').trim().toUpperCase()
+          });
+        } catch (e) {}
+      }
+
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        try {
+          wsRef.current.send(JSON.stringify({
+            action: 'video_state',
+            is_camera_on: false,
+            is_screen_sharing: false
+          }));
+        } catch (e) {}
+      }
+
+      setIsTeacherCameraOn(false);
+      setIsTeacherScreenSharing(false);
+      setRemoteVideoFrame(null);
+      clearSession();
+      setClassMode('realtime_classroom');
+      try {
+        localStorage.setItem('classbridge_class_mode', 'realtime_classroom');
+      } catch (e) {}
+    } else {
+      const confirmLeave = window.confirm("Leave this online classroom session?");
+      if (!confirmLeave) return;
+
+      if (broadcastChannelRef.current) {
+        try {
+          broadcastChannelRef.current.postMessage({
+            type: 'student_leave',
+            room_id: (roomCodeRef.current || 'EDU-02').trim().toUpperCase(),
+            student_tab_id: tabIdRef.current
+          });
+        } catch (e) {}
+      }
+
+      setRemoteVideoFrame(null);
+      setClassMode('realtime_classroom');
+      try {
+        localStorage.setItem('classbridge_class_mode', 'realtime_classroom');
+      } catch (e) {}
+    }
+  };
+
   const handleStudentRegisterSubmit = ({ name, roll_no, target_lang }) => {
     setStudentName(name);
     setStudentRollNo(roll_no);
@@ -1945,56 +2063,6 @@ export default function App() {
         roll_no,
         target_lang: target_lang || targetLang
       });
-    }
-  };
-
-  const handleBroadcastVideoFrame = (frameData) => {
-    const normalizedRoom = (roomCodeRef.current || 'EDU-02').trim().toUpperCase();
-
-    // 1. BroadcastChannel (zero-latency local tab/window relay)
-    if (broadcastChannelRef.current) {
-      broadcastChannelRef.current.postMessage({
-        type: 'video_frame',
-        room_id: normalizedRoom,
-        frame: frameData
-      });
-    }
-
-    // 2. WebSocket (for network clients)
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      try {
-        wsRef.current.send(JSON.stringify({
-          action: 'video_frame',
-          frame: frameData
-        }));
-      } catch (e) {}
-    }
-  };
-
-  const handleBroadcastVideoState = ({ is_camera_on, is_screen_sharing }) => {
-    setIsTeacherCameraOn(is_camera_on);
-    isTeacherCameraOnRef.current = is_camera_on;
-    setIsTeacherScreenSharing(is_screen_sharing);
-    isTeacherScreenSharingRef.current = is_screen_sharing;
-    const normalizedRoom = (roomCodeRef.current || 'EDU-02').trim().toUpperCase();
-
-    if (broadcastChannelRef.current) {
-      broadcastChannelRef.current.postMessage({
-        type: 'video_state',
-        room_id: normalizedRoom,
-        is_camera_on,
-        is_screen_sharing
-      });
-    }
-
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      try {
-        wsRef.current.send(JSON.stringify({
-          action: 'video_state',
-          is_camera_on,
-          is_screen_sharing
-        }));
-      } catch (e) {}
     }
   };
 
@@ -2615,6 +2683,7 @@ export default function App() {
           qaComments={qaComments}
           onSendQaComment={handleSendQaComment}
           onBroadcastKeyword={handleBroadcastKeyword}
+          onEndSession={handleEndOnlineSession}
         />
       ) : (
         <main className={`google-main-stage view-${viewMode} mobile-${mobileActiveTab}`}>
@@ -2667,28 +2736,30 @@ export default function App() {
         </main>
       )}
 
-      {/* 4. Official Google Meet-Style Floating Bottom Dock */}
-      <GoogleBottomDock
-        isRecording={isRecording}
-        onToggleRecord={toggleRecording}
-        audioLevel={audioLevel}
-        liveMicStatus={liveMicStatus}
-        isReadAloud={isReadAloudEnabled}
-        onToggleReadAloud={toggleReadAloud}
-        selectedOutputDeviceLabel={activeOutputDeviceLabel}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        onDirectSpeechSubmit={processSpeechText}
-        onGenerateStudyGuide={handleGenerateStudyGuide}
-        isGeneratingGuide={isGeneratingGuide}
-        onLoadSample={handleLoadSample}
-        onClearSession={clearSession}
-        onOpenAudioDevices={() => setIsDeviceModalOpen(true)}
-        segmentCount={segments.length}
-        classMode={classMode}
-        userRole={userRole}
-        onOpenClassroomModal={() => setIsClassroomModalOpen(true)}
-      />
+      {/* 4. Official Google Meet-Style Floating Bottom Dock (Active for Offline & Solo Modes) */}
+      {classMode !== 'online_classroom' && (
+        <GoogleBottomDock
+          isRecording={isRecording}
+          onToggleRecord={toggleRecording}
+          audioLevel={audioLevel}
+          liveMicStatus={liveMicStatus}
+          isReadAloud={isReadAloudEnabled}
+          onToggleReadAloud={toggleReadAloud}
+          selectedOutputDeviceLabel={activeOutputDeviceLabel}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          onDirectSpeechSubmit={processSpeechText}
+          onGenerateStudyGuide={handleGenerateStudyGuide}
+          isGeneratingGuide={isGeneratingGuide}
+          onLoadSample={handleLoadSample}
+          onClearSession={clearSession}
+          onOpenAudioDevices={() => setIsDeviceModalOpen(true)}
+          segmentCount={segments.length}
+          classMode={classMode}
+          userRole={userRole}
+          onOpenClassroomModal={() => setIsClassroomModalOpen(true)}
+        />
+      )}
 
       {/* Modals */}
       <ClassroomModal

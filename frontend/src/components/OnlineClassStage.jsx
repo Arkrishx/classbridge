@@ -31,7 +31,8 @@ import {
   Settings,
   X,
   Clock,
-  ArrowRight
+  ArrowRight,
+  PhoneOff
 } from 'lucide-react';
 import { exportCaptionsAsTxt, exportCaptionsAsPdf } from '../utils/captionExport';
 
@@ -67,6 +68,7 @@ export default function OnlineClassStage({
   qaComments = [],
   onSendQaComment,
   onBroadcastKeyword,
+  onEndSession,
 }) {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const isCameraActiveRef = useRef(false);
@@ -90,6 +92,7 @@ export default function OnlineClassStage({
   const mediaRecorderRef = useRef(null);
   const recordedChunksRef = useRef([]);
   const recordingIntervalRef = useRef(null);
+  const recordingStreamRef = useRef(null);
 
   // Teacher Camera & Screen Media Refs
   const localVideoRef = useRef(null);
@@ -114,18 +117,31 @@ export default function OnlineClassStage({
   // ==========================================
   const startCamera = async () => {
     try {
-      const constraints = {
-        video: {
-          width: { ideal: 640, max: 1280 },
-          height: { ideal: 360, max: 720 },
-          facingMode: 'user'
-        },
-        audio: selectedDeviceId && selectedDeviceId !== 'default'
-          ? { deviceId: { exact: selectedDeviceId } }
-          : true
-      };
+      let stream = null;
+      try {
+        const constraints = {
+          video: {
+            width: { ideal: 640, max: 1280 },
+            height: { ideal: 360, max: 720 },
+            facingMode: 'user'
+          },
+          audio: selectedDeviceId && selectedDeviceId !== 'default'
+            ? { deviceId: { exact: selectedDeviceId } }
+            : true
+        };
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (audioErr) {
+        console.warn("Could not acquire combined video+audio, falling back to video-only:", audioErr);
+        // Fallback to video-only stream so camera ALWAYS starts even if mic is busy or locked
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 640, max: 1280 },
+            height: { ideal: 360, max: 720 },
+            facingMode: 'user'
+          }
+        });
+      }
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       localStreamRef.current = stream;
       isCameraActiveRef.current = true;
       setIsCameraActive(true);
@@ -142,13 +158,17 @@ export default function OnlineClassStage({
         onBroadcastVideoState({ is_camera_on: true, is_screen_sharing: false });
       }
 
-      // Setup audio level visualizer
-      setupAudioMeter(stream);
+      // Setup audio level visualizer if audio track exists
+      if (stream.getAudioTracks().length > 0) {
+        setupAudioMeter(stream);
+      }
 
       // Start capturing frames for broadcast
       startFrameBroadcasting();
     } catch (err) {
       console.warn("Could not start camera:", err);
+      setIsCameraActive(false);
+      isCameraActiveRef.current = false;
     }
   };
 
@@ -309,10 +329,22 @@ export default function OnlineClassStage({
   // ==========================================
   // SESSION RECORDING (MediaRecorder)
   // ==========================================
-  const startSessionRecording = () => {
-    if (!localStreamRef.current) {
-      alert("Please start your camera or screen share first to record the session.");
-      return;
+  const startSessionRecording = async () => {
+    let streamToRecord = localStreamRef.current;
+    let isDisplayStream = false;
+
+    if (!streamToRecord) {
+      try {
+        // Fallback to capture browser screen / window / tab so both teacher and students can record lectures
+        streamToRecord = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: true,
+        });
+        isDisplayStream = true;
+      } catch (err) {
+        console.warn("Screen recording prompt cancelled or failed:", err);
+        return;
+      }
     }
 
     try {
@@ -322,8 +354,9 @@ export default function OnlineClassStage({
       }
 
       recordedChunksRef.current = [];
-      const recorder = new MediaRecorder(localStreamRef.current, { mimeType });
+      const recorder = new MediaRecorder(streamToRecord, { mimeType });
       mediaRecorderRef.current = recorder;
+      recordingStreamRef.current = isDisplayStream ? streamToRecord : null;
 
       recorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
@@ -344,7 +377,17 @@ export default function OnlineClassStage({
           document.body.removeChild(a);
           URL.revokeObjectURL(url);
         }
+        if (recordingStreamRef.current) {
+          recordingStreamRef.current.getTracks().forEach((t) => t.stop());
+          recordingStreamRef.current = null;
+        }
       };
+
+      if (isDisplayStream && streamToRecord.getVideoTracks()[0]) {
+        streamToRecord.getVideoTracks()[0].onended = () => {
+          stopSessionRecording();
+        };
+      }
 
       recorder.start(1000); // 1-second chunks
       setIsSessionRecording(true);
@@ -361,7 +404,9 @@ export default function OnlineClassStage({
 
   const stopSessionRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
+      try {
+        mediaRecorderRef.current.stop();
+      } catch (e) {}
     }
     if (recordingIntervalRef.current) {
       clearInterval(recordingIntervalRef.current);
@@ -504,6 +549,7 @@ export default function OnlineClassStage({
                 playsInline
                 muted
                 className={`main-video-feed ${isCameraActive ? 'active' : 'hidden'}`}
+                style={!isCameraActive ? { position: 'absolute', opacity: 0, pointerEvents: 'none', width: '1px', height: '1px' } : {}}
               />
               {!isCameraActive && (
                 <div className="camera-placeholder">
@@ -650,11 +696,12 @@ export default function OnlineClassStage({
               {/* Session Recording Button */}
               <button
                 type="button"
-                className={`meet-dock-btn ${isSessionRecording ? 'rec-active' : 'secondary'}`}
+                className={`meet-dock-btn record-session-btn ${isSessionRecording ? 'rec-active' : 'secondary'}`}
                 onClick={toggleSessionRecording}
                 title={isSessionRecording ? "Stop Session Recording and Save Video" : "Start Session Video & Audio Recording"}
               >
-                <Circle size={17} fill={isSessionRecording ? "#ea4335" : "none"} color={isSessionRecording ? "#ea4335" : "currentColor"} />
+                <Circle size={15} fill={isSessionRecording ? "#ea4335" : "none"} color={isSessionRecording ? "#ea4335" : "currentColor"} />
+                <span className="dock-btn-text">{isSessionRecording ? `REC ${formatRecordingTime(recordingDuration)}` : 'Record'}</span>
               </button>
 
               {/* Keyword Broadcaster Toggle */}
@@ -707,6 +754,19 @@ export default function OnlineClassStage({
               >
                 <Settings size={17} />
               </button>
+
+              {/* End Session Button for Teacher */}
+              {onEndSession && (
+                <button
+                  type="button"
+                  className="meet-dock-btn end-session-btn"
+                  onClick={onEndSession}
+                  title="End Online Lecture for Everyone"
+                >
+                  <PhoneOff size={16} />
+                  <span className="dock-btn-text">End Session</span>
+                </button>
+              )}
             </>
           ) : (
             /* Student Controls */
@@ -729,6 +789,17 @@ export default function OnlineClassStage({
                 title={isReadAloud ? "Turn Off Read-Aloud Audio" : "Turn On Real-Time Speech Synthesis (TTS)"}
               >
                 {isReadAloud ? <Volume2 size={18} /> : <VolumeX size={18} />}
+              </button>
+
+              {/* Session Recording Button for Student */}
+              <button
+                type="button"
+                className={`meet-dock-btn record-session-btn ${isSessionRecording ? 'rec-active' : 'secondary'}`}
+                onClick={toggleSessionRecording}
+                title={isSessionRecording ? "Stop Recording (Save Lecture Video)" : "Record Lecture Session for Revision"}
+              >
+                <Circle size={15} fill={isSessionRecording ? "#ea4335" : "none"} color={isSessionRecording ? "#ea4335" : "currentColor"} />
+                <span className="dock-btn-text">{isSessionRecording ? `REC ${formatRecordingTime(recordingDuration)}` : 'Record'}</span>
               </button>
 
               {/* Q&A Chat Shortcut */}
@@ -756,6 +827,19 @@ export default function OnlineClassStage({
               >
                 <Edit3 size={17} />
               </button>
+
+              {/* Leave Session Button for Student */}
+              {onEndSession && (
+                <button
+                  type="button"
+                  className="meet-dock-btn end-session-btn"
+                  onClick={onEndSession}
+                  title="Leave Online Classroom"
+                >
+                  <PhoneOff size={16} />
+                  <span className="dock-btn-text">Leave</span>
+                </button>
+              )}
             </>
           )}
 

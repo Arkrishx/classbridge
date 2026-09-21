@@ -4183,6 +4183,7 @@ body {
 /* Video Viewport */
 .video-viewport {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background: #12151c;
@@ -4291,23 +4292,23 @@ body {
 
 /* Video Surface */
 .video-surface-container {
-  flex: 1;
+  flex: 1 1 0;
+  min-height: 0;
+  height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
   background: #080a0f;
+  overflow: hidden;
 }
 
 .main-video-feed {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  max-width: 100%;
   max-height: 100%;
-}
-
-.main-video-feed.hidden {
-  display: none;
+  object-fit: contain;
 }
 
 .camera-placeholder {
@@ -4391,11 +4392,13 @@ body {
   backdrop-filter: blur(10px);
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   z-index: 20;
+  flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 .meet-dock-btn {
-  width: 44px;
   height: 44px;
+  min-width: 44px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -4404,6 +4407,7 @@ body {
   border: none;
   transition: all 0.2s ease;
   position: relative;
+  box-sizing: border-box;
 }
 
 .meet-dock-btn.active {
@@ -4440,6 +4444,37 @@ body {
 .meet-dock-btn.warning {
   background: #f59e0b;
   color: #ffffff;
+}
+
+.meet-dock-btn.end-session-btn {
+  background: #ea4335 !important;
+  color: #ffffff !important;
+  border-radius: 24px;
+  padding: 0 16px;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 12.5px;
+  box-shadow: 0 4px 14px rgba(234, 67, 53, 0.35);
+}
+
+.meet-dock-btn.end-session-btn:hover {
+  background: #d93025 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(234, 67, 53, 0.5);
+}
+
+.meet-dock-btn.record-session-btn {
+  border-radius: 24px;
+  padding: 0 14px;
+  gap: 7px;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.dock-btn-text {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .dock-divider {
@@ -5362,6 +5397,147 @@ body {
   background: rgba(234, 67, 53, 0.25);
   border-color: #ea4335;
   transform: translateY(-1px);
+}
+
+/* ==========================================================================
+   9. UNIVERSAL MODAL POPUP SYSTEM (Teacher Setup, Student Register, Attendance)
+   ========================================================================== */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  padding: 16px;
+  animation: modalFadeIn 0.22s ease-out;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-card {
+  background: var(--bg-card, #1c212c);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  border-radius: 20px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  max-height: 90vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+  animation: modalZoomIn 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalZoomIn {
+  from { opacity: 0; transform: scale(0.94) translateY(12px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modal-head {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-secondary, #141822);
+}
+
+.btn-minimal {
+  background: transparent;
+  border: none;
+  color: var(--text-muted, #9aa0a6);
+  cursor: pointer;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.btn-minimal:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-main, #ffffff);
+}
+
+/* Language Selection Pill Grid for Teacher Setup & Student Register */
+.lang-pill-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.lang-select-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--bg-secondary, #141822);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  color: var(--text-main, #ffffff);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  text-align: left;
+  box-sizing: border-box;
+}
+
+.lang-select-pill:hover {
+  border-color: rgba(245, 158, 11, 0.5);
+  background: rgba(245, 158, 11, 0.08);
+  transform: translateY(-1px);
+}
+
+.lang-select-pill.selected {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.14);
+  box-shadow: 0 0 0 1px #f59e0b, 0 4px 12px rgba(245, 158, 11, 0.15);
+}
+
+.pill-flag {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.pill-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.pill-text b {
+  font-size: 13px;
+  color: var(--text-main, #ffffff);
+}
+
+.pill-text small {
+  font-size: 11px;
+  color: var(--text-dim, #80868b);
+}
+
+.check-icon {
+  color: #f59e0b;
+  flex-shrink: 0;
+}
+
+/* Teacher Setup Modal Custom Glass Card */
+.teacher-setup-modal {
+  border: 1px solid rgba(245, 158, 11, 0.35) !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), 0 0 30px rgba(245, 158, 11, 0.12) !important;
+}
+
+.student-register-modal {
+  border: 1px solid rgba(66, 133, 244, 0.35) !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), 0 0 30px rgba(66, 133, 244, 0.12) !important;
+}
+
+.attendance-modal {
+  border: 1px solid rgba(52, 168, 83, 0.35) !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), 0 0 30px rgba(52, 168, 83, 0.12) !important;
 }
 
 
