@@ -5,6 +5,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 from backend.app.config import settings
 from backend.app.glossary import glossary_engine
+from backend.app.rag import extract_json_from_response
 
 logger = logging.getLogger("classbridge.study_guide")
 
@@ -314,7 +315,7 @@ Return ONLY valid JSON matching this exact JSON schema:
   ]
 }}
 """
-            models_to_try = ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash"]
+            models_to_try = ["gemini-flash-lite-latest", "gemini-3-flash-preview", "gemini-flash-latest"]
             data = None
             for model_name in models_to_try:
                 try:
@@ -324,9 +325,10 @@ Return ONLY valid JSON matching this exact JSON schema:
                         config=dict(response_mime_type="application/json")
                     )
                     if response and response.text:
-                        data = json.loads(response.text)
-                        logger.info(f"Successfully generated study guide with Gemini model {model_name}")
-                        break
+                        data = extract_json_from_response(response.text)
+                        if data:
+                            logger.info(f"Successfully generated study guide with Gemini model {model_name}")
+                            break
                 except Exception as model_err:
                     logger.warning(f"Gemini model {model_name} failed: {model_err}, trying next model...")
 

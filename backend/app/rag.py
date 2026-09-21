@@ -11,6 +11,26 @@ from backend.app.glossary import glossary_engine
 
 logger = logging.getLogger("classbridge.rag")
 
+def extract_json_from_response(text: str) -> Optional[Dict[str, Any]]:
+    """Safely extracts JSON from an LLM response even if enclosed in markdown code fences."""
+    if not text:
+        return None
+    cleaned = text.strip()
+    match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", cleaned)
+    if match:
+        cleaned = match.group(1).strip()
+    try:
+        return json.loads(cleaned)
+    except Exception:
+        start = cleaned.find("{")
+        end = cleaned.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            try:
+                return json.loads(cleaned[start:end+1])
+            except Exception:
+                pass
+    return None
+
 class TranscriptSegment:
     def __init__(
         self,
@@ -29,6 +49,12 @@ class TranscriptSegment:
         self.text_vernacular = text_vernacular
         self.confidence = confidence
         self.domain_terms = domain_terms or []
+
+    @property
+    def timestamp(self) -> str:
+        s_min = int(self.start // 60)
+        s_sec = int(self.start % 60)
+        return f"{s_min:02d}:{s_sec:02d}"
 
     def format_timestamp(self) -> str:
         s_min = int(self.start // 60)
@@ -362,7 +388,7 @@ class InternetReferenceService:
                     f"Return ONLY valid JSON matching: "
                     f'{{"term": "{title}", "definition_en": "<clear 1-2 sentence definition>", "definition_vernacular": "<accurate translation in {lang_name}>", "related_concepts": ["concept1", "concept2"]}}'
                 )
-                models_to_try = ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash"]
+                models_to_try = ["gemini-flash-lite-latest", "gemini-3-flash-preview", "gemini-flash-latest"]
                 for m in models_to_try:
                     try:
                         g_resp = client.models.generate_content(
@@ -371,16 +397,17 @@ class InternetReferenceService:
                             config=dict(response_mime_type="application/json")
                         )
                         if g_resp and g_resp.text:
-                            g_data = json.loads(g_resp.text)
-                            if g_data.get("definition_en"):
-                                extract_en = g_data["definition_en"].strip()
-                            if g_data.get("term"):
-                                title = g_data["term"].strip()
-                            if g_data.get("definition_vernacular"):
-                                text_target = g_data["definition_vernacular"].strip()
-                            if g_data.get("related_concepts"):
-                                related_concepts = g_data["related_concepts"]
-                            break
+                            g_data = extract_json_from_response(g_resp.text)
+                            if g_data:
+                                if g_data.get("definition_en"):
+                                    extract_en = g_data["definition_en"].strip()
+                                if g_data.get("term"):
+                                    title = g_data["term"].strip()
+                                if g_data.get("definition_vernacular"):
+                                    text_target = g_data["definition_vernacular"].strip()
+                                if g_data.get("related_concepts"):
+                                    related_concepts = g_data["related_concepts"]
+                                break
                     except Exception as g_err:
                         logger.info(f"Gemini reference model {m} skipped: {g_err}")
             except Exception as e:
@@ -442,23 +469,24 @@ class LectureQAService:
         target_lang: str = "ta",
         segments: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
-        # Synchronize dynamic segments if provided
+        # 1. Synchronize dynamic lecture segments if provided
         if segments:
-            existing_ids = {s.id for s in self.rag_index.segments}
-            for s in segments:
-                s_id = s.get("id") or (len(self.rag_index.segments) + 1)
-                if s_id not in existing_ids:
-                    self.rag_index.add_segment(TranscriptSegment(
-                        segment_id=s_id,
-                        start=s.get("start", 0.0),
-                        end=s.get("end", 5.0),
-                        text_en=s.get("text_source") or s.get("text_en") or "",
-                        text_vernacular=s.get("text_vernacular") or "",
-                        confidence=s.get("confidence", 95.0),
-                        domain_terms=s.get("domain_terms", [])
-                    ))
+            self.rag_index.clear()
+            for i, s in enumerate(segments):
+                s_id = s.get("id") or (i + 1)
+                text_en = s.get("text_source") or s.get("text_en") or ""
+                text_vernacular = s.get("text_vernacular") or ""
+                self.rag_index.add_segment(TranscriptSegment(
+                    segment_id=s_id,
+                    start=float(s.get("start", 0.0) or 0.0),
+                    end=float(s.get("end", 5.0) or 5.0),
+                    text_en=text_en,
+                    text_vernacular=text_vernacular,
+                    confidence=float(s.get("confidence", 95.0) or 95.0),
+                    domain_terms=s.get("domain_terms", [])
+                ))
 
-        # 1. Fetch simple internet reference definition first for semantic entity resolution
+        # 2. Fetch educational reference definition first for semantic entity resolution
         internet_def = self.internet_service.fetch_reference(
             query=question,
             source_lang=source_lang,
@@ -466,191 +494,171 @@ class LectureQAService:
         )
 
         resolved_term = internet_def.get("term")
+        concept_title = resolved_term or clean_query_text(question).title()
         extra_concepts = [resolved_term] if resolved_term else []
 
-        # 2. Search index using both question and resolved entity concepts
-        retrieved = self.rag_index.search(question, extra_concepts=extra_concepts, top_k=3)
-        # In-lecture threshold: at least one match with score >= 0.20
-        is_in_lecture = len(retrieved) > 0 and retrieved[0]["score"] >= 0.20
+        # 3. Retrieve relevant segment citations from the active lecture index
+        retrieved = self.rag_index.search(question, extra_concepts=extra_concepts, top_k=4)
+        citations = []
+        for match in retrieved:
+            seg = match["segment"]
+            citations.append({
+                "segment_id": seg["id"],
+                "timestamp": seg["timestamp"],
+                "text_source": seg.get("text_source") or seg["text_en"],
+                "text_vernacular": seg.get("text_vernacular") or "",
+                "relevance_score": match["score"]
+            })
 
-        if is_in_lecture:
-            top_seg = retrieved[0]["segment"]
-            citations = []
-            for match in retrieved:
-                seg = match["segment"]
-                citations.append({
-                    "segment_id": seg["id"],
-                    "timestamp": seg["timestamp"],
-                    "text_source": seg.get("text_source") or seg["text_en"],
-                    "text_vernacular": seg["text_vernacular"],
-                    "relevance_score": match["score"]
-                })
+        lang_meta = settings.SUPPORTED_LANGUAGES.get(target_lang, {"name": "Tamil", "native": "தமிழ்"})
+        lang_name = lang_meta.get("name", "Tamil")
+        related_concepts = internet_def.get("related_concepts", [])
 
-            actual_quote = top_seg.get("text_source") or top_seg["text_en"]
-            actual_vernacular = top_seg.get("text_vernacular") or actual_quote
-            concept_title = resolved_term or clean_query_text(question).title()
+        # Build chronological transcript context with exact timestamps
+        full_transcript = "\n".join([
+            f"[{s.timestamp}] {s.text_en}" for s in self.rag_index.segments
+        ])
+        if not full_transcript.strip() and citations:
+            full_transcript = "\n".join([f"[{c['timestamp']}] {c['text_source']}" for c in citations])
 
-            # Default AI Tutor Synthesized Explanation
-            grounded_en = (
-                f"In this lecture at [{top_seg['timestamp']}], the instructor covers {concept_title}: "
-                f"\"{actual_quote}\". "
-                f"{internet_def.get('text_source', '')}"
-            )
+        # 4. Use Gemini Generative AI for authoritative, grounded reasoning
+        gemini_succeeded = False
+        gemini_found = False
+        final_answer = ""
+        final_vernacular = ""
 
-            lang_meta = settings.SUPPORTED_LANGUAGES.get(target_lang, {"name": "Tamil", "native": "தமிழ்"})
-            lang_name = lang_meta.get("name", "Tamil")
-            related_concepts = internet_def.get("related_concepts", [])
+        if settings.GEMINI_API_KEY and (full_transcript.strip() or citations):
+            try:
+                from google import genai
+                client = genai.Client(api_key=settings.GEMINI_API_KEY)
+                
+                context_block = f"Complete Chronological Lecture Transcript with Timestamps:\n{full_transcript}" if full_transcript else "No lecture transcript available."
 
-            # Enhanced Generative AI Tutor synthesis if Gemini API key available
-            if settings.GEMINI_API_KEY:
-                try:
-                    from google import genai
-                    client = genai.Client(api_key=settings.GEMINI_API_KEY)
-                    context_snippets = "\n".join([f"- [{c['timestamp']}] {c['text_source']}" for c in citations])
-                    prompt = (
-                        f"You are BridgeAI, a warm, highly knowledgeable AI tutor for a college STEM lecture.\n"
-                        f"A student asked: '{question}'\n"
-                        f"Target Vernacular Language: '{lang_name}' (code: '{target_lang}')\n\n"
-                        f"Relevant Lecture Transcript Context with Timestamps:\n"
-                        f"{context_snippets}\n\n"
-                        f"Instructions:\n"
-                        f"1. Directly and thoroughly answer the student's question by explaining what the professor taught.\n"
-                        f"2. Explicitly cite the lecture timestamp [{top_seg['timestamp']}] in your explanation.\n"
-                        f"3. Relate the instructor's words to the underlying scientific/computational principle.\n"
-                        f"4. Provide both an insightful English explanation ('answer') and a natural, fluent translation in {lang_name} ('vernacular_answer').\n"
-                        f"5. Identify 2-4 related concepts from the lecture ('related_concepts').\n"
-                        f"Return ONLY valid JSON with keys: 'answer', 'vernacular_answer', 'related_concepts'."
-                    )
-                    models_to_try = ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash"]
-                    for model_name in models_to_try:
-                        try:
-                            resp = client.models.generate_content(
-                                model=model_name,
-                                contents=prompt,
-                                config=dict(response_mime_type="application/json")
-                            )
-                            if resp and resp.text:
-                                q_data = json.loads(resp.text)
-                                if q_data.get("answer"):
-                                    grounded_en = q_data["answer"].strip()
-                                if q_data.get("vernacular_answer"):
-                                    grounded_vernacular = q_data["vernacular_answer"].strip()
+                prompt = (
+                    f"You are BridgeAI, a warm, highly knowledgeable AI tutor for a college STEM lecture.\n"
+                    f"A student asked: '{question}'\n"
+                    f"Target Vernacular Language: '{lang_name}' (code: '{target_lang}')\n\n"
+                    f"{context_block}\n\n"
+                    f"Instructions:\n"
+                    f"1. Review the complete lecture transcript above.\n"
+                    f"2. Determine whether the student's question is covered or addressed in this lecture.\n"
+                    f"3. If it IS covered in the lecture transcript:\n"
+                    f"   - Thoroughly explain what the instructor taught in direct response to the student's question.\n"
+                    f"   - You MUST cite the exact timestamp(s) in brackets (e.g. [00:15]) for where concepts are discussed.\n"
+                    f"   - Connect what the professor taught to the underlying scientific/computational principle.\n"
+                    f"   - Provide an insightful English explanation ('answer') and an accurate, natural translation in {lang_name} ('vernacular_answer').\n"
+                    f"   - Extract 2-4 related concepts from the lecture ('related_concepts').\n"
+                    f"   - Set 'found_in_lecture': true.\n"
+                    f"4. If it is NOT covered in the lecture transcript:\n"
+                    f"   - Begin the English explanation with: \"This topic ('{concept_title}') is not covered in the current lecture session transcript.\"\n"
+                    f"   - Then provide a clear, high-quality 2-3 sentence educational synthesis of '{concept_title}' so the student learns effectively.\n"
+                    f"   - Provide both English ('answer') and {lang_name} ('vernacular_answer').\n"
+                    f"   - Extract 2-4 related concepts ('related_concepts').\n"
+                    f"   - Set 'found_in_lecture': false.\n\n"
+                    f"Return ONLY valid JSON matching this schema:\n"
+                    f'{{"found_in_lecture": true, "answer": "<grounded explanation citing timestamps>", "vernacular_answer": "<fluent translation in {lang_name}>", "related_concepts": ["concept1", "concept2"]}}'
+                )
+
+                models_to_try = ["gemini-flash-lite-latest", "gemini-3-flash-preview", "gemini-flash-latest"]
+                for model_name in models_to_try:
+                    try:
+                        resp = client.models.generate_content(
+                            model=model_name,
+                            contents=prompt,
+                            config=dict(response_mime_type="application/json")
+                        )
+                        if resp and resp.text:
+                            q_data = extract_json_from_response(resp.text)
+                            if q_data and q_data.get("answer"):
+                                final_answer = q_data["answer"].strip()
+                                final_vernacular = (q_data.get("vernacular_answer") or "").strip()
+                                gemini_found = bool(q_data.get("found_in_lecture", True))
                                 if q_data.get("related_concepts"):
                                     related_concepts = q_data["related_concepts"]
+                                gemini_succeeded = True
+                                logger.info(f"Successfully answered question via Gemini model {model_name}")
                                 break
-                        except Exception as m_err:
-                            logger.info(f"RAG Gemini model {model_name} failed: {m_err}, trying next...")
-                except Exception as e:
-                    logger.info(f"Gemini LLM generation fallback: {e}")
+                    except Exception as m_err:
+                        logger.info(f"RAG Gemini model {model_name} failed: {m_err}, trying next...")
+            except Exception as e:
+                logger.info(f"Gemini LLM generation exception: {e}")
 
-            return {
-                "found_in_lecture": True,
-                "question": question,
-                "answer": grounded_en,
-                "vernacular_answer": grounded_vernacular,
-                "citations": citations,
-                "related_concepts": related_concepts,
-                "concept_name": concept_title,
-                "internet_definition": {
-                    **internet_def,
-                    "source_title": "BridgeAI Concept Synthesis",
-                    "source_url": None,
-                    "related_concepts": related_concepts
-                }
-            }
-        else:
-            # Out of Topic
-            concept_name = resolved_term or clean_query_text(question).title()
-            lang_meta = settings.SUPPORTED_LANGUAGES.get(target_lang, {"name": "Tamil", "native": "தமிழ்"})
-            lang_name = lang_meta.get("name", "Tamil")
-            related_concepts = internet_def.get("related_concepts", [])
-
-            not_covered_en = (
-                f"This topic ('{concept_name}') is not covered in the current lecture session transcript. "
-                f"Here is an educational explanation synthesized by BridgeAI: {internet_def.get('text_source', '')}"
-            )
-
-            if target_lang == "ml":
-                not_covered_vernacular = (
-                    f"ഈ വിഷയം ('{concept_name}') നിലവിലെ പ്രഭാഷണത്തിൽ ഉൾപ്പെടുത്തിയിട്ടില്ല. "
-                    f"ലളിതമായ വിവരണം: {internet_def.get('text_target', '')}"
+        # 5. Fallback if Gemini did not run or failed
+        if not gemini_succeeded:
+            is_in_lecture = len(retrieved) > 0 and retrieved[0]["score"] >= 0.20
+            if is_in_lecture:
+                top_seg = retrieved[0]["segment"]
+                actual_quote = top_seg.get("text_source") or top_seg["text_en"]
+                actual_vernacular = top_seg.get("text_vernacular") or actual_quote
+                final_answer = (
+                    f"In this lecture at [{top_seg['timestamp']}], the instructor covers {concept_title}: "
+                    f"\"{actual_quote}\". "
+                    f"{internet_def.get('text_source', '')}"
                 )
-            elif target_lang == "hi":
-                not_covered_vernacular = (
-                    f"यह विषय ('{concept_name}') वर्तमान व्याख्यान में शामिल नहीं है। "
-                    f"सरल संदर्भ परिभाषा: {internet_def.get('text_target', '')}"
-                )
-            elif target_lang == "ta":
-                not_covered_vernacular = (
-                    f"இந்தத் தலைப்பு ('{concept_name}') தற்போதைய விரிவுரையில் இடம்பெறவில்லை. "
-                    f"எளிய குறிப்பு வரையறை: {internet_def.get('text_target', '')}"
-                )
-            else:
-                not_covered_vernacular = not_covered_en
-
-            # If Gemini is available, provide an intelligent educational response
-            if settings.GEMINI_API_KEY:
-                try:
-                    from google import genai
-                    client = genai.Client(api_key=settings.GEMINI_API_KEY)
-                    current_topics = ""
-                    if self.rag_index.segments:
-                        snippets = [s.text_en[:60] for s in self.rag_index.segments[:3]]
-                        current_topics = f" (Note: Today's lecture is focused on: {'; '.join(snippets)})"
-
-                    prompt = (
-                        f"You are BridgeAI, an intelligent, empathetic STEM educational tutor.\n"
-                        f"Student Question: '{question}'\n"
-                        f"Target Vernacular Language: '{lang_name}' (code: '{target_lang}')\n"
-                        f"Context: This concept was NOT discussed in today's lecture{current_topics}.\n\n"
-                        f"Instructions:\n"
-                        f"1. Begin by clearly stating: 'This topic ('{concept_name}') is not covered in the current lecture session transcript.'\n"
-                        f"2. Provide an accurate, comprehensive, 2-3 sentence generative educational explanation of '{concept_name}'.\n"
-                        f"3. Relate it to relevant scientific or engineering fundamentals.\n"
-                        f"4. Provide the answer in English ('answer') and a natural vernacular translation in {lang_name} ('vernacular_answer').\n"
-                        f"5. Provide 2-4 related concepts ('related_concepts').\n"
-                        f"Return ONLY valid JSON with keys: 'answer', 'vernacular_answer', 'related_concepts'."
+                if target_lang == "ml":
+                    final_vernacular = (
+                        f"നിങ്ങളുടെ പ്രഭാഷണത്തിൽ [{top_seg['timestamp']}] സമയത്ത് {concept_title} സംബന്ധിച്ച് വിശദീകരിച്ചിട്ടുണ്ട്: "
+                        f"\"{actual_vernacular}\". {internet_def.get('text_target', '')}"
                     )
-                    models_to_try = ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash"]
-                    for model_name in models_to_try:
-                        try:
-                            resp = client.models.generate_content(
-                                model=model_name,
-                                contents=prompt,
-                                config=dict(response_mime_type="application/json")
-                            )
-                            if resp and resp.text:
-                                out_data = json.loads(resp.text)
-                                if out_data.get("answer"):
-                                    ans = out_data["answer"].strip()
-                                    if "not covered" not in ans.lower():
-                                        ans = f"This topic ('{concept_name}') is not covered in the current lecture session transcript. " + ans
-                                    not_covered_en = ans
-                                if out_data.get("vernacular_answer"):
-                                    not_covered_vernacular = out_data["vernacular_answer"].strip()
-                                if out_data.get("related_concepts"):
-                                    related_concepts = out_data["related_concepts"]
-                                break
-                        except Exception as m_err:
-                            logger.info(f"Out-of-topic Gemini model {model_name} failed: {m_err}...")
-                except Exception as e:
-                    logger.info(f"Gemini out-of-topic fallback: {e}")
+                elif target_lang == "hi":
+                    final_vernacular = (
+                        f"आपके व्याख्यान में [{top_seg['timestamp']}] पर {concept_title} के बारे में बताया गया है: "
+                        f"\"{actual_vernacular}\". {internet_def.get('text_target', '')}"
+                    )
+                elif target_lang == "ta":
+                    final_vernacular = (
+                        f"உங்கள் விரிவுரையில் [{top_seg['timestamp']}] நேரத்தில் {concept_title} பற்றி விளக்கப்பட்டுள்ளது: "
+                        f"\"{actual_vernacular}\". {internet_def.get('text_target', '')}"
+                    )
+                else:
+                    final_vernacular = final_answer
+                gemini_found = True
+            else:
+                final_answer = (
+                    f"This topic ('{concept_title}') is not covered in the current lecture session transcript. "
+                    f"Here is an educational explanation synthesized by BridgeAI: {internet_def.get('text_source', '')}"
+                )
+                if target_lang == "ml":
+                    final_vernacular = (
+                        f"ഈ വിഷയം ('{concept_name}') നിലവിലെ പ്രഭാഷണത്തിൽ ഉൾപ്പെടുത്തിയിട്ടില്ല. "
+                        f"ലളിതമായ വിവരണം: {internet_def.get('text_target', '')}"
+                    )
+                elif target_lang == "hi":
+                    final_vernacular = (
+                        f"यह विषय ('{concept_name}') वर्तमान व्याख्यान में शामिल नहीं है। "
+                        f"सरल संदर्भ परिभाषा: {internet_def.get('text_target', '')}"
+                    )
+                elif target_lang == "ta":
+                    final_vernacular = (
+                        f"இந்தத் தலைப்பு ('{concept_name}') தற்போதைய விரிவுரையில் இடம்பெறவில்லை. "
+                        f"எளிய குறிப்பு வரையறை: {internet_def.get('text_target', '')}"
+                    )
+                else:
+                    final_vernacular = final_answer
+                gemini_found = False
 
-            return {
-                "found_in_lecture": False,
-                "question": question,
-                "answer": not_covered_en,
-                "vernacular_answer": not_covered_vernacular,
-                "citations": [],
-                "related_concepts": related_concepts,
-                "concept_name": concept_name,
-                "internet_definition": {
-                    **internet_def,
-                    "source_title": "BridgeAI Generative Synthesis",
-                    "source_url": None,
-                    "related_concepts": related_concepts
-                }
+        # If vernacular is somehow still empty, fall back to target definition or English
+        if not final_vernacular:
+            final_vernacular = internet_def.get("text_target") or final_answer
+
+        # Filter citations: if not found in lecture, clear citations
+        active_citations = citations if gemini_found else []
+
+        return {
+            "found_in_lecture": gemini_found,
+            "question": question,
+            "answer": final_answer,
+            "vernacular_answer": final_vernacular,
+            "citations": active_citations,
+            "related_concepts": related_concepts,
+            "concept_name": concept_title,
+            "internet_definition": {
+                **internet_def,
+                "source_title": "BridgeAI Concept Synthesis",
+                "source_url": None,
+                "related_concepts": related_concepts
             }
+        }
 
 # Global instances
 rag_index = InMemoryRAGIndex()

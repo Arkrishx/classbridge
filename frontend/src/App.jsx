@@ -2361,15 +2361,17 @@ export default function App() {
         const segId = bestMatch.id || 1;
         const segTime = bestMatch.timestamp || '00:00';
 
-        const groundedEn = `In this lecture at [${segTime}], the instructor explains ${conceptTitle}: "${actualSource}". ${internetDef?.text_source || ''}`;
+        const defSnippet = internetDef?.text_source ? ` This directly connects to ${conceptTitle}: ${internetDef.text_source}` : '';
+        const groundedEn = `As the instructor explains at [${segTime}], "${actualSource}".${defSnippet}`;
 
         let groundedVernacular = "";
+        const vDefSnippet = internetDef?.text_target ? ` ${internetDef.text_target}` : '';
         if (targetLang === 'ml') {
-          groundedVernacular = `നിങ്ങളുടെ പ്രഭാഷണത്തിൽ [${segTime}] സമയത്ത് ${conceptTitle} സംബന്ധിച്ച് വിശദീകരിച്ചിട്ടുണ്ട്: "${actualVernacular}". ${internetDef?.text_target || ''}`;
+          groundedVernacular = `നിങ്ങളുടെ പ്രഭാഷണത്തിൽ [${segTime}] സമയത്ത് വ്യക്തമാക്കുന്നത്: "${actualVernacular}".${vDefSnippet}`;
         } else if (targetLang === 'hi') {
-          groundedVernacular = `आपके व्याख्यान में [${segTime}] पर ${conceptTitle} के बारे में बताया गया है: "${actualVernacular}". ${internetDef?.text_target || ''}`;
+          groundedVernacular = `व्याख्यान में [${segTime}] पर समझाया गया है: "${actualVernacular}".${vDefSnippet}`;
         } else if (targetLang === 'ta') {
-          groundedVernacular = `உங்கள் விரிவுரையில் [${segTime}] நேரத்தில் ${conceptTitle} பற்றி விளக்கப்பட்டுள்ளது: "${actualVernacular}". ${internetDef?.text_target || ''}`;
+          groundedVernacular = `உங்கள் விரிவுரையில் [${segTime}] நேரத்தில் விளக்கப்பட்டது: "${actualVernacular}".${vDefSnippet}`;
         } else {
           groundedVernacular = groundedEn;
         }
