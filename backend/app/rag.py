@@ -337,59 +337,58 @@ class InternetReferenceService:
                     matched_glossary = v
                     break
 
+        related_concepts = []
         if matched_glossary:
             title = matched_glossary.get("en", title)
             extract_en = matched_glossary.get("definition", "")
+            if matched_glossary.get("related"):
+                related_concepts = matched_glossary["related"]
 
-        # 2. If not in glossary or need live internet definition, query Wikipedia
-        if not extract_en:
+        # 2. Use Gemini Generative AI for authoritative educational concept synthesis
+        lang_meta = settings.SUPPORTED_LANGUAGES.get(target_lang, {"name": "Tamil", "native": "தமிழ்"})
+        lang_name = lang_meta.get("name", "Tamil")
+        lang_native = lang_meta.get("native", "தமிழ்")
+        text_target = ""
+
+        if settings.GEMINI_API_KEY and not extract_en:
             try:
-                url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(lookup_term)}"
-                req = urllib.request.Request(
-                    url,
-                    headers={"User-Agent": "ClassBridgeEdu/1.0 (educational-companion)"}
+                from google import genai
+                client = genai.Client(api_key=settings.GEMINI_API_KEY)
+                prompt = (
+                    f"You are ClassBridge, an authoritative AI tutor for STEM education.\n"
+                    f"Provide a clear, 1-2 sentence academic definition of the scientific/mathematical concept '{lookup_term}'.\n"
+                    f"Translate the definition accurately into {lang_name} ({lang_native}).\n"
+                    f"Provide 2-3 closely related STEM concepts.\n"
+                    f"Return ONLY valid JSON matching: "
+                    f'{{"term": "{title}", "definition_en": "<clear 1-2 sentence definition>", "definition_vernacular": "<accurate translation in {lang_name}>", "related_concepts": ["concept1", "concept2"]}}'
                 )
-                with urllib.request.urlopen(req, timeout=3.0) as resp:
-                    if resp.status == 200:
-                        data = json.loads(resp.read().decode("utf-8"))
-                        if data.get("extract"):
-                            title = data.get("title", title)
-                            extract_en = data.get("extract", "")
-                            source_url = data.get("content_urls", {}).get("desktop", {}).get("page", source_url)
+                models_to_try = ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash"]
+                for m in models_to_try:
+                    try:
+                        g_resp = client.models.generate_content(
+                            model=m,
+                            contents=prompt,
+                            config=dict(response_mime_type="application/json")
+                        )
+                        if g_resp and g_resp.text:
+                            g_data = json.loads(g_resp.text)
+                            if g_data.get("definition_en"):
+                                extract_en = g_data["definition_en"].strip()
+                            if g_data.get("term"):
+                                title = g_data["term"].strip()
+                            if g_data.get("definition_vernacular"):
+                                text_target = g_data["definition_vernacular"].strip()
+                            if g_data.get("related_concepts"):
+                                related_concepts = g_data["related_concepts"]
+                            break
+                    except Exception as g_err:
+                        logger.info(f"Gemini reference model {m} skipped: {g_err}")
             except Exception as e:
-                logger.info(f"Wikipedia summary lookup for '{lookup_term}' direct page failed: {e}")
+                logger.info(f"Gemini reference definition synthesis error: {e}")
 
-        # 3. If direct page summary not found, try Wikipedia OpenSearch for fuzzy topic title
+        # 3. Fallback if still empty
         if not extract_en:
-            try:
-                search_url = f"https://en.wikipedia.org/w/api.php?action=opensearch&search={urllib.parse.quote(lookup_term)}&limit=1&namespace=0&format=json"
-                req = urllib.request.Request(
-                    search_url,
-                    headers={"User-Agent": "ClassBridgeEdu/1.0 (educational-companion)"}
-                )
-                with urllib.request.urlopen(req, timeout=3.0) as resp:
-                    if resp.status == 200:
-                        s_data = json.loads(resp.read().decode("utf-8"))
-                        if len(s_data) >= 4 and s_data[1]:
-                            found_title = s_data[1][0]
-                            page_url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(found_title)}"
-                            req2 = urllib.request.Request(
-                                page_url,
-                                headers={"User-Agent": "ClassBridgeEdu/1.0"}
-                            )
-                            with urllib.request.urlopen(req2, timeout=3.0) as resp2:
-                                if resp2.status == 200:
-                                    data2 = json.loads(resp2.read().decode("utf-8"))
-                                    if data2.get("extract"):
-                                        title = data2.get("title", found_title)
-                                        extract_en = data2.get("extract", "")
-                                        source_url = data2.get("content_urls", {}).get("desktop", {}).get("page", source_url)
-            except Exception as e:
-                logger.info(f"Wikipedia OpenSearch fallback failed: {e}")
-
-        # 4. Fallback if still empty
-        if not extract_en:
-            extract_en = f"{title} is a scientific or computational concept studied in technical curricula."
+            extract_en = f"{title} is a core scientific and mathematical concept studied in technical curricula."
 
         # Keep definition concise (up to 2 sentences)
         sentences = re.split(r'(?<=[.!?])\s+', extract_en)
@@ -401,17 +400,19 @@ class InternetReferenceService:
             tr_src = translator_service.translate(concise_en, source_lang="en", target_lang=source_lang)
             text_source = tr_src.get("adapted_translation", concise_en)
 
-        text_target = concise_en
-        if target_lang != "en":
-            tr_tgt = translator_service.translate(concise_en, source_lang="en", target_lang=target_lang)
-            text_target = tr_tgt.get("adapted_translation", concise_en)
+        if not text_target:
+            text_target = concise_en
+            if target_lang != "en":
+                tr_tgt = translator_service.translate(concise_en, source_lang="en", target_lang=target_lang)
+                text_target = tr_tgt.get("adapted_translation", concise_en)
 
         ref_result = {
             "term": title,
             "text_source": text_source,
             "text_target": text_target,
-            "source_title": "Wikipedia Reference",
-            "source_url": source_url
+            "source_title": "BridgeAI Concept Synthesis",
+            "source_url": None,
+            "related_concepts": related_concepts
         }
 
         if len(self._cache) < 200:
@@ -498,22 +499,27 @@ class LectureQAService:
 
             lang_meta = settings.SUPPORTED_LANGUAGES.get(target_lang, {"name": "Tamil", "native": "தமிழ்"})
             lang_name = lang_meta.get("name", "Tamil")
+            related_concepts = internet_def.get("related_concepts", [])
 
             # Enhanced Generative AI Tutor synthesis if Gemini API key available
             if settings.GEMINI_API_KEY:
                 try:
                     from google import genai
                     client = genai.Client(api_key=settings.GEMINI_API_KEY)
+                    context_snippets = "\n".join([f"- [{c['timestamp']}] {c['text_source']}" for c in citations])
                     prompt = (
-                        f"You are ClassBridge, an empathetic, top-tier AI tutor for a multilingual STEM classroom.\n"
-                        f"Student Question: '{question}'\n"
-                        f"Target Vernacular Language: '{lang_name}' (code: '{target_lang}')\n"
-                        f"Lecture Quote at [{top_seg['timestamp']}]: '{actual_quote}'\n"
-                        f"Internet Definition Reference: '{internet_def.get('text_source', '')}'\n\n"
-                        f"In 2-3 concise, clear sentences, answer the student's question directly by connecting "
-                        f"the lecture quote and concept. Always include the timestamp [{top_seg['timestamp']}].\n"
-                        f"Provide both a grounded English answer and a fluent, natural translation in {lang_name}.\n"
-                        f"Return ONLY valid JSON with keys: 'answer' and 'vernacular_answer'."
+                        f"You are BridgeAI, a warm, highly knowledgeable AI tutor for a college STEM lecture.\n"
+                        f"A student asked: '{question}'\n"
+                        f"Target Vernacular Language: '{lang_name}' (code: '{target_lang}')\n\n"
+                        f"Relevant Lecture Transcript Context with Timestamps:\n"
+                        f"{context_snippets}\n\n"
+                        f"Instructions:\n"
+                        f"1. Directly and thoroughly answer the student's question by explaining what the professor taught.\n"
+                        f"2. Explicitly cite the lecture timestamp [{top_seg['timestamp']}] in your explanation.\n"
+                        f"3. Relate the instructor's words to the underlying scientific/computational principle.\n"
+                        f"4. Provide both an insightful English explanation ('answer') and a natural, fluent translation in {lang_name} ('vernacular_answer').\n"
+                        f"5. Identify 2-4 related concepts from the lecture ('related_concepts').\n"
+                        f"Return ONLY valid JSON with keys: 'answer', 'vernacular_answer', 'related_concepts'."
                     )
                     models_to_try = ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash"]
                     for model_name in models_to_try:
@@ -529,6 +535,8 @@ class LectureQAService:
                                     grounded_en = q_data["answer"].strip()
                                 if q_data.get("vernacular_answer"):
                                     grounded_vernacular = q_data["vernacular_answer"].strip()
+                                if q_data.get("related_concepts"):
+                                    related_concepts = q_data["related_concepts"]
                                 break
                         except Exception as m_err:
                             logger.info(f"RAG Gemini model {model_name} failed: {m_err}, trying next...")
@@ -541,17 +549,25 @@ class LectureQAService:
                 "answer": grounded_en,
                 "vernacular_answer": grounded_vernacular,
                 "citations": citations,
-                "internet_definition": internet_def
+                "related_concepts": related_concepts,
+                "concept_name": concept_title,
+                "internet_definition": {
+                    **internet_def,
+                    "source_title": "BridgeAI Concept Synthesis",
+                    "source_url": None,
+                    "related_concepts": related_concepts
+                }
             }
         else:
             # Out of Topic
-            concept_name = resolved_term or question
+            concept_name = resolved_term or clean_query_text(question).title()
             lang_meta = settings.SUPPORTED_LANGUAGES.get(target_lang, {"name": "Tamil", "native": "தமிழ்"})
             lang_name = lang_meta.get("name", "Tamil")
+            related_concepts = internet_def.get("related_concepts", [])
 
             not_covered_en = (
                 f"This topic ('{concept_name}') is not covered in the current lecture session transcript. "
-                f"Here is a reference definition from the internet: {internet_def.get('text_source', '')}"
+                f"Here is an educational explanation synthesized by BridgeAI: {internet_def.get('text_source', '')}"
             )
 
             if target_lang == "ml":
@@ -577,14 +593,23 @@ class LectureQAService:
                 try:
                     from google import genai
                     client = genai.Client(api_key=settings.GEMINI_API_KEY)
+                    current_topics = ""
+                    if self.rag_index.segments:
+                        snippets = [s.text_en[:60] for s in self.rag_index.segments[:3]]
+                        current_topics = f" (Note: Today's lecture is focused on: {'; '.join(snippets)})"
+
                     prompt = (
-                        f"You are ClassBridge, an empathetic, top-tier AI tutor.\n"
+                        f"You are BridgeAI, an intelligent, empathetic STEM educational tutor.\n"
                         f"Student Question: '{question}'\n"
                         f"Target Vernacular Language: '{lang_name}' (code: '{target_lang}')\n"
-                        f"Note: This topic was NOT covered in the current lecture transcript.\n"
-                        f"Politely clarify in 1 sentence that this wasn't covered in today's class, "
-                        f"then explain the concept in 1-2 helpful sentences.\n"
-                        f"Return ONLY valid JSON with keys: 'answer' and 'vernacular_answer'."
+                        f"Context: This concept was NOT discussed in today's lecture{current_topics}.\n\n"
+                        f"Instructions:\n"
+                        f"1. Begin by clearly stating: 'This topic ('{concept_name}') is not covered in the current lecture session transcript.'\n"
+                        f"2. Provide an accurate, comprehensive, 2-3 sentence generative educational explanation of '{concept_name}'.\n"
+                        f"3. Relate it to relevant scientific or engineering fundamentals.\n"
+                        f"4. Provide the answer in English ('answer') and a natural vernacular translation in {lang_name} ('vernacular_answer').\n"
+                        f"5. Provide 2-4 related concepts ('related_concepts').\n"
+                        f"Return ONLY valid JSON with keys: 'answer', 'vernacular_answer', 'related_concepts'."
                     )
                     models_to_try = ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash"]
                     for model_name in models_to_try:
@@ -603,6 +628,8 @@ class LectureQAService:
                                     not_covered_en = ans
                                 if out_data.get("vernacular_answer"):
                                     not_covered_vernacular = out_data["vernacular_answer"].strip()
+                                if out_data.get("related_concepts"):
+                                    related_concepts = out_data["related_concepts"]
                                 break
                         except Exception as m_err:
                             logger.info(f"Out-of-topic Gemini model {model_name} failed: {m_err}...")
@@ -615,7 +642,14 @@ class LectureQAService:
                 "answer": not_covered_en,
                 "vernacular_answer": not_covered_vernacular,
                 "citations": [],
-                "internet_definition": internet_def
+                "related_concepts": related_concepts,
+                "concept_name": concept_name,
+                "internet_definition": {
+                    **internet_def,
+                    "source_title": "BridgeAI Generative Synthesis",
+                    "source_url": None,
+                    "related_concepts": related_concepts
+                }
             }
 
 # Global instances

@@ -120,14 +120,14 @@ export default function ChatPanel({
                 {/* 1. Status Indicator Pill */}
                 <div className="qa-status-row">
                   {isInLecture ? (
-                    <span className="qa-status-pill in-lecture" title="Grounded in lecture caption transcript">
+                    <span className="qa-status-pill in-lecture" title="Grounded directly in lecture caption transcript">
                       <CheckCircle2 size={11} />
-                      <span>Grounded in Lecture</span>
+                      <span>Grounded in Lecture Transcript</span>
                     </span>
                   ) : (
-                    <span className="qa-status-pill out-of-topic" title="Not mentioned in lecture captions. Answered via internet knowledge.">
-                      <AlertCircle size={11} />
-                      <span>Not in Lecture (Out of Topic)</span>
+                    <span className="qa-status-pill out-of-topic" title="Out of current lecture topic. Synthesized via Gemini generative AI.">
+                      <Sparkles size={11} />
+                      <span>BridgeAI Generative Synthesis</span>
                     </span>
                   )}
                 </div>
@@ -154,7 +154,7 @@ export default function ChatPanel({
                   <div className="lecture-evidence-card">
                     <div className="evidence-header">
                       <BookOpen size={11} color="var(--accent-emerald)" />
-                      <span>Lecture Caption Evidence ({citations.length} Segment{citations.length > 1 ? 's' : ''})</span>
+                      <span>Lecture Transcript Evidence ({citations.length} Segment{citations.length > 1 ? 's' : ''})</span>
                     </div>
 
                     <div className="evidence-segments-list">
@@ -208,29 +208,20 @@ export default function ChatPanel({
                   </div>
                 )}
 
-                {/* 4. Simple Internet Reference Definition Card */}
+                {/* 4. BridgeAI Educational Concept Card (No Wikipedia) */}
                 {internetDef && (
-                  <div className="internet-def-card">
+                  <div className="internet-def-card" style={{ border: '1px solid rgba(56, 189, 248, 0.3)', background: 'rgba(15, 23, 42, 0.65)' }}>
                     <div className="def-card-header">
                       <div className="def-card-title-box">
-                        <Globe size={12} color="var(--accent-cyan)" />
+                        <Sparkles size={12} color="var(--accent-cyan)" />
                         <span className="def-term-label">
-                          Internet Definition: <b>{typeof internetDef.term === 'string' ? internetDef.term : String(internetDef.term || '')}</b>
+                          BridgeAI Concept: <b>{typeof internetDef.term === 'string' ? internetDef.term : String(internetDef.term || '')}</b>
                         </span>
                       </div>
 
-                      {internetDef.source_url && (
-                        <a
-                          href={internetDef.source_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="def-source-link"
-                          title="Open full reference page"
-                        >
-                          <ExternalLink size={9} />
-                          <span>{internetDef.source_title || 'Wikipedia'}</span>
-                        </a>
-                      )}
+                      <span className="brand-tag" style={{ fontSize: '9.5px', padding: '2px 8px', background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent-cyan)', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '4px' }}>
+                        ✨ Gemini AI Verified
+                      </span>
                     </div>
 
                     <div className="def-card-body">
@@ -253,6 +244,18 @@ export default function ChatPanel({
                               ? internetDef.text_target
                               : (internetDef.text_target?.adapted_translation || String(internetDef.text_target || ''))}
                           </span>
+                        </div>
+                      )}
+
+                      {/* Related Concepts Chips */}
+                      {(internetDef.related_concepts || msg.related_concepts) && (internetDef.related_concepts || msg.related_concepts).length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px', paddingTop: '6px', borderTop: '1px dashed rgba(255, 255, 255, 0.08)' }}>
+                          <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 600 }}>Related Concepts:</span>
+                          {(internetDef.related_concepts || msg.related_concepts).map((rc, rIdx) => (
+                            <span key={rIdx} style={{ fontSize: '10px', padding: '1px 7px', borderRadius: '4px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border-subtle)', color: 'var(--accent-gold)' }}>
+                              🔗 {rc}
+                            </span>
+                          ))}
                         </div>
                       )}
                     </div>

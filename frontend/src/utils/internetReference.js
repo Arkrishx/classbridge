@@ -182,70 +182,23 @@ export async function fetchInternetReference(question, sourceLang = 'en', target
   let extractEn = '';
   let sourceUrl = `https://en.wikipedia.org/wiki/${encodeURIComponent(lookupTerm.replace(/\s+/g, '_'))}`;
 
+  let relatedConcepts = [];
   // 1. Check fallback STEM glossary first for instant local matching
   for (const [key, item] of Object.entries(fallbackGlossary || {})) {
     const kLow = key.toLowerCase();
     if (lookupTerm.toLowerCase() === kLow || lookupTerm.toLowerCase().includes(kLow) || kLow.includes(lookupTerm.toLowerCase()) || termLower === kLow) {
       title = item.en || title;
       extractEn = item.definition || '';
+      if (item.related) {
+        relatedConcepts = item.related;
+      }
       break;
     }
   }
 
-  // 2. Query Wikipedia REST API for clean 1-2 sentence extract
+  // 2. Default academic description if not found in local glossary
   if (!extractEn) {
-    try {
-      const resp = await fetchWithTimeout(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(lookupTerm)}`, {
-        headers: { 'Accept': 'application/json' }
-      }, 3500);
-      if (resp && resp.ok) {
-        const data = await resp.json();
-        if (data.extract) {
-          title = data.title || title;
-          extractEn = data.extract;
-          if (data.content_urls?.desktop?.page) {
-            sourceUrl = data.content_urls.desktop.page;
-          }
-        }
-      }
-    } catch (err) {
-      console.info("Wikipedia direct summary lookup skipped:", err);
-    }
-  }
-
-  // 3. If direct page not found, try OpenSearch
-  if (!extractEn) {
-    try {
-      const searchResp = await fetchWithTimeout(
-        `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(lookupTerm)}&limit=1&namespace=0&format=json&origin=*`,
-        {},
-        3500
-      );
-      if (searchResp && searchResp.ok) {
-        const searchData = await searchResp.json();
-        if (Array.isArray(searchData) && searchData[1] && searchData[1][0]) {
-          const matchedTitle = searchData[1][0];
-          const pageResp = await fetchWithTimeout(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(matchedTitle)}`, {}, 3500);
-          if (pageResp && pageResp.ok) {
-            const pageData = await pageResp.json();
-            if (pageData.extract) {
-              title = pageData.title || matchedTitle;
-              extractEn = pageData.extract;
-              if (pageData.content_urls?.desktop?.page) {
-                sourceUrl = pageData.content_urls.desktop.page;
-              }
-            }
-          }
-        }
-      }
-    } catch (err) {
-      console.info("Wikipedia opensearch lookup skipped:", err);
-    }
-  }
-
-  // 4. Default fallback description if offline or no match
-  if (!extractEn) {
-    extractEn = `${title} is a core scientific and computational concept studied in technical curricula.`;
+    extractEn = `${title} is a core scientific and technical principle fundamental to advanced STEM education.`;
   }
 
   // Keep definition concise: first 1-2 sentences
@@ -281,8 +234,9 @@ export async function fetchInternetReference(question, sourceLang = 'en', target
     term: String(title || term),
     text_source: safeTextSource,
     text_target: safeTextTarget,
-    source_title: "Wikipedia Reference",
-    source_url: String(sourceUrl || `https://en.wikipedia.org/wiki/${encodeURIComponent(term)}`)
+    source_title: "BridgeAI Concept Synthesis",
+    source_url: null,
+    related_concepts: relatedConcepts
   };
 
   CACHE.set(cacheKey, result);
