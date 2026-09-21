@@ -78,7 +78,8 @@ export default function GoogleAppBar({
           <span className="lang-chevron-arrow">▾</span>
           <select
             value={sourceLang}
-            onChange={(e) => onSourceLanguageChange && onSourceLanguageChange(e.target.value)}
+            onChange={(e) => userRole === 'teacher' && onSourceLanguageChange && onSourceLanguageChange(e.target.value)}
+            disabled={userRole !== 'teacher'}
             className="google-lang-dropdown-native"
             aria-label="Spoken Lecture Source Language"
           >
@@ -93,6 +94,7 @@ export default function GoogleAppBar({
         <button
           className={`google-swap-circle-btn ${isSwapping ? 'is-swapping' : ''}`}
           onClick={handleSwapClick}
+          disabled={userRole !== 'teacher'}
           title={`Click to swap languages (${sourceLang.toUpperCase()} ⇄ ${targetLang.toUpperCase()})`}
           type="button"
           aria-label="Swap source and target languages"

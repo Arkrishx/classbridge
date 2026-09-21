@@ -387,7 +387,10 @@ export default function App() {
   });
   const [targetLang, setTargetLang] = useState(() => {
     try {
-      return localStorage.getItem('classbridge_target_lang') || 'ta';
+      const params = new URLSearchParams(window.location.search);
+      const isStudent = params.get('role') === 'student' || params.get('lock_role') === 'true' || params.get('locked') === '1';
+      const storageKey = isStudent ? 'classbridge_student_target_lang' : 'classbridge_target_lang';
+      return localStorage.getItem(storageKey) || 'ta';
     } catch (e) {
       return 'ta';
     }
@@ -623,6 +626,7 @@ export default function App() {
                 room_id: roomCodeRef.current,
                 has_teacher: true,
                 student_count: count,
+                source_lang: sourceLang,
                 is_camera_on: isTeacherCameraOnRef.current,
                 is_screen_sharing: isTeacherScreenSharingRef.current
               });
@@ -639,6 +643,7 @@ export default function App() {
                 room_id: roomCodeRef.current,
                 has_teacher: true,
                 student_count: count,
+                source_lang: sourceLang,
                 is_camera_on: isTeacherCameraOnRef.current,
                 is_screen_sharing: isTeacherScreenSharingRef.current
               });
@@ -662,6 +667,8 @@ export default function App() {
                 isTeacherScreenSharingRef.current = Boolean(msg.is_screen_sharing);
               }
             }
+          } else if (msg.type === 'teacher_language_update' && userRoleRef.current === 'student') {
+            if (msg.source_lang) setSourceLang(msg.source_lang);
           } else if (msg.type === 'teacher_leave') {
             if (userRoleRef.current === 'student') {
               setHasTeacher(false);
@@ -673,6 +680,9 @@ export default function App() {
             if (msg.student_count !== undefined) setStudentCount((c) => Math.max(c, msg.student_count));
             if (msg.teacher_name && userRoleRef.current === 'student') {
               setTeacherName(msg.teacher_name);
+            }
+            if (msg.source_lang && userRoleRef.current === 'student') {
+              setSourceLang(msg.source_lang);
             }
             if (msg.has_teacher !== undefined && userRoleRef.current === 'student') {
               setHasTeacher(Boolean(msg.has_teacher));
@@ -804,7 +814,8 @@ export default function App() {
           room_id: roomCode,
           has_teacher: true,
           teacher_name: teacherNameRef.current,
-          student_count: count
+          student_count: count,
+          source_lang: sourceLang
         });
       } else {
         broadcastChannelRef.current.postMessage({
@@ -843,7 +854,8 @@ export default function App() {
           room_id: roomCodeRef.current,
           has_teacher: true,
           teacher_name: teacherNameRef.current,
-          student_count: count
+          student_count: count,
+          source_lang: sourceLang
         });
       } else {
         broadcastChannelRef.current.postMessage({
@@ -876,7 +888,7 @@ export default function App() {
       clearInterval(hbInterval);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [classMode, userRole, roomCode, studentName, studentRollNo, targetLang]);
+  }, [classMode, userRole, roomCode, studentName, studentRollNo, targetLang, sourceLang]);
 
   // REST Polling Fallback to sync WebSocket room stats and roster across network devices
   useEffect(() => {
@@ -1103,6 +1115,9 @@ export default function App() {
             if (data.teacher_name && userRoleRef.current === 'student') {
               setTeacherName(data.teacher_name);
             }
+            if (data.source_lang && userRoleRef.current === 'student') {
+              setSourceLang(data.source_lang);
+            }
             if (data.hand_raises && Array.isArray(data.hand_raises)) {
               setHandRaises(data.hand_raises);
             }
@@ -1129,6 +1144,9 @@ export default function App() {
             }
             if (data.teacher_name && userRoleRef.current === 'student') {
               setTeacherName(data.teacher_name);
+            }
+            if (data.source_lang && userRoleRef.current === 'student') {
+              setSourceLang(data.source_lang);
             }
             if (userRoleRef.current === 'teacher') {
               setHasTeacher(true);
@@ -1255,9 +1273,10 @@ export default function App() {
 
   const handleLanguageChange = (newTarget) => {
     if (!newTarget) return;
+    const isStudent = userRoleRef.current === 'student';
     setTargetLang(newTarget);
     try {
-      localStorage.setItem('classbridge_target_lang', newTarget);
+      localStorage.setItem(isStudent ? 'classbridge_student_target_lang' : 'classbridge_target_lang', newTarget);
     } catch (e) {}
 
     // If target matches source, automatically alter source
@@ -1272,7 +1291,7 @@ export default function App() {
       }
     }
 
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+    if (!isStudent && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ action: 'set_language', language: newTarget }));
     }
     // If there is active live interim speech, translate it immediately to the new language
@@ -1301,7 +1320,7 @@ export default function App() {
   };
 
   const handleSourceLanguageChange = (newSource) => {
-    if (!newSource) return;
+    if (!newSource || userRoleRef.current === 'student') return;
     setSourceLang(newSource);
     try {
       localStorage.setItem('classbridge_source_lang', newSource);
@@ -1323,9 +1342,17 @@ export default function App() {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ action: 'set_source_language', language: newSource }));
     }
+    if (broadcastChannelRef.current) {
+      broadcastChannelRef.current.postMessage({
+        type: 'teacher_language_update',
+        room_id: roomCodeRef.current,
+        source_lang: newSource
+      });
+    }
   };
 
   const handleSwapLanguages = () => {
+    if (userRoleRef.current === 'student') return;
     const prevSrc = sourceLang;
     const prevTgt = targetLang;
     setSourceLang(prevTgt);
@@ -1363,6 +1390,19 @@ export default function App() {
     // Instant optimistic client translation & commit for 0ms lag
     try {
       const transResult = await translateTextClient(cleanText, targetLang, glossary, sourceLang);
+      const translationResults = await Promise.all(
+        ['ta', 'ml', 'hi'].map(async (language) => [
+          language,
+          language === targetLang
+            ? transResult.adapted_translation
+            : (await translateTextClient(cleanText, language, glossary, sourceLang)).adapted_translation
+        ])
+      );
+      const translations = Object.fromEntries([
+        [sourceLang, cleanText],
+        ['en', sourceLang === 'en' ? cleanText : undefined],
+        ...translationResults
+      ].filter(([, value]) => value));
       setSegments((prev) => {
         // Prevent duplicate commits & collapse
         if (prev.length > 0) {
@@ -1384,6 +1424,7 @@ export default function App() {
               text_source: cleanText,
               text_vernacular: transResult.adapted_translation,
               raw_translation: transResult.raw_translation,
+              translations,
               confidence: confidence,
               domain_terms: transResult.domain_terms,
               source_lang: sourceLang,
@@ -1418,6 +1459,7 @@ export default function App() {
             text_source: cleanText,
             text_vernacular: transResult.adapted_translation,
             raw_translation: transResult.raw_translation,
+            translations,
             confidence: confidence,
             domain_terms: transResult.domain_terms,
             source_lang: sourceLang,
@@ -1443,14 +1485,7 @@ export default function App() {
             text_source: cleanText,
             text_en: cleanText,
             text_vernacular: transResult.adapted_translation,
-            translations: {
-              [sourceLang]: cleanText,
-              [targetLang]: transResult.adapted_translation,
-              ta: targetLang === 'ta' ? transResult.adapted_translation : undefined,
-              ml: targetLang === 'ml' ? transResult.adapted_translation : undefined,
-              hi: targetLang === 'hi' ? transResult.adapted_translation : undefined,
-              en: cleanText
-            },
+            translations,
             confidence: confidence,
             domain_terms: transResult.domain_terms,
             source_lang: sourceLang,
@@ -1665,6 +1700,7 @@ export default function App() {
           has_teacher: true,
           teacher_name: teacherNameRef.current,
           student_count: studentTabsMapRef.current.size,
+          source_lang: sourceLang,
           is_camera_on: isTeacherCameraOnRef.current,
           is_screen_sharing: isTeacherScreenSharingRef.current
         });
