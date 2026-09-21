@@ -38,6 +38,7 @@ export default function GoogleBottomDock({
   userRole = 'student',
   onOpenClassroomModal,
   onOpenHistory,
+  onOpenDemoShowcase,
 }) {
   const [quickInput, setQuickInput] = useState('');
 
@@ -204,6 +205,11 @@ export default function GoogleBottomDock({
         <button className="google-pill-btn" onClick={onOpenHistory} title="Open saved lecture history" type="button">
           <Clock3 size={15} />
           <span className="pill-btn-label">History</span>
+        </button>
+
+        <button className="google-pill-btn guide-btn" onClick={onOpenDemoShowcase} title="Load the ready-to-present ClassBridge demo" type="button">
+          <Sparkles size={15} />
+          <span className="pill-btn-label">Demo Showcase</span>
         </button>
 
         {/* 6. Quick Demo Replay & Reset */}

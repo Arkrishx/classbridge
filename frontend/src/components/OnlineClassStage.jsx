@@ -73,6 +73,7 @@ export default function OnlineClassStage({
   onBroadcastKeyword,
   onEndSession,
   onOpenHistory,
+  onOpenDemoShowcase,
 }) {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const isCameraActiveRef = useRef(false);
@@ -723,6 +724,9 @@ export default function OnlineClassStage({
         <div className="video-control-dock">
           <button type="button" className="meet-dock-btn secondary" onClick={onOpenHistory} title="Open saved lecture history">
             <Clock3 size={17} />
+          </button>
+          <button type="button" className="meet-dock-btn secondary" onClick={onOpenDemoShowcase} title="Load the ready-to-present ClassBridge demo">
+            <Sparkles size={17} />
           </button>
           {userRole === 'teacher' ? (
             <>

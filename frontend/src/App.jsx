@@ -1666,6 +1666,81 @@ export default function App() {
     confetti({ particleCount: 35, spread: 60, origin: { y: 0.8 } });
   };
 
+  const handleOpenDemoShowcase = () => {
+    const sampleItems = SAMPLE_LECTURES.ml;
+    const demoSegments = sampleItems.map((item, index) => ({
+      id: `demo-${index + 1}`,
+      start: item.start,
+      end: item.end,
+      timestamp: item.timestamp,
+      text_en: item.text_en,
+      text_source: item.text_en,
+      text_vernacular: item.translations?.[targetLang] || item.translations?.ta || item.text_vernacular,
+      translations: item.translations,
+      confidence: item.confidence,
+      domain_terms: item.domain_terms || [],
+      source_lang: 'en',
+      target_lang: targetLang
+    }));
+    const demoHistory = [
+      {
+        id: 'demo-ml-lecture',
+        title: 'Demo: ML & Optimization',
+        date: 'Ready for presentation',
+        sourceLang: 'en',
+        targetLang,
+        segments: demoSegments
+      },
+      {
+        id: 'demo-linear-algebra',
+        title: 'Demo: Linear Algebra',
+        date: 'Reference session',
+        sourceLang: 'en',
+        targetLang,
+        segments: demoSegments.slice(0, 2)
+      }
+    ];
+    const demoGuide = {
+      title: 'Demo Study Guide: ML & Optimization',
+      date: 'Presentation Demo',
+      target_language: targetLangMeta.name,
+      native_language: targetLangMeta.native,
+      segment_count: demoSegments.length,
+      overview: {
+        en: 'This demo lecture explains gradient descent, backpropagation, learning rate, loss, and overfitting in neural-network optimization.',
+        vernacular: 'A structured vernacular revision summary generated from the live lecture transcript.'
+      },
+      diagram: {
+        title: 'Grounded ML Optimization Concept Map',
+        source: 'Demo map generated from concepts detected in this lecture.',
+        nodes: [
+          { id: 'lecture', label: 'Lecture Concepts', detail: 'ML Optimization' },
+          { id: 'gradient', label: 'Gradient Descent', detail: 'Optimization' },
+          { id: 'backprop', label: 'Backpropagation', detail: 'Neural Networks' },
+          { id: 'learning', label: 'Learning Rate', detail: 'Step Size' },
+          { id: 'loss', label: 'Loss Function', detail: 'Error Signal' },
+          { id: 'formula', label: 'Parameter Update', detail: 'theta(t+1) = theta(t) - eta grad J' }
+        ],
+        edges: []
+      },
+      definitions: [
+        { term: 'Gradient Descent', vernacular_term: 'Gradient Descent', category: 'Machine Learning', definition: 'An iterative optimization method that moves parameters in the direction that reduces loss.' },
+        { term: 'Backpropagation', vernacular_term: 'Backpropagation', category: 'Neural Networks', definition: 'A chain-rule method for computing gradients through network layers.' }
+      ],
+      formulas: [{ name: 'Gradient Descent Update', latex: 'theta(t+1) = theta(t) - eta grad J(theta(t))', description: 'Updates parameters using the learning rate and loss gradient.', variables: 'theta: parameters, eta: learning rate, J: loss' }],
+      takeaways: demoSegments.slice(0, 3).map((segment) => ({ point: segment.text_en, vernacular_point: segment.text_vernacular, timestamp: segment.timestamp })),
+      flashcards: [{ id: 1, front: 'What does gradient descent minimize?', vernacular_front: 'What does gradient descent minimize?', back: 'The loss function.', category: 'Machine Learning' }]
+    };
+    setSegments(demoSegments);
+    setStudyGuide(demoGuide);
+    setLectureHistory(demoHistory);
+    try {
+      localStorage.setItem('classbridge_lecture_history', JSON.stringify(demoHistory));
+    } catch (e) {}
+    setIsHistoryOpen(false);
+    confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
+  };
+
   const clearSession = async () => {
     setSegments([]);
     setMessages([]);
@@ -2750,6 +2825,7 @@ export default function App() {
           onBroadcastKeyword={handleBroadcastKeyword}
           onEndSession={handleEndOnlineSession}
           onOpenHistory={() => setIsHistoryOpen(true)}
+          onOpenDemoShowcase={handleOpenDemoShowcase}
         />
       ) : (
         <main className={`google-main-stage view-${viewMode} mobile-${mobileActiveTab}`}>
@@ -2825,6 +2901,7 @@ export default function App() {
           userRole={userRole}
           onOpenClassroomModal={() => setIsClassroomModalOpen(true)}
           onOpenHistory={() => setIsHistoryOpen(true)}
+          onOpenDemoShowcase={handleOpenDemoShowcase}
         />
       )}
 
