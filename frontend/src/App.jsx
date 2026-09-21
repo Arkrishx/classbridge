@@ -24,6 +24,7 @@ import { translateTextClient, translateInterimDebounced } from './utils/clientTr
 import { Radio, MessageSquare, Sparkles } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { exportCaptionsAsTxt, exportCaptionsAsPdf } from './utils/captionExport';
+import { exportStudyGuideAsPdf } from './utils/studyGuideExport';
 import {
   fetchInternetReference,
   matchesAcronymOrInitials,
@@ -2690,37 +2691,17 @@ export default function App() {
     confetti({ particleCount: 50, spread: 70, origin: { y: 0.6 } });
   };
 
-  // Download PDF
+  // Download PDF (Entire Study Guide with All Options)
   const handleDownloadPdf = async () => {
     if (!studyGuide) return;
     setIsDownloadingPdf(true);
-
     try {
-      const res = await fetch(`${API_BASE_URL}/api/study-guide/pdf`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ target_lang: targetLang, segments })
-      });
-
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `ClassBridge_Study_Guide_${targetLang}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setIsDownloadingPdf(false);
-        return;
-      }
+      await exportStudyGuideAsPdf(studyGuide, targetLang, segments, API_BASE_URL);
     } catch (e) {
-      console.log("Backend PDF endpoint unavailable, using browser print fallback.");
+      console.error("Study Guide PDF export error:", e);
+    } finally {
+      setIsDownloadingPdf(false);
     }
-
-    // Client-side print fallback
-    setIsDownloadingPdf(false);
-    window.print();
   };
 
   // Click citation in chat to jump and pulse caption in left pane

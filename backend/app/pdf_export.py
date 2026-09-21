@@ -160,10 +160,109 @@ class PDFExportService:
         story.append(t_overview)
         story.append(Spacer(1, 14))
 
-        # 2. Key Definitions
+        # 2. Conceptual Architecture & Knowledge Map
+        diagram = guide_data.get("diagram", {})
+        nodes = diagram.get("nodes", [])
+        visuals = guide_data.get("visuals", {})
+
+        if nodes or visuals:
+            story.append(Paragraph("2. Conceptual Architecture & Knowledge Map", h2_style))
+            diag_title = diagram.get("title", f"{title_text} Concept Hierarchy")
+            diag_src = diagram.get("source", "Grounded AI Concept Graph")
+            story.append(Paragraph(f"<b>Architecture:</b> {diag_title} &nbsp;|&nbsp; <i>{diag_src}</i>", body_style))
+
+            if nodes:
+                node_rows = [
+                    [
+                        Paragraph("<b>Node ID</b>", ParagraphStyle("HdrNId", fontName="Helvetica-Bold", fontSize=9, textColor=colors.white)),
+                        Paragraph("<b>Concept Principle</b>", ParagraphStyle("HdrNLbl", fontName="Helvetica-Bold", fontSize=9, textColor=colors.white)),
+                        Paragraph("<b>Classification / Detail</b>", ParagraphStyle("HdrNDet", fontName="Helvetica-Bold", fontSize=9, textColor=colors.white)),
+                        Paragraph("<b>Relationship Flow</b>", ParagraphStyle("HdrNRel", fontName="Helvetica-Bold", fontSize=9, textColor=colors.white))
+                    ]
+                ]
+                edges = diagram.get("edges", [])
+                for n in nodes:
+                    nid = n.get("id", "")
+                    nlabel = n.get("label", "")
+                    ndetail = n.get("detail", "")
+
+                    connected = []
+                    for e in edges:
+                        if e.get("from") == nid:
+                            target_node = next((x for x in nodes if x.get("id") == e.get("to")), None)
+                            t_label = target_node.get("label") if target_node else e.get("to")
+                            connected.append(f"➔ {t_label}")
+                        elif e.get("to") == nid:
+                            source_node = next((x for x in nodes if x.get("id") == e.get("from")), None)
+                            s_label = source_node.get("label") if source_node else e.get("from")
+                            connected.append(f"⬅ {s_label}")
+
+                    rel_str = ", ".join(connected) if connected else "Core Anchor"
+
+                    node_rows.append([
+                        Paragraph(f"<b>{nid}</b>", ParagraphStyle("NIdCell", fontName="Helvetica", fontSize=8, textColor=muted_text)),
+                        Paragraph(f"<b>{nlabel}</b>", ParagraphStyle("NLblCell", fontName="Helvetica-Bold", fontSize=9, textColor=primary)),
+                        Paragraph(ndetail, body_style),
+                        Paragraph(rel_str, ParagraphStyle("NRelCell", fontName="Helvetica-Oblique", fontSize=8, textColor=accent))
+                    ])
+
+                t_nodes = Table(node_rows, colWidths=[80, 140, 140, letter[0] - 108 - 360])
+                t_nodes.setStyle(TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, 0), secondary),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("GRID", (0, 0), (-1, -1), 0.5, border_col),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, card_bg]),
+                    ("TOPPADDING", (0, 0), (-1, -1), 5),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ]))
+                story.append(t_nodes)
+                story.append(Spacer(1, 8))
+
+            # Visual diagram model summaries
+            for vkey, vval in visuals.items():
+                if vkey != "equation" and isinstance(vval, dict) and "caption" in vval:
+                    cap_text = vval["caption"]
+                    vname = {
+                        "thermoCycle": "Thermodynamic Energy Balance",
+                        "photosynthesis": "Dual-Phase Photosynthetic Pathway",
+                        "vectorTransform": "Eigenvector Linear Scaling",
+                        "lossCurve": "Convergence Optimization Profile",
+                        "network": "Neural Error Propagation",
+                        "conceptFlow": "Concept Progression Pipeline"
+                    }.get(vkey, vkey.capitalize())
+                    story.append(Paragraph(f"• <b>Visual Diagram [{vname}]:</b> <i>{cap_text}</i>", body_style))
+
+            # Governing Equation
+            if visuals.get("equation"):
+                eq = visuals["equation"]
+                eq_title = eq.get("title", "Governing Mathematical Law")
+                eq_latex = eq.get("latex", "")
+                eq_cap = eq.get("caption", "")
+                eq_table_data = [
+                    [Paragraph(f"<b>Governing Law: {eq_title}</b>", ParagraphStyle("EqT", fontName="Helvetica-Bold", fontSize=10, textColor=primary))],
+                    [Paragraph(eq_latex, code_formula_style)],
+                    [Paragraph(f"<b>Significance:</b> {eq_cap}", body_style)]
+                ]
+                t_eq = Table(eq_table_data, colWidths=[letter[0] - 108])
+                t_eq.setStyle(TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#fffbeb")),
+                    ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#fde68a")),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 10),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+                    ("TOPPADDING", (0, 0), (-1, -1), 6),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ]))
+                story.append(Spacer(1, 4))
+                story.append(KeepTogether([t_eq, Spacer(1, 6)]))
+
+            story.append(Spacer(1, 10))
+
+        # 3. Key Definitions
         definitions = guide_data.get("definitions", [])
         if definitions:
-            story.append(Paragraph("2. Key Scientific & Technical Definitions", h2_style))
+            story.append(Paragraph("3. Key Scientific & Technical Definitions", h2_style))
             def_rows = [
                 [
                     Paragraph("<b>STEM Term & Vernacular</b>", ParagraphStyle("Hdr", fontName="Helvetica-Bold", fontSize=9, textColor=colors.white)),
@@ -195,10 +294,10 @@ class PDFExportService:
             story.append(t_defs)
             story.append(Spacer(1, 14))
 
-        # 3. Formulas & Equations
+        # 4. Formulas & Equations
         formulas = guide_data.get("formulas", [])
         if formulas:
-            story.append(Paragraph("3. Core Mathematical Formulas & Equations", h2_style))
+            story.append(Paragraph("4. Core Mathematical Formulas & Equations", h2_style))
             for f in formulas:
                 f_name = f.get("name", "Formula")
                 f_latex = f.get("latex", "")
@@ -223,10 +322,10 @@ class PDFExportService:
                 story.append(KeepTogether([t_f, Spacer(1, 8)]))
             story.append(Spacer(1, 6))
 
-        # 4. Bulleted Takeaways
+        # 5. Bulleted Takeaways
         takeaways = guide_data.get("takeaways", [])
         if takeaways:
-            story.append(Paragraph("4. Key Lecture Takeaways & Timestamps", h2_style))
+            story.append(Paragraph("5. Key Lecture Takeaways & Timestamps", h2_style))
             for t in takeaways:
                 t_pt = t.get("point", "")
                 t_vpt = t.get("vernacular_point", "")
@@ -236,10 +335,10 @@ class PDFExportService:
                 story.append(Paragraph(point_html, body_style))
             story.append(Spacer(1, 14))
 
-        # 5. Review Flashcards
+        # 6. Review Flashcards
         flashcards = guide_data.get("flashcards", [])
         if flashcards:
-            story.append(Paragraph("5. Interactive Self-Test Flashcards", h2_style))
+            story.append(Paragraph("6. Interactive Self-Test Flashcards", h2_style))
             for fc in flashcards:
                 q_text = fc.get("front", "")
                 vq_text = fc.get("vernacular_front", "")

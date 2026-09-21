@@ -249,6 +249,7 @@ Lecture Transcript:
 {full_text_en}
 
 Generate rich, accurate academic content directly from this transcript.
+CRITICAL: If the lecture transcript does not discuss or state any mathematical formulas, physical laws, or quantitative equations, 'formulas' MUST be an empty array []. Do not invent formulas for non-mathematical topics.
 Return ONLY valid JSON matching this exact JSON schema:
 {{
   "title": "<Concise descriptive title of this specific lecture>",
@@ -336,11 +337,19 @@ Return ONLY valid JSON matching this exact JSON schema:
 
             # Ensure diagram has nodes
             detected_terms = glossary_engine.detect_terms_in_text(full_text_en)
+            lower_text = full_text_en.lower()
+
+            has_quant = any(tok in lower_text for tok in [
+                "equation", "formula", "law", "=", "+", "-", "*", "/", "calcul", "deriv",
+                "gradient", "loss", "matrix", "vector", "energy", "heat", "force", "mass", "rate", "reaction"
+            ])
+            if not has_quant and not detected_terms:
+                data["formulas"] = []
+
             if not data.get("diagram") or not data.get("diagram", {}).get("nodes"):
                 data["diagram"] = self._build_concept_diagram(detected_terms, data.get("formulas", []))
 
             # Build visuals (diagram cards / SVG visual aids)
-            lower_text = full_text_en.lower()
             formulas = data.get("formulas", [])
             primary_eq = formulas[0] if formulas else None
 

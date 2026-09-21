@@ -56,6 +56,7 @@ class QuestionRequest(BaseModel):
 class StudyGuideRequest(BaseModel):
     target_lang: Optional[str] = "ta"
     segments: Optional[List[Dict[str, Any]]] = None
+    guide: Optional[Dict[str, Any]] = None
 
 class LangSwitchRequest(BaseModel):
     target_lang: str
@@ -309,11 +310,15 @@ def generate_study_guide(req: StudyGuideRequest):
 
 @app.post("/api/study-guide/pdf")
 def export_study_guide_pdf(req: StudyGuideRequest):
-    segs = req.segments if req.segments is not None else active_session["segments"]
-    target_lang = req.target_lang or active_session["target_lang"]
-    guide = study_guide_generator.generate(segs, target_lang=target_lang)
+    if req.guide:
+        guide = req.guide
+    else:
+        segs = req.segments if req.segments is not None else active_session["segments"]
+        target_lang = req.target_lang or active_session["target_lang"]
+        guide = study_guide_generator.generate(segs, target_lang=target_lang)
     pdf_bytes = pdf_export_service.generate_pdf(guide)
 
+    target_lang = req.target_lang or guide.get("target_language", "ta")
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
