@@ -192,15 +192,6 @@ class StudyGuideGenerator:
                 "variables": "n: number of elements, T(n): running time"
             })
 
-        # Default fallback formula if none matched
-        if not formulas:
-            formulas.append({
-                "name": "Euler's Identity & Exponential Decay",
-                "latex": "e^{i\\pi} + 1 = 0 \\quad \\text{and} \\quad f(t) = f_0 e^{-kt}",
-                "description": "Fundamental mathematical relation and exponential rate process.",
-                "variables": "e: Euler's number, i: imaginary unit, π: Archimedes constant"
-            })
-
         return formulas
 
     def _try_llm_synthesis(

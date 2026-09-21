@@ -378,11 +378,19 @@ async def websocket_lecture_endpoint(
                     # Transcribe using faster-whisper
                     offset = active_session["current_time_offset"]
                     # Try WAV / audio chunk transcription
-                    asr_results = asr_processor.transcribe_audio_bytes(raw_bytes, time_offset=offset)
+                    asr_results = asr_processor.transcribe_audio_bytes(
+                        raw_bytes,
+                        time_offset=offset,
+                        language=active_session.get("source_lang", "en")
+                    )
                     
                     if not asr_results:
                         # Try raw PCM 16-bit
-                        asr_results = asr_processor.transcribe_pcm16(raw_bytes, time_offset=offset)
+                        asr_results = asr_processor.transcribe_pcm16(
+                            raw_bytes,
+                            time_offset=offset,
+                            language=active_session.get("source_lang", "en")
+                        )
 
                     if asr_results:
                         for item in asr_results:
@@ -620,9 +628,17 @@ async def websocket_classroom_endpoint(
                     raw_bytes = message["bytes"]
                     if len(raw_bytes) > 2000:
                         offset = room.current_time_offset
-                        asr_results = asr_processor.transcribe_audio_bytes(raw_bytes, time_offset=offset)
+                        asr_results = asr_processor.transcribe_audio_bytes(
+                            raw_bytes,
+                            time_offset=offset,
+                            language=room.source_lang
+                        )
                         if not asr_results:
-                            asr_results = asr_processor.transcribe_pcm16(raw_bytes, time_offset=offset)
+                            asr_results = asr_processor.transcribe_pcm16(
+                                raw_bytes,
+                                time_offset=offset,
+                                language=room.source_lang
+                            )
 
                         if asr_results:
                             for item in asr_results:

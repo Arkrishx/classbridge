@@ -106,7 +106,8 @@ class ASRProcessor:
         self,
         pcm_bytes: bytes,
         sample_rate: int = 16000,
-        time_offset: float = 0.0
+        time_offset: float = 0.0,
+        language: str = "en"
     ) -> List[Dict[str, Any]]:
         """
         Transcribes raw 16-bit 16kHz mono PCM samples.
@@ -126,7 +127,7 @@ class ASRProcessor:
 
             segments, info = self.model.transcribe(
                 audio_np,
-                language="en",
+                language=language,
                 beam_size=3,
                 vad_filter=True,
                 condition_on_previous_text=False

@@ -122,6 +122,14 @@ def test_all():
     guide = r.json()
     assert len(guide["definitions"]) > 0 or len(guide["takeaways"]) > 0
     print(f"[OK] Study guide generated: '{guide['title']}' with {len(guide['definitions'])} definitions, {len(guide['formulas'])} formulas, {len(guide['flashcards'])} flashcards")
+
+    # 6a. Do not invent formulas when the lecture contains no formula evidence
+    from backend.app.study_guide import StudyGuideGenerator
+    plain_guide = StudyGuideGenerator().generate([
+        {"id": 1, "text_en": "Today we discuss classroom collaboration.", "text_vernacular": ""}
+    ], target_lang="ta")
+    assert plain_guide["formulas"] == []
+    print("[OK] Study guide does not invent unrelated formulas")
     
     # 7. PDF Export
     r = client.post("/api/study-guide/pdf", json={
