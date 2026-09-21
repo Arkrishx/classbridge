@@ -932,6 +932,81 @@ body {
   gap: 20px;
 }
 
+/* Presentation-focused study guide surface */
+.study-guide-modal {
+  border-color: rgba(56, 189, 248, 0.28);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.72), 0 0 44px rgba(56, 189, 248, 0.12);
+}
+
+.study-guide-head {
+  background: linear-gradient(135deg, rgba(15, 20, 34, 0.98), rgba(12, 37, 52, 0.94));
+}
+
+.study-guide-tabs {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(56, 189, 248, 0.5) transparent;
+}
+
+.study-guide-tabs .lang-pill-btn {
+  position: relative;
+  transition: color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.study-guide-tabs .lang-pill-btn:hover {
+  transform: translateY(-1px);
+}
+
+.study-guide-tabs .lang-pill-btn.active::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: -5px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--accent-cyan);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.7);
+}
+
+.study-guide-body {
+  background: radial-gradient(circle at 80% 0%, rgba(56, 189, 248, 0.06), transparent 34%), #0f1422;
+}
+
+.concept-map-node,
+.visual-explanation-card {
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.concept-map-node:hover,
+.visual-explanation-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(56, 189, 248, 0.72) !important;
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.28);
+}
+
+.visual-explanation-card svg {
+  display: block;
+  margin: 0 auto;
+}
+
+.demo-showcase-btn {
+  border-color: rgba(52, 211, 153, 0.65);
+  background: linear-gradient(135deg, rgba(5, 150, 105, 0.45), rgba(14, 116, 144, 0.42));
+  color: #d1fae5;
+  box-shadow: 0 0 18px rgba(52, 211, 153, 0.16);
+}
+
+.demo-showcase-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.62), rgba(14, 165, 233, 0.56));
+  border-color: rgba(167, 243, 208, 0.9);
+  color: #ffffff;
+}
+
+.demo-showcase-icon {
+  color: #6ee7b7 !important;
+  border-color: rgba(52, 211, 153, 0.55) !important;
+}
+
 /* Interactive Flashcards 3D */
 .flashcards-grid {
   display: grid;
@@ -4041,6 +4116,48 @@ body {
   .google-meet-dock {
     padding: 5px 8px;
     gap: 6px;
+  }
+
+  .google-meet-dock .demo-showcase-btn {
+    display: inline-flex;
+  }
+
+  .study-guide-head {
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .study-guide-head .btn-shimmer {
+    padding: 7px 9px !important;
+  }
+
+  .study-guide-head .btn-shimmer span {
+    display: none;
+  }
+
+  .study-guide-body {
+    padding: 14px !important;
+  }
+
+  .concept-map-flow {
+    flex-direction: column;
+  }
+
+  .concept-map-flow > span {
+    transform: rotate(90deg);
+  }
+
+  .visual-explanation-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .equation-card {
+    grid-column: auto !important;
+  }
+
+  .equation-card > div:nth-child(2) {
+    font-size: 16px !important;
+    overflow-wrap: anywhere;
   }
 
   .google-circle-btn {

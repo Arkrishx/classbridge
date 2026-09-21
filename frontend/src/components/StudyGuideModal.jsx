@@ -44,9 +44,9 @@ export default function StudyGuideModal({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '980px' }}>
+      <div className="modal-card study-guide-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '980px' }}>
         {/* Modal Header */}
-        <div className="modal-head">
+        <div className="modal-head study-guide-head">
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div
               style={{
@@ -96,6 +96,7 @@ export default function StudyGuideModal({
 
         {/* Tab Navigation */}
         <div
+          className="study-guide-tabs"
           style={{
             display: 'flex',
             borderBottom: '1px solid var(--border-subtle)',
@@ -112,6 +113,8 @@ export default function StudyGuideModal({
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
+                aria-selected={isActive}
+                role="tab"
                 className={`lang-pill-btn ${isActive ? 'active' : ''}`}
                 style={{
                   borderRadius: 'var(--radius-md)',
@@ -130,7 +133,7 @@ export default function StudyGuideModal({
         </div>
 
         {/* Tab Body */}
-        <div className="modal-scroll" style={{ maxHeight: '65vh', padding: '20px' }}>
+        <div className="modal-scroll study-guide-body" style={{ maxHeight: '65vh', padding: '20px' }}>
           {/* Summary Tab */}
           {activeTab === 'summary' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -176,10 +179,10 @@ export default function StudyGuideModal({
                 {guide.diagram?.source || 'Generated from this lecture transcript.'}
               </div>
               {guide.diagram?.nodes?.length ? (
-                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                <div className="concept-map-flow" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
                   {guide.diagram.nodes.map((node) => (
                     <React.Fragment key={node.id}>
-                      <div style={{ minWidth: '150px', padding: '14px', borderRadius: '10px', border: '1px solid rgba(56, 189, 248, 0.35)', background: 'rgba(56, 189, 248, 0.08)', textAlign: 'center' }}>
+                      <div className="concept-map-node" style={{ minWidth: '150px', padding: '14px', borderRadius: '10px', border: '1px solid rgba(56, 189, 248, 0.35)', background: 'rgba(56, 189, 248, 0.08)', textAlign: 'center' }}>
                         <div style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '13px' }}>{node.label}</div>
                         <div style={{ color: 'var(--text-muted)', fontSize: '11px', marginTop: '4px' }}>{node.detail}</div>
                       </div>
@@ -191,8 +194,8 @@ export default function StudyGuideModal({
                 <div className="empty-box"><div style={{ fontSize: '14px', color: 'var(--text-muted)' }}>No concept relationships detected in this session.</div></div>
               )}
               {guide.visuals && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', marginTop: '4px' }}>
-                  <div style={{ padding: '12px', border: '1px solid rgba(52, 211, 153, 0.3)', borderRadius: '10px', background: 'rgba(52, 211, 153, 0.05)' }}>
+                <div className="visual-explanation-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', marginTop: '4px' }}>
+                  <div className="visual-explanation-card loss-card" style={{ padding: '12px', border: '1px solid rgba(52, 211, 153, 0.3)', borderRadius: '10px', background: 'rgba(52, 211, 153, 0.05)' }}>
                     <div style={{ color: 'var(--accent-emerald)', fontWeight: 700, fontSize: '13px', marginBottom: '6px' }}>Loss decreases during training</div>
                     <svg viewBox="0 0 320 170" role="img" aria-label="Loss curve descending over training iterations" style={{ width: '100%', height: '170px' }}>
                       <line x1="38" y1="12" x2="38" y2="140" stroke="rgba(255,255,255,0.3)" />
@@ -204,7 +207,7 @@ export default function StudyGuideModal({
                     </svg>
                     <div style={{ color: 'var(--text-muted)', fontSize: '11px' }}>{guide.visuals.lossCurve.caption}</div>
                   </div>
-                  <div style={{ padding: '12px', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '10px', background: 'rgba(56, 189, 248, 0.05)' }}>
+                  <div className="visual-explanation-card network-card" style={{ padding: '12px', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '10px', background: 'rgba(56, 189, 248, 0.05)' }}>
                     <div style={{ color: 'var(--accent-cyan)', fontWeight: 700, fontSize: '13px', marginBottom: '6px' }}>Neural network learning flow</div>
                     <svg viewBox="0 0 320 170" role="img" aria-label="Neural network layers connected by arrows" style={{ width: '100%', height: '170px' }}>
                       <g stroke="rgba(148,163,184,0.45)" strokeWidth="2">
@@ -216,7 +219,7 @@ export default function StudyGuideModal({
                     </svg>
                     <div style={{ color: 'var(--text-muted)', fontSize: '11px' }}>{guide.visuals.network.caption}</div>
                   </div>
-                  <div style={{ padding: '12px', border: '1px solid rgba(250, 204, 21, 0.35)', borderRadius: '10px', background: 'rgba(250, 204, 21, 0.05)', gridColumn: '1 / -1' }}>
+                  <div className="visual-explanation-card equation-card" style={{ padding: '12px', border: '1px solid rgba(250, 204, 21, 0.35)', borderRadius: '10px', background: 'rgba(250, 204, 21, 0.05)', gridColumn: '1 / -1' }}>
                     <div style={{ color: 'var(--accent-gold)', fontWeight: 700, fontSize: '13px' }}>Parameter update equation</div>
                     <div style={{ color: '#f8fafc', fontFamily: 'var(--font-mono)', fontSize: '22px', textAlign: 'center', padding: '16px 8px' }}>{guide.visuals.equation.latex}</div>
                     <div style={{ color: 'var(--text-muted)', fontSize: '11px', textAlign: 'center' }}>{guide.visuals.equation.caption}</div>

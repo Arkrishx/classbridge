@@ -207,7 +207,7 @@ export default function GoogleBottomDock({
           <span className="pill-btn-label">History</span>
         </button>
 
-        <button className="google-pill-btn guide-btn" onClick={onOpenDemoShowcase} title="Load the ready-to-present ClassBridge demo" type="button">
+        <button className="google-pill-btn guide-btn demo-showcase-btn" onClick={onOpenDemoShowcase} title="Load the ready-to-present ClassBridge demo" type="button">
           <Sparkles size={15} />
           <span className="pill-btn-label">Demo Showcase</span>
         </button>
