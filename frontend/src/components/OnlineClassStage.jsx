@@ -551,7 +551,7 @@ export default function OnlineClassStage({
                 className={`main-video-feed ${isCameraActive ? 'active' : 'hidden'}`}
                 style={{
                   ...(!isCameraActive ? { position: 'absolute', opacity: 0, pointerEvents: 'none', width: '1px', height: '1px' } : {}),
-                  transform: isCameraActive && isFlipHorizontal && !isScreenSharing ? 'scaleX(-1)' : 'none'
+                  transform: isCameraActive && !isScreenSharing ? 'scaleX(-1)' : 'none'
                 }}
               />
               {!isCameraActive && (
