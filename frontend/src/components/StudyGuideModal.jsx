@@ -25,6 +25,7 @@ export default function StudyGuideModal({
 
   const tabs = [
     { id: 'summary', label: 'Overview', icon: BookOpen },
+    { id: 'diagram', label: 'Concept Map', icon: Sparkles },
     { id: 'definitions', label: `Definitions (${guide.definitions?.length || 0})`, icon: FileText },
     { id: 'formulas', label: `Formulas (${guide.formulas?.length || 0})`, icon: Calculator },
     { id: 'takeaways', label: `Takeaways (${guide.takeaways?.length || 0})`, icon: CheckSquare },
@@ -166,6 +167,29 @@ export default function StudyGuideModal({
                   {guide.overview?.vernacular}
                 </p>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'diagram' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+                {guide.diagram?.source || 'Generated from this lecture transcript.'}
+              </div>
+              {guide.diagram?.nodes?.length ? (
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                  {guide.diagram.nodes.map((node) => (
+                    <React.Fragment key={node.id}>
+                      <div style={{ minWidth: '150px', padding: '14px', borderRadius: '10px', border: '1px solid rgba(56, 189, 248, 0.35)', background: 'rgba(56, 189, 248, 0.08)', textAlign: 'center' }}>
+                        <div style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '13px' }}>{node.label}</div>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '11px', marginTop: '4px' }}>{node.detail}</div>
+                      </div>
+                      {node.id !== guide.diagram.nodes[guide.diagram.nodes.length - 1].id && <span style={{ color: 'var(--accent-gold)', fontSize: '20px' }}>→</span>}
+                    </React.Fragment>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-box"><div style={{ fontSize: '14px', color: 'var(--text-muted)' }}>No concept relationships detected in this session.</div></div>
+              )}
             </div>
           )}
 

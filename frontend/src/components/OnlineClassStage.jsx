@@ -32,7 +32,9 @@ import {
   X,
   Clock,
   ArrowRight,
-  PhoneOff
+  PhoneOff,
+  FlipHorizontal,
+  Clock3
 } from 'lucide-react';
 import { exportCaptionsAsTxt, exportCaptionsAsPdf } from '../utils/captionExport';
 
@@ -70,6 +72,7 @@ export default function OnlineClassStage({
   onSendQaComment,
   onBroadcastKeyword,
   onEndSession,
+  onOpenHistory,
 }) {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const isCameraActiveRef = useRef(false);
@@ -94,6 +97,29 @@ export default function OnlineClassStage({
   const recordedChunksRef = useRef([]);
   const recordingIntervalRef = useRef(null);
   const recordingStreamRef = useRef(null);
+
+  // Camera Mirror / Whiteboard Reading Mode State
+  // Default to true (un-mirrored / readable writing) so blackboard/whiteboard handwriting is legible
+  const [isFlipHorizontal, setIsFlipHorizontal] = useState(() => {
+    try {
+      return localStorage.getItem('classbridge_camera_flip') !== 'false';
+    } catch (e) {
+      return true;
+    }
+  });
+  const isFlipHorizontalRef = useRef(isFlipHorizontal);
+  const isScreenSharingRef = useRef(false);
+
+  useEffect(() => {
+    isFlipHorizontalRef.current = isFlipHorizontal;
+  }, [isFlipHorizontal]);
+
+  useEffect(() => {
+    isScreenSharingRef.current = isScreenSharing;
+  }, [isScreenSharing]);
+
+  // Student manual view flip state
+  const [studentFlip, setStudentFlip] = useState(false);
 
   // Teacher Camera & Screen Media Refs
   const localVideoRef = useRef(null);
@@ -306,7 +332,18 @@ export default function OnlineClassStage({
       if (!video || !isCameraActiveRef.current) return;
       if (video.readyState < 2 || video.videoWidth === 0) return;
       try {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // If horizontal flip is enabled (and not sharing screen), flip horizontally so handwritten text is normal and readable
+        if (isFlipHorizontalRef.current && !isScreenSharingRef.current) {
+          ctx.save();
+          ctx.translate(canvas.width, 0);
+          ctx.scale(-1, 1);
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          ctx.restore();
+        } else {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        }
+
         const dataUrl = canvas.toDataURL('image/jpeg', 0.55);
         if (onBroadcastVideoFrame) {
           onBroadcastVideoFrame(dataUrl);
@@ -333,6 +370,20 @@ export default function OnlineClassStage({
   const startSessionRecording = async () => {
     let streamToRecord = localStreamRef.current;
     let isDisplayStream = false;
+
+    // If teacher is recording camera with flip active, record from the un-mirrored canvas stream so the saved video is readable
+    if (streamToRecord && isFlipHorizontalRef.current && !isScreenSharingRef.current && offscreenCanvasRef.current && offscreenCanvasRef.current.captureStream) {
+      try {
+        const canvasStream = offscreenCanvasRef.current.captureStream(20);
+        const audioTracks = streamToRecord.getAudioTracks();
+        streamToRecord = new MediaStream([
+          ...canvasStream.getVideoTracks(),
+          ...audioTracks
+        ]);
+      } catch (e) {
+        streamToRecord = localStreamRef.current;
+      }
+    }
 
     if (!streamToRecord) {
       try {
@@ -670,6 +721,9 @@ export default function OnlineClassStage({
 
         {/* Bottom Floating Control Dock (Google Meet Toolbar) */}
         <div className="video-control-dock">
+          <button type="button" className="meet-dock-btn secondary" onClick={onOpenHistory} title="Open saved lecture history">
+            <Clock3 size={17} />
+          </button>
           {userRole === 'teacher' ? (
             <>
               {/* Mic Toggle */}

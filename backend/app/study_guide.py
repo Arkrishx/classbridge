@@ -32,6 +32,8 @@ class StudyGuideGenerator:
         # 1. Try LLM synthesis if API key is provided
         llm_result = self._try_llm_synthesis(segments, full_text_en, target_lang)
         if llm_result:
+            detected_terms = glossary_engine.detect_terms_in_text(full_text_en)
+            llm_result.setdefault("diagram", self._build_concept_diagram(detected_terms, llm_result.get("formulas", [])))
             return llm_result
 
         # 2. Robust Heuristic & Domain-Adapted Synthesis Fallback
@@ -76,6 +78,7 @@ class StudyGuideGenerator:
 
         # Extract or infer STEM formulas
         formulas = self._extract_formulas(full_text_en, detected_terms)
+        diagram = self._build_concept_diagram(detected_terms, formulas)
 
         # Generate bulleted takeaways from segments
         takeaways = []
@@ -142,6 +145,7 @@ class StudyGuideGenerator:
             },
             "definitions": definitions,
             "formulas": formulas,
+            "diagram": diagram,
             "takeaways": takeaways,
             "flashcards": flashcards,
             "segment_count": len(segments)
@@ -193,6 +197,32 @@ class StudyGuideGenerator:
             })
 
         return formulas
+
+    def _build_concept_diagram(self, detected_terms: List[Dict[str, Any]], formulas: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Build a grounded concept flow from terms actually found in the transcript."""
+        nodes = [{
+            "id": "lecture",
+            "label": "Lecture Concepts",
+            "detail": "Transcript"
+        }]
+        edges = []
+        for index, term in enumerate(detected_terms[:6], start=1):
+            node_id = f"concept_{index}"
+            nodes.append({
+                "id": node_id,
+                "label": term.get("en", "Concept"),
+                "detail": term.get("category", "STEM")
+            })
+            edges.append({"from": "lecture", "to": node_id})
+        if formulas:
+            nodes.append({"id": "formula", "label": "Applied Formula", "detail": formulas[0].get("name", "Formula")})
+            edges.append({"from": "lecture", "to": "formula"})
+        return {
+            "title": "Grounded Lecture Concept Map",
+            "nodes": nodes,
+            "edges": edges,
+            "source": "Generated only from detected transcript concepts and formulas"
+        }
 
     def _try_llm_synthesis(
         self,
@@ -291,6 +321,7 @@ Return ONLY valid JSON matching this exact JSON schema:
             },
             "definitions": [],
             "formulas": [],
+            "diagram": {"title": "No concepts detected", "nodes": [], "edges": [], "source": "No transcript available"},
             "takeaways": [],
             "flashcards": [],
             "segment_count": 0

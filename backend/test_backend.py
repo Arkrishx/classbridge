@@ -127,6 +127,8 @@ def test_all():
     assert r.status_code == 200
     guide = r.json()
     assert len(guide["definitions"]) > 0 or len(guide["takeaways"]) > 0
+    assert "diagram" in guide
+    assert guide["diagram"]["nodes"]
     print(f"[OK] Study guide generated: '{guide['title']}' with {len(guide['definitions'])} definitions, {len(guide['formulas'])} formulas, {len(guide['flashcards'])} flashcards")
 
     # 6a. Do not invent formulas when the lecture contains no formula evidence

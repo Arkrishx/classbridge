@@ -7,6 +7,7 @@ import { SUPPORTED_LANGUAGES } from './components/Header';
 import CaptionPane from './components/CaptionPane';
 import ChatPanel from './components/ChatPanel';
 import StudyGuideModal from './components/StudyGuideModal';
+import LectureHistoryModal from './components/LectureHistoryModal';
 import GlossaryModal from './components/GlossaryModal';
 import AboutModal from './components/AboutModal';
 import AudioDeviceModal from './components/AudioDeviceModal';
@@ -396,6 +397,14 @@ export default function App() {
     }
   });
   const [segments, setSegments] = useState([]);
+  const [lectureHistory, setLectureHistory] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('classbridge_lecture_history') || '[]');
+    } catch (e) {
+      return [];
+    }
+  });
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [isRecording, setIsRecording] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
@@ -547,6 +556,25 @@ export default function App() {
   const userRoleRef = useRef(userRole);
   const roomCodeRef = useRef(roomCode);
   const classModeRef = useRef(classMode);
+
+  useEffect(() => {
+    if (!segments.length) return;
+    const entry = {
+      id: `${roomCode}-${segments[0]?.id || Date.now()}`,
+      title: `${classMode === 'online_classroom' ? 'Online' : 'Real-Time'} Lecture - ${roomCode}`,
+      date: new Date().toLocaleString(),
+      sourceLang,
+      targetLang,
+      segments,
+    };
+    setLectureHistory((previous) => {
+      const next = [entry, ...previous.filter((item) => item.id !== entry.id)].slice(0, 8);
+      try {
+        localStorage.setItem('classbridge_lecture_history', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+  }, [segments, userRole, roomCode, classMode, sourceLang, targetLang]);
 
   useEffect(() => {
     userRoleRef.current = userRole;
@@ -2721,6 +2749,7 @@ export default function App() {
           onSendQaComment={handleSendQaComment}
           onBroadcastKeyword={handleBroadcastKeyword}
           onEndSession={handleEndOnlineSession}
+          onOpenHistory={() => setIsHistoryOpen(true)}
         />
       ) : (
         <main className={`google-main-stage view-${viewMode} mobile-${mobileActiveTab}`}>
@@ -2795,6 +2824,7 @@ export default function App() {
           classMode={classMode}
           userRole={userRole}
           onOpenClassroomModal={() => setIsClassroomModalOpen(true)}
+          onOpenHistory={() => setIsHistoryOpen(true)}
         />
       )}
 
@@ -2851,6 +2881,18 @@ export default function App() {
         onClose={() => setStudyGuide(null)}
         onDownloadPdf={handleDownloadPdf}
         isDownloadingPdf={isDownloadingPdf}
+      />
+
+      <LectureHistoryModal
+        history={lectureHistory}
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        onRestore={(entry) => {
+          setSegments(entry.segments || []);
+          setSourceLang(entry.sourceLang || 'en');
+          setTargetLang(entry.targetLang || 'ta');
+          setIsHistoryOpen(false);
+        }}
       />
 
       <GlossaryModal

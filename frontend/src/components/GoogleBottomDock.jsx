@@ -14,6 +14,7 @@ import {
   RotateCcw,
   Headphones,
   Sliders,
+  Clock3,
 } from 'lucide-react';
 
 export default function GoogleBottomDock({
@@ -36,6 +37,7 @@ export default function GoogleBottomDock({
   classMode = 'realtime_classroom',
   userRole = 'student',
   onOpenClassroomModal,
+  onOpenHistory,
 }) {
   const [quickInput, setQuickInput] = useState('');
 
@@ -197,6 +199,11 @@ export default function GoogleBottomDock({
           <span className="pill-btn-label">
             {isGeneratingGuide ? 'Generating...' : 'Study Guide'}
           </span>
+        </button>
+
+        <button className="google-pill-btn" onClick={onOpenHistory} title="Open saved lecture history" type="button">
+          <Clock3 size={15} />
+          <span className="pill-btn-label">History</span>
         </button>
 
         {/* 6. Quick Demo Replay & Reset */}
