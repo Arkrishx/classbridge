@@ -2452,6 +2452,7 @@ export default function App() {
     }
 
     setIsGeneratingGuide(true);
+    setStudyGuide(null); // Clear previous study guide graph immediately so it never shows stale data
     setErrorMessage(null);
 
     try {
@@ -2469,208 +2470,183 @@ export default function App() {
         return;
       }
     } catch (e) {
-      console.log("Backend study guide unavailable, generating client-side guide.");
+      console.log("Backend study guide unavailable, generating dynamic client-side guide.");
     }
 
-    // Client-side fallback study guide generator
+    // Dynamic Client-side fallback study guide generator
     const langObj = SUPPORTED_LANGUAGES.find((l) => l.code === targetLang) || { name: 'Tamil', native: 'தமிழ்' };
-
-    let overviewVernacular = `${segments.length} விரிவுரை பகுதிகளிலிருந்து தொகுக்கப்பட்ட விரிவான STEM படிப்பு வழிகாட்டி.`;
-    let defs = [
-      {
-        term: "Gradient Descent",
-        vernacular_term: "சரிவு இறக்கம் (Gradient Descent)",
-        category: "Machine Learning",
-        definition: "First-order iterative optimization algorithm for finding a local minimum of a differentiable loss function.",
-        vernacular_definition: "ஒரு சார்பின் உள்ளூர் குறைந்தபட்சத்தைக் கண்டறிவதற்கான முதல்-வரிசை மறுசெயல்முறை உகப்பாக்கம்."
-      },
-      {
-        term: "Eigenvalue",
-        vernacular_term: "சிறப்பியல்பு மதிப்பு (Eigenvalue)",
-        category: "Linear Algebra",
-        definition: "Scalar factor that scales an eigenvector during a linear transformation without changing its line of action.",
-        vernacular_definition: "நேரியல் உருமாற்றத்தில் திசையனின் திசையை மாற்றாமல் அளவிடும் காரணி."
-      },
-      {
-        term: "Backpropagation",
-        vernacular_term: "பின்நோக்கு பரவல் (Backpropagation)",
-        category: "Machine Learning",
-        definition: "Efficient gradient computation algorithm via chain rule throughout layered neural networks.",
-        vernacular_definition: "சங்கிலி விதியைப் பயன்படுத்தி நரம்பியல் வலைப்பின்னல்களில் சரிவுகளைக் கணக்கிடும் வழிமுறை."
-      }
-    ];
-
-    let flashcards = [
-      {
-        id: 1,
-        front: "What is Gradient Descent?",
-        vernacular_front: "சரிவு இறக்கம் என்றால் என்ன?",
-        back: "An optimization algorithm that minimizes the loss function by iteratively moving in the direction of steepest descent.",
-        category: "Machine Learning"
-      },
-      {
-        id: 2,
-        front: "What equation defines an eigenvalue and eigenvector?",
-        vernacular_front: "சிறப்பியல்பு மதிப்பு மற்றும் திசையனை வரையறுக்கும் சமன்பாடு எது?",
-        back: "A v = λ v, where matrix A acts on non-zero vector v resulting in scaled vector λv.",
-        category: "Linear Algebra"
-      },
-      {
-        id: 3,
-        front: "What happens if the learning rate is too large?",
-        vernacular_front: "கற்றல் வீதம் மிக அதிகமாக இருந்தால் என்ன நடக்கும்?",
-        back: "The optimization may diverge, overshoot the minimum, and cause unstable oscillations or severe overfitting.",
-        category: "Deep Learning"
-      }
-    ];
-
-    if (targetLang === 'ml') {
-      overviewVernacular = `${segments.length} പ്രഭാഷണ ഭാഗങ്ങളിൽ നിന്ന് തയ്യാറാക്കിയ സമഗ്രമായ STEM പഠന സഹായി.`;
-      defs = [
-        {
-          term: "Gradient Descent",
-          vernacular_term: "ഗ്രേഡിയന്റ് ഡിസന്റ് (Gradient Descent)",
-          category: "Machine Learning",
-          definition: "First-order iterative optimization algorithm for finding a local minimum of a differentiable loss function.",
-          vernacular_definition: "ഒരു ഫംഗ്ഷന്റെ ലോക്കൽ മിനിമം കണ്ടെത്താനുള്ള ആവർത്തന ഒപ്റ്റിമൈസേഷൻ അൽഗോരിതം."
-        },
-        {
-          term: "Eigenvalue",
-          vernacular_term: "ഐഗൺവാല്യു (Eigenvalue)",
-          category: "Linear Algebra",
-          definition: "Scalar factor that scales an eigenvector during a linear transformation without changing its line of action.",
-          vernacular_definition: "ലീനിയർ ട്രാൻസ്ഫോർമേഷനിൽ ഐഗൺവെക്ടറിനെ സ്കെയിൽ ചെയ്യുന്ന മൂല്യം."
-        },
-        {
-          term: "Backpropagation",
-          vernacular_term: "ബാക്ക്പ്രൊപ്പഗേഷൻ (Backpropagation)",
-          category: "Machine Learning",
-          definition: "Efficient gradient computation algorithm via chain rule throughout layered neural networks.",
-          vernacular_definition: "ചെയിൻ റൂൾ ഉപയോഗിച്ച് ന്യൂറൽ നെറ്റ്‌വർക്കുകളിൽ ഗ്രേഡിയന്റുകൾ കണക്കാക്കുന്ന രീതി."
-        }
-      ];
-      flashcards = [
-        {
-          id: 1,
-          front: "What is Gradient Descent?",
-          vernacular_front: "ഗ്രേഡിയന്റ് ഡിസന്റ് എന്നാൽ എന്താണ്?",
-          back: "An optimization algorithm that minimizes the loss function by iteratively moving in the direction of steepest descent.",
-          category: "Machine Learning"
-        },
-        {
-          id: 2,
-          front: "What equation defines an eigenvalue and eigenvector?",
-          vernacular_front: "ഐഗൺവാല്യുവും ഐഗൺവെക്ടറും നിർവചിക്കുന്ന സമവാക്യം ഏതാണ്?",
-          back: "A v = λ v, where matrix A acts on non-zero vector v resulting in scaled vector λv.",
-          category: "Linear Algebra"
-        },
-        {
-          id: 3,
-          front: "What happens if the learning rate is too large?",
-          vernacular_front: "ലേണിംഗ് റേറ്റ് വളരെ കൂടിയാൽ എന്ത് സംഭവിക്കും?",
-          back: "The optimization may diverge, overshoot the minimum, and cause unstable oscillations or severe overfitting.",
-          category: "Deep Learning"
-        }
-      ];
-    } else if (targetLang === 'hi') {
-      overviewVernacular = `${segments.length} व्याख्यान खंडों से तैयार की गई व्यापक STEM अध्ययन मार्गदर्शिका।`;
-      defs = [
-        {
-          term: "Gradient Descent",
-          vernacular_term: "प्रवणता अवरोहण (Gradient Descent)",
-          category: "Machine Learning",
-          definition: "First-order iterative optimization algorithm for finding a local minimum of a differentiable loss function.",
-          vernacular_definition: "किसी अवकलनीय हानि फलन का स्थानीय न्यूनतम खोजने के लिए प्रथम-क्रम पुनरावृत्ति अनुकूलन एल्गोरिदम।"
-        },
-        {
-          term: "Eigenvalue",
-          vernacular_term: "अभिलाक्षणिक मान (Eigenvalue)",
-          category: "Linear Algebra",
-          definition: "Scalar factor that scales an eigenvector during a linear transformation without changing its line of action.",
-          vernacular_definition: "एक अदिश मान जो रैखिक रूपांतरण के दौरान दिशा बदले बिना सदिश का परिमाण बदलता है।"
-        },
-        {
-          term: "Backpropagation",
-          vernacular_term: "पश्च-प्रसार (Backpropagation)",
-          category: "Machine Learning",
-          definition: "Efficient gradient computation algorithm via chain rule throughout layered neural networks.",
-          vernacular_definition: "श्रृंखला नियम का उपयोग करके तंत्रिका नेटवर्क में ग्रेडिएंट की गणना करने की कुशल विधि।"
-        }
-      ];
-      flashcards = [
-        {
-          id: 1,
-          front: "What is Gradient Descent?",
-          vernacular_front: "प्रवणता अवरोहण (Gradient Descent) क्या है?",
-          back: "An optimization algorithm that minimizes the loss function by iteratively moving in the direction of steepest descent.",
-          category: "Machine Learning"
-        },
-        {
-          id: 2,
-          front: "What equation defines an eigenvalue and eigenvector?",
-          vernacular_front: "अभिलाक्षणिक मान और अभिलाक्षणिक सदिश को परिभाषित करने वाला समीकरण कौन सा है?",
-          back: "A v = λ v, where matrix A acts on non-zero vector v resulting in scaled vector λv.",
-          category: "Linear Algebra"
-        },
-        {
-          id: 3,
-          front: "What happens if the learning rate is too large?",
-          vernacular_front: "यदि सीखने की दर बहुत अधिक हो तो क्या होगा?",
-          back: "The optimization may diverge, overshoot the minimum, and cause unstable oscillations or severe overfitting.",
-          category: "Deep Learning"
-        }
-      ];
-    }
-
     const fullText = segments.map((s) => (s.text_en || s.text_source || '')).join(' ').toLowerCase();
 
-    let inferredTitle = "Machine Learning & Optimization";
-    let formulas = [
-      {
-        name: "Gradient Descent Parameter Update",
-        latex: "θ_{t+1} = θ_t - η ∇J(θ_t)",
-        description: "Iteratively steps parameter vector θ in the negative gradient direction scaled by learning rate η.",
-        variables: "θ: weights/parameters, η: learning rate, ∇J: gradient of loss"
-      },
-      {
-        name: "Eigenvalue Characteristic Equation",
-        latex: "A v = λ v  ⟺  det(A - λ I) = 0",
-        description: "Relates square transformation matrix A to eigenvalue λ and eigenvector v.",
-        variables: "A: transformation matrix, v: eigenvector, λ: eigenvalue, I: identity matrix"
-      }
-    ];
+    let inferredTitle = "STEM Lecture Session";
+    let defs = [];
+    let formulas = [];
+    let visuals = {};
+    let flashcards = [];
+    let overviewEn = "";
+    let overviewVernacular = "";
 
-    if (fullText.includes("thermodynamics") || fullText.includes("heat") || fullText.includes("internal energy")) {
+    // 1. THERMODYNAMICS & HEAT TRANSFER
+    if (fullText.includes("thermodynamic") || fullText.includes("heat") || fullText.includes("internal energy") || fullText.includes("conduction") || fullText.includes("convection")) {
       inferredTitle = "Thermodynamics & Heat Transfer";
+      overviewEn = `Comprehensive study guide synthesized from ${segments.length} lecture segments exploring the First Law of Thermodynamics, internal energy conservation, and modes of thermal transport.`;
+      
+      if (targetLang === 'ta') {
+        overviewVernacular = `${segments.length} விரிவுரை பகுதிகளிலிருந்து தொகுக்கப்பட்ட வெப்ப இயக்கவியல் முதல் விதி மற்றும் வெப்பப் பரிமாற்ற கொள்கைகளின் விரிவான படிப்பு வழிகாட்டி.`;
+        defs = [
+          { term: "First Law of Thermodynamics", vernacular_term: "வெப்ப இயக்கவியலின் முதல் விதி", category: "Thermodynamics", definition: "Conservation of energy stating change in internal energy equals heat added minus work done.", vernacular_definition: "ஆற்றல் மாறாக் கோட்பாட்டின்படி அக ஆற்றல் மாற்றம் என்பது சேர்க்கப்பட்ட வெப்பத்திற்கும் செய்யப்பட்ட வேலைக்கும் உள்ள வேறுபாடு." },
+          { term: "Internal Energy", vernacular_term: "அக ஆற்றல் (Internal Energy)", category: "Thermal Physics", definition: "Total microscopic kinetic and potential energy of all particles within a thermodynamic system.", vernacular_definition: "ஒரு அமைப்பில் உள்ள அனைத்து மூலக்கூறுகளின் இயக்க மற்றும் நிலை ஆற்றல்களின் கூட்டுத்தொகை." },
+          { term: "Heat Conduction", vernacular_term: "வெப்பக்கடத்தல் (Conduction)", category: "Heat Transfer", definition: "Transfer of thermal energy through direct molecular collisions without bulk motion of matter.", vernacular_definition: "பருப்பொருளின் ஒட்டுமொத்த நகர்வின்றி மூலக்கூறுகளின் நேரடி மோதல் மூலம் வெப்பம் பரவுதல்." },
+          { term: "Convection & Radiation", vernacular_term: "வெப்பச்சலனம் மற்றும் கதிர்வீச்சு", category: "Heat Transfer", definition: "Heat transfer via fluid flow (convection) and electromagnetic waves (radiation).", vernacular_definition: "பாய்ம நகர்வு மூலம் வெப்பச்சலனமும் மின்காந்த அலைகள் மூலம் கதிர்வீச்சும் வெப்பத்தை மாற்றுகின்றன." }
+        ];
+        flashcards = [
+          { id: 1, front: "What is the governing equation of the First Law of Thermodynamics?", vernacular_front: "வெப்ப இயக்கவியலின் முதல் விதியின் சமன்பாடு என்ன?", back: "ΔU = Q - W, where ΔU is internal energy change, Q is heat, and W is work.", category: "Thermodynamics" },
+          { id: 2, front: "What are the three modes of heat transfer?", vernacular_front: "வெப்பப் பரிமாற்றத்தின் மூன்று முறைகள் யாவை?", back: "Conduction (molecular collisions), Convection (fluid bulk movement), and Radiation (electromagnetic waves).", category: "Heat Transfer" }
+        ];
+      } else if (targetLang === 'ml') {
+        overviewVernacular = `${segments.length} പ്രഭാഷണ ഭാഗങ്ങളിൽ നിന്ന് തയ്യാറാക്കിയ തെർമോഡൈനാമിക്സ് ഒന്നാം നിയമ പഠന സഹായി.`;
+        defs = [
+          { term: "First Law of Thermodynamics", vernacular_term: "തെർമോഡൈനാമിക്സിന്റെ ഒന്നാം നിയമം", category: "Thermodynamics", definition: "Conservation of energy: change in internal energy equals heat added minus work done.", vernacular_definition: "ഊർജ്ജ സംരക്ഷണ നിയമം: ആന്തരിക ഊർജ്ജ വ്യതിയാനം താപവും പ്രവൃത്തിയും തമ്മിലുള്ള വ്യത്യാസത്തിന് തുല്യമാണ്." },
+          { term: "Internal Energy", vernacular_term: "ആന്തരിക ഊർജ്ജം (Internal Energy)", category: "Thermal Physics", definition: "Total microscopic kinetic and potential energy within a thermodynamic system.", vernacular_definition: "വ്യവസ്ഥയ്ക്കുള്ളിലെ തന്മാത്രകളുടെ ആകെ ഗതികോർജ്ജവും സ്ഥിതികോർജ്ജവും." }
+        ];
+        flashcards = [
+          { id: 1, front: "What is the First Law equation?", vernacular_front: "തെർമോഡൈനാമിക്സ് ഒന്നാം നിയമ സമവാക്യം ഏതാണ്?", back: "ΔU = Q - W", category: "Thermodynamics" }
+        ];
+      } else if (targetLang === 'hi') {
+        overviewVernacular = `${segments.length} व्याख्यान खंडों से तैयार की गई ऊष्मागतिकी के प्रथम नियम और ऊष्मा अंतरण की अध्ययन मार्गदर्शिका।`;
+        defs = [
+          { term: "First Law of Thermodynamics", vernacular_term: "ऊष्मागतिकी का प्रथम नियम", category: "Thermodynamics", definition: "Conservation of energy: internal energy change equals heat added minus work done.", vernacular_definition: "ऊर्जा संरक्षण का नियम: आंतरिक ऊर्जा में परिवर्तन जोड़ी गई ऊष्मा में से किए गए कार्य को घटाने के बराबर है।" },
+          { term: "Internal Energy", vernacular_term: "आंतरिक ऊर्जा (Internal Energy)", category: "Thermal Physics", definition: "Total microscopic kinetic and potential energy within the system.", vernacular_definition: "निकाय के भीतर सभी कणों की कुल सूक्ष्म गतिज और स्थितिज ऊर्जा।" }
+        ];
+        flashcards = [
+          { id: 1, front: "What is the First Law equation?", vernacular_front: "ऊष्मागतिकी के प्रथम नियम का सूत्र क्या है?", back: "ΔU = Q - W", category: "Thermodynamics" }
+        ];
+      } else {
+        overviewVernacular = overviewEn;
+        defs = [
+          { term: "First Law of Thermodynamics", vernacular_term: "First Law of Thermodynamics", category: "Thermodynamics", definition: "Conservation of energy: ΔU = Q - W.", vernacular_definition: "Conservation of energy: ΔU = Q - W." },
+          { term: "Internal Energy", vernacular_term: "Internal Energy", category: "Thermal Physics", definition: "Total microscopic kinetic and potential energy within the system.", vernacular_definition: "Total microscopic kinetic and potential energy within the system." }
+        ];
+        flashcards = [{ id: 1, front: "What is the First Law equation?", vernacular_front: "What is the First Law equation?", back: "ΔU = Q - W", category: "Thermodynamics" }];
+      }
+
       formulas = [
-        {
-          name: "First Law of Thermodynamics",
-          latex: "ΔU = Q - W",
-          description: "Change in internal energy equals heat added minus work done.",
-          variables: "ΔU: internal energy, Q: heat added, W: work done"
-        },
-        {
-          name: "Fourier's Law of Thermal Conduction",
-          latex: "q = -k ∇T",
-          description: "Heat flux is proportional to negative temperature gradient.",
-          variables: "q: heat flux, k: thermal conductivity, ∇T: temperature gradient"
-        }
+        { name: "First Law of Thermodynamics", latex: "ΔU = Q - W", description: "Change in internal energy equals net heat absorbed minus work done.", variables: "ΔU: internal energy change, Q: heat added, W: work done by system" },
+        { name: "Fourier's Law of Conduction", latex: "q = -k ∇T", description: "Heat flux is directly proportional to the negative temperature gradient.", variables: "q: heat flux, k: thermal conductivity, ∇T: temperature gradient" },
+        { name: "Stefan-Boltzmann Radiation Law", latex: "P = ε σ A T^4", description: "Radiant power emitted by a blackbody proportional to fourth power of temperature.", variables: "P: power, ε: emissivity, σ: Stefan-Boltzmann constant, T: temperature" }
       ];
-    } else if (fullText.includes("photosynthesis") || fullText.includes("chloroplast") || fullText.includes("glucose")) {
-      inferredTitle = "Photosynthesis & Cellular Energy";
+
+      visuals = {
+        thermoCycle: { caption: "Energy conservation: heat input Q_in drives internal energy ΔU and useful work W." },
+        equation: { latex: "ΔU = Q - W", title: "First Law Energy Conservation", caption: "Governing thermodynamic energy balance equation." }
+      };
+
+    // 2. PHOTOSYNTHESIS & BIOCHEMISTRY
+    } else if (fullText.includes("photosynthesis") || fullText.includes("chloroplast") || fullText.includes("calvin") || fullText.includes("glucose") || fullText.includes("thylakoid") || fullText.includes("rubisco")) {
+      inferredTitle = "Photosynthesis & Cellular Bioenergetics";
+      overviewEn = `Comprehensive study guide synthesized from ${segments.length} lecture segments detailing chloroplast light reactions, photolysis of water, and Calvin cycle carbon fixation.`;
+
+      if (targetLang === 'ta') {
+        overviewVernacular = `${segments.length} விரிவுரை பகுதிகளிலிருந்து தொகுக்கப்பட்ட ஒளிச்சேர்க்கை மற்றும் கால்வின் சுழற்சி உயிர்வேதியியல் வழிமுறைகளின் படிப்பு வழிகாட்டி.`;
+        defs = [
+          { term: "Photosynthesis", vernacular_term: "ஒளிச்சேர்க்கை (Photosynthesis)", category: "Biochemistry", definition: "Process by which green plants convert solar energy into chemical energy stored in glucose.", vernacular_definition: "சூரிய ஒளியைப் பயன்படுத்தி தாவரங்கள் கார்பன் டை ஆக்சைடு மற்றும் நீரிலிருந்து குளுக்கோஸை உருவாக்கும் நிகழ்வு." },
+          { term: "Calvin Cycle", vernacular_term: "கால்வின் சுழற்சி (Calvin Cycle)", category: "Plant Physiology", definition: "Light-independent biochemical reactions in chloroplast stroma that fix carbon dioxide into glucose.", vernacular_definition: "குளோரோபிளாஸ்ட் ஸ்ட்ரோமாவில் கார்பன் டை ஆக்சைடை குளுக்கோஸாக மாற்றும் ஒளி சாரா வினைகள்." },
+          { term: "Photolysis", vernacular_term: "ஒளிச்சிதைவு (Photolysis)", category: "Photobiology", definition: "Light-driven splitting of water molecules in thylakoid membranes, releasing oxygen and providing electrons.", vernacular_definition: "தைலகாய்டு சவ்வில் ஒளி ஆற்றலால் நீர் மூலக்கூறுகள் உடைக்கப்பட்டு ஆக்சிஜன் வெளிவரும் நிகழ்வு." },
+          { term: "RuBisCO Enzyme", vernacular_term: "ரூபிஸ்கோ நொதி (RuBisCO)", category: "Molecular Biology", definition: "Key enzyme catalyzing the initial major step of carbon fixation in the Calvin cycle.", vernacular_definition: "கால்வின் சுழற்சியில் கார்பன் நிலைநிறுத்தலைத் தொடங்கும் மிக முக்கியமான நொதி." }
+        ];
+        flashcards = [
+          { id: 1, front: "What is the balanced equation for oxygenic photosynthesis?", vernacular_front: "ஒளிச்சேர்க்கையின் சமப்படுத்தப்பட்ட வேதியியல் சமன்பாடு என்ன?", back: "6 CO2 + 6 H2O + light -> C6H12O6 + 6 O2", category: "Biochemistry" },
+          { id: 2, front: "Where do light-dependent reactions take place?", vernacular_front: "ஒளி சார்ந்த வினைகள் எங்கு நிகழ்கின்றன?", back: "In the thylakoid membranes of chloroplasts.", category: "Cell Biology" }
+        ];
+      } else {
+        overviewVernacular = overviewEn;
+        defs = [
+          { term: "Photosynthesis", vernacular_term: "Photosynthesis", category: "Biochemistry", definition: "Conversion of light energy into chemical energy stored in carbohydrates.", vernacular_definition: "Conversion of light energy into chemical energy stored in carbohydrates." },
+          { term: "Calvin Cycle", vernacular_term: "Calvin Cycle", category: "Plant Physiology", definition: "Stroma carbon-fixation pathway converting CO2 into glucose.", vernacular_definition: "Stroma carbon-fixation pathway converting CO2 into glucose." }
+        ];
+        flashcards = [{ id: 1, front: "What is the overall photosynthesis equation?", vernacular_front: "Photosynthesis equation?", back: "6 CO2 + 6 H2O -> C6H12O6 + 6 O2", category: "Biochemistry" }];
+      }
+
       formulas = [
-        {
-          name: "Photosynthesis Balanced Chemical Equation",
-          latex: "6 CO_2 + 6 H_2O + \\text{light} \\rightarrow C_6H_{12}O_6 + 6 O_2",
-          description: "Conversion of carbon dioxide and water into glucose and oxygen via light.",
-          variables: "CO2: carbon dioxide, H2O: water, C6H12O6: glucose, O2: oxygen"
-        }
+        { name: "Photosynthesis Chemical Equation", latex: "6 CO_2 + 6 H_2O + \\text{light} \\rightarrow C_6H_{12}O_6 + 6 O_2", description: "Overall biochemical transformation of carbon dioxide and water into glucose and oxygen.", variables: "CO2: carbon dioxide, H2O: water, C6H12O6: glucose, O2: oxygen" }
       ];
+
+      visuals = {
+        photosynthesis: { caption: "Thylakoid light absorption generates ATP and NADPH to power the stroma Calvin cycle." },
+        equation: { latex: "6 CO_2 + 6 H_2O + \\text{light} \\rightarrow C_6H_{12}O_6 + 6 O_2", title: "Balanced Photosynthesis Reaction", caption: "Fundamental biochemical synthesis equation." }
+      };
+
+    // 3. LINEAR ALGEBRA & EIGENVALUES
+    } else if (fullText.includes("eigenvalue") || fullText.includes("eigenvector") || fullText.includes("matrix") || fullText.includes("linear algebra")) {
+      inferredTitle = "Linear Algebra & Eigenvalue Decomposition";
+      overviewEn = `Comprehensive study guide synthesized from ${segments.length} lecture segments examining linear transformations, characteristic polynomials, and eigenvector scaling.`;
+
+      if (targetLang === 'ta') {
+        overviewVernacular = `${segments.length} விரிவுரை பகுதிகளிலிருந்து தொகுக்கப்பட்ட நேரியல் இயற்கணிதம், சிறப்பியல்பு மதிப்புகள் மற்றும் திசையன்களின் படிப்பு வழிகாட்டி.`;
+        defs = [
+          { term: "Eigenvalue", vernacular_term: "சிறப்பியல்பு மதிப்பு (Eigenvalue)", category: "Linear Algebra", definition: "Scalar factor that scales an eigenvector during matrix transformation without changing its direction.", vernacular_definition: "நேரியல் உருமாற்றத்தில் திசையனின் திசையை மாற்றாமல் அளவிடும் காரணி." },
+          { term: "Eigenvector", vernacular_term: "சிறப்பியல்பு திசையன் (Eigenvector)", category: "Linear Algebra", definition: "Non-zero vector whose direction remains unchanged when transformed by a square matrix.", vernacular_definition: "ஒரு சதுர அணியால் பெருக்கப்படும் போது திசை மாறாமல் அளவு மட்டும் மாறும் பூஜ்ஜியமற்ற திசையன்." },
+          { term: "Characteristic Equation", vernacular_term: "சிறப்பியல்பு சமன்பாடு", category: "Matrix Algebra", definition: "Polynomial equation det(A - λI) = 0 used to solve for all eigenvalues of square matrix A.", vernacular_definition: "ஒரு அணியின் சிறப்பியல்பு மதிப்புகளைக் கணக்கிட உதவும் det(A - λI) = 0 சமன்பாடு." }
+        ];
+        flashcards = [
+          { id: 1, front: "What equation defines an eigenvalue and eigenvector?", vernacular_front: "சிறப்பியல்பு மதிப்பு மற்றும் திசையனை வரையறுக்கும் சமன்பாடு எது?", back: "A v = λ v", category: "Linear Algebra" }
+        ];
+      } else {
+        overviewVernacular = overviewEn;
+        defs = [
+          { term: "Eigenvalue", vernacular_term: "Eigenvalue", category: "Linear Algebra", definition: "Scalar factor scaling an eigenvector under transformation.", vernacular_definition: "Scalar factor scaling an eigenvector under transformation." },
+          { term: "Eigenvector", vernacular_term: "Eigenvector", category: "Linear Algebra", definition: "Vector whose direction is invariant under matrix transformation.", vernacular_definition: "Vector whose direction is invariant under matrix transformation." }
+        ];
+        flashcards = [{ id: 1, front: "What equation defines an eigenvalue?", vernacular_front: "Eigenvalue equation?", back: "A v = λ v", category: "Linear Algebra" }];
+      }
+
+      formulas = [
+        { name: "Eigenvalue Characteristic Equation", latex: "A v = \\lambda v \\iff \\det(A - \\lambda I) = 0", description: "Defines the invariant direction and scaling factor for linear transformation matrix A.", variables: "A: n×n matrix, v: eigenvector, λ: eigenvalue scalar, I: identity matrix" }
+      ];
+
+      visuals = {
+        vectorTransform: { caption: "Matrix transformation preserves eigenvector direction while scaling magnitude by λ." },
+        equation: { latex: "A v = \\lambda v \\iff \\det(A - \\lambda I) = 0", title: "Eigenvalue Characteristic Equation", caption: "Fundamental linear transformation characteristic relation." }
+      };
+
+    // 4. MACHINE LEARNING & OPTIMIZATION (DEFAULT IF ML TERMS FOUND)
+    } else {
+      inferredTitle = "Machine Learning & Optimization";
+      overviewEn = `Comprehensive study guide synthesized from ${segments.length} lecture segments focusing on gradient descent, cost function minimization, and learning rate parameter updates.`;
+
+      if (targetLang === 'ta') {
+        overviewVernacular = `${segments.length} விரிவுரை பகுதிகளிலிருந்து தொகுக்கப்பட்ட சரிவு இறக்கம் உகப்பாக்கம் மற்றும் நரம்பியல் வலைப்பின்னல்களின் விரிவான படிப்பு வழிகாட்டி.`;
+        defs = [
+          { term: "Gradient Descent", vernacular_term: "சரிவு இறக்கம் (Gradient Descent)", category: "Machine Learning", definition: "First-order iterative optimization algorithm for finding a local minimum of a differentiable loss function.", vernacular_definition: "ஒரு சார்பின் உள்ளூர் குறைந்தபட்சத்தைக் கண்டறிவதற்கான முதல்-வரிசை மறுசெயல்முறை உகப்பாக்கம்." },
+          { term: "Learning Rate", vernacular_term: "கற்றல் வீதம் (Learning Rate - α)", category: "Optimization", definition: "Hyperparameter that determines the step size taken in the direction of negative gradient.", vernacular_definition: "ஒவ்வொரு படியிலும் மாதிரி அளவுருக்களை எவ்வளவு மாற்ற வேண்டும் என்பதைத் தீர்மானிக்கும் படி அளவு." },
+          { term: "Cost Function", vernacular_term: "இழப்பு / செலவுச் சார்பு (Cost Function)", category: "Deep Learning", definition: "Mathematical function quantifying prediction error between model output and ground truth.", vernacular_definition: "மாதிரியின் கணிப்பு பிழையை அளவிடும் கணித சார்பு." }
+        ];
+        flashcards = [
+          { id: 1, front: "What is Gradient Descent?", vernacular_front: "சரிவு இறக்கம் என்றால் என்ன?", back: "An optimization algorithm that minimizes the loss function by iteratively stepping opposite the gradient.", category: "Machine Learning" },
+          { id: 2, front: "What happens if the learning rate is too large?", vernacular_front: "கற்றல் வீதம் மிக அதிகமாக இருந்தால் என்ன நடக்கும்?", back: "The optimization may diverge, oscillate wildly, and overshoot the minimum.", category: "Deep Learning" }
+        ];
+      } else {
+        overviewVernacular = overviewEn;
+        defs = [
+          { term: "Gradient Descent", vernacular_term: "Gradient Descent", category: "Machine Learning", definition: "Optimization algorithm iteratively minimizing error.", vernacular_definition: "Optimization algorithm iteratively minimizing error." },
+          { term: "Learning Rate", vernacular_term: "Learning Rate", category: "Deep Learning", definition: "Step size multiplier for gradient updates.", vernacular_definition: "Step size multiplier for gradient updates." }
+        ];
+        flashcards = [{ id: 1, front: "What does gradient descent do?", vernacular_front: "What does gradient descent do?", back: "Minimizes the loss function iteratively.", category: "Machine Learning" }];
+      }
+
+      formulas = [
+        { name: "Gradient Descent Parameter Update", latex: "\\theta_{t+1} = \\theta_t - \\eta \\nabla J(\\theta_t)", description: "Iteratively steps parameter vector θ in the negative gradient direction scaled by learning rate η.", variables: "θ: weights/parameters, η: learning rate, ∇J: gradient of loss" }
+      ];
+
+      visuals = {
+        lossCurve: { caption: "Convergence profile: cost function decreases towards minimum as iterations increase." },
+        network: { caption: "Forward signal propagation and backward error gradient updates." },
+        equation: { latex: "\\theta_{t+1} = \\theta_t - \\eta \\nabla J(\\theta_t)", title: "Parameter Update Equation", caption: "Standard weight update formula in gradient descent." }
+      };
     }
 
     // Build Concept Map nodes and edges
     const nodes = [
-      { id: "concept_root", label: inferredTitle, detail: "Core Lecture Topic" }
+      { id: "concept_root", label: inferredTitle, detail: "Core Topic" }
     ];
     defs.forEach((d, idx) => {
       nodes.push({ id: `concept_${idx + 1}`, label: d.term, detail: d.category || "STEM Principle" });
@@ -2682,18 +2658,9 @@ export default function App() {
 
     const diagram = {
       title: `${inferredTitle} Concept Map`,
-      source: "Generated from lecture concepts",
+      source: "Generated from current lecture concepts",
       nodes: nodes,
       edges: edges
-    };
-
-    const visuals = {
-      lossCurve: { caption: "Convergence profile: cost function decreases as iterations increase." },
-      network: { caption: "System architecture and information flow through layers." },
-      equation: {
-        latex: formulas[0]?.latex || "θ_{t+1} = θ_t - η ∇J(θ_t)",
-        caption: `Governing equation: ${formulas[0]?.name || "Parameter Update"}`
-      }
     };
 
     const guideData = {
@@ -2703,7 +2670,7 @@ export default function App() {
       native_language: langObj.native,
       segment_count: segments.length,
       overview: {
-        en: `Comprehensive study guide synthesized from ${segments.length} lecture segments focusing on ${defs.map(d => d.term).join(', ')}.`,
+        en: overviewEn,
         vernacular: overviewVernacular
       },
       diagram: diagram,
@@ -2711,8 +2678,8 @@ export default function App() {
       definitions: defs,
       formulas: formulas,
       takeaways: segments.slice(0, 5).map((s, idx) => ({
-        point: s.text_en,
-        vernacular_point: s.text_vernacular,
+        point: s.text_en || s.text_source || '',
+        vernacular_point: s.text_vernacular || s.text_source || '',
         timestamp: s.timestamp || `00:${idx * 15}`
       })),
       flashcards: flashcards

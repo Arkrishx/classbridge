@@ -357,12 +357,28 @@ Return ONLY valid JSON matching this exact JSON schema:
                     "caption": "Parameter update equation: Gradient Descent"
                 }
 
-            if any(k in lower_text for k in ["gradient", "loss", "train", "epoch", "neural", "optim"]):
+            if any(k in lower_text for k in ["thermodynamic", "heat", "internal energy", "conduction", "convection", "radiation"]):
+                visuals["thermoCycle"] = {
+                    "caption": "First Law energy conservation: heat input converts to internal energy change and work output."
+                }
+            elif any(k in lower_text for k in ["photosynthesis", "chloroplast", "calvin", "thylakoid", "glucose"]):
+                visuals["photosynthesis"] = {
+                    "caption": "Dual-phase pathway: thylakoid light reactions coupled with stroma Calvin cycle."
+                }
+            elif any(k in lower_text for k in ["eigenvalue", "eigenvector", "matrix", "linear algebra"]):
+                visuals["vectorTransform"] = {
+                    "caption": "Linear transformation scaling eigenvector v along its span by factor λ."
+                }
+            elif any(k in lower_text for k in ["gradient", "loss", "train", "epoch", "neural", "optim"]):
                 visuals["lossCurve"] = {
                     "caption": "Cost function decreases toward minimum as iterations increase."
                 }
                 visuals["network"] = {
                     "caption": "Forward signal propagation and backward error gradient updates."
+                }
+            else:
+                visuals["conceptFlow"] = {
+                    "caption": "Sequential progression and hierarchy of core lecture principles."
                 }
 
             if visuals:
