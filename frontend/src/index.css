@@ -2915,6 +2915,278 @@ body {
   gap: 4px;
 }
 
+/* 1.5. Class Mode Bar (Real-Time Offline Class vs Online Class Switcher) */
+.class-mode-bar-container {
+  width: 100%;
+  background: rgba(24, 26, 32, 0.95);
+  border-bottom: 1px solid var(--border-subtle);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  position: relative;
+  z-index: 90;
+  padding: 8px 24px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.25);
+}
+
+.class-mode-bar {
+  max-width: 1720px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.class-mode-tabs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.class-mode-tab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.class-mode-tab:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-main);
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
+.class-mode-tab.active.offline-mode {
+  background: rgba(66, 133, 244, 0.14);
+  border: 1.5px solid var(--google-blue);
+  color: #ffffff;
+  box-shadow: 0 2px 12px rgba(66, 133, 244, 0.25);
+}
+
+.class-mode-tab.active.online-mode {
+  background: rgba(251, 188, 4, 0.14);
+  border: 1.5px solid var(--google-yellow);
+  color: #ffffff;
+  box-shadow: 0 2px 12px rgba(251, 188, 4, 0.25);
+}
+
+.class-mode-tab.active.solo-mode {
+  background: rgba(52, 168, 83, 0.14);
+  border: 1.5px solid var(--google-green);
+  color: #ffffff;
+}
+
+.tab-icon-box {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.tab-icon-box.offline {
+  color: var(--google-blue);
+  background: rgba(66, 133, 244, 0.15);
+}
+
+.tab-icon-box.online {
+  color: var(--google-yellow);
+  background: rgba(251, 188, 4, 0.15);
+}
+
+.tab-icon-box.solo {
+  color: var(--google-green);
+  background: rgba(52, 168, 83, 0.15);
+}
+
+.tab-text-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.tab-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.tab-desc {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-weight: 500;
+  margin-top: 1px;
+}
+
+.class-mode-tab.active .tab-desc {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.tab-active-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--google-blue);
+  box-shadow: 0 0 8px var(--google-blue);
+  margin-left: 4px;
+}
+
+.class-mode-tab.active.online-mode .tab-active-dot {
+  background: var(--google-yellow);
+  box-shadow: 0 0 8px var(--google-yellow);
+}
+
+/* Right Context Deck */
+.class-context-deck {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.role-switch-pills {
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 3px;
+  border-radius: 20px;
+  border: 1px solid var(--border-subtle);
+  gap: 2px;
+}
+
+.role-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 16px;
+  background: transparent;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.role-pill:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.role-pill.active-teacher {
+  background: rgba(245, 158, 11, 0.22);
+  color: #fbbf24;
+  box-shadow: 0 1px 4px rgba(245, 158, 11, 0.3);
+}
+
+.role-pill.active-student {
+  background: rgba(66, 133, 244, 0.22);
+  color: #8ab4f8;
+  box-shadow: 0 1px 4px rgba(66, 133, 244, 0.3);
+}
+
+.room-info-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  font-size: 12px;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.room-info-pill:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.room-label {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.room-code-tag {
+  font-weight: 700;
+  color: var(--google-blue);
+  letter-spacing: 0.04em;
+}
+
+.room-divider {
+  color: var(--text-dim);
+}
+
+.room-count {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.teacher-live-indicator {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--google-green);
+  background: rgba(52, 168, 83, 0.15);
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+.copy-student-link-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  background: rgba(66, 133, 244, 0.12);
+  border: 1px solid rgba(66, 133, 244, 0.3);
+  font-size: 12px;
+  font-weight: 600;
+  color: #8ab4f8;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.copy-student-link-btn:hover {
+  background: rgba(66, 133, 244, 0.22);
+  border-color: rgba(66, 133, 244, 0.5);
+  transform: translateY(-1px);
+}
+
+.copy-student-link-btn.copied {
+  background: rgba(52, 168, 83, 0.15);
+  border-color: rgba(52, 168, 83, 0.4);
+  color: #6ee7b7;
+}
+
+.online-room-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(251, 188, 4, 0.1);
+  border: 1px solid rgba(251, 188, 4, 0.3);
+  border-radius: 16px;
+  font-size: 12px;
+  color: var(--text-main);
+}
+
 /* 2. Responsive Mobile Switcher Tabs (< 860px) */
 .google-mobile-tab-bar {
   display: none;

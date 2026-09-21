@@ -123,28 +123,40 @@ export default function GoogleAppBar({
       {/* 3. Right: System Actions, Audio Hardware Chip & Modals */}
       <div className="google-bar-right">
         {/* Classroom Room & Role Chip (Teacher vs Student) */}
-        {classMode !== 'solo' ? (
+        {classMode === 'realtime_classroom' ? (
           <button
             className={`google-chip-action classroom-chip ${userRole === 'teacher' ? 'teacher' : 'student'}`}
             onClick={onOpenClassroomModal}
-            title={`Classroom Room: ${roomCode} (${userRole === 'teacher' ? 'Host' : 'Student'}). Click to manage room & share link.`}
+            title={`Real-Time [Offline] Class: Room ${roomCode}. Click to switch role or share student link.`}
             type="button"
           >
             {userRole === 'teacher' ? (
               <>
-                <Crown size={13} color="#f59e0b" />
+                <Radio size={13} color="var(--google-blue)" />
                 <span className="google-chip-text">
-                  <b>{roomCode}</b> • 👥 {studentCount}
+                  <b>Real-Time Class</b> • 👑 Teacher ({roomCode})
                 </span>
               </>
             ) : (
               <>
-                <Headphones size={13} color="var(--google-blue)" />
+                <Radio size={13} color="var(--google-blue)" />
                 <span className="google-chip-text">
-                  <b>{roomCode}</b> • {hasTeacher ? '🟢 Live' : '⚪ Wait'}
+                  <b>Real-Time Class</b> • 🎧 Student ({roomCode})
                 </span>
               </>
             )}
+          </button>
+        ) : classMode === 'online_classroom' ? (
+          <button
+            className="google-chip-action classroom-chip online"
+            onClick={onOpenClassroomModal}
+            title={`Online Class: Room ${roomCode}. Click to manage online class.`}
+            type="button"
+          >
+            <Globe size={13} color="var(--google-yellow)" />
+            <span className="google-chip-text">
+              <b>Online Class</b> • {roomCode}
+            </span>
           </button>
         ) : (
           <button
@@ -154,7 +166,7 @@ export default function GoogleAppBar({
             type="button"
           >
             <Radio size={13} color="var(--google-green)" />
-            <span className="google-chip-text">Solo</span>
+            <span className="google-chip-text">Solo Studio</span>
           </button>
         )}
 

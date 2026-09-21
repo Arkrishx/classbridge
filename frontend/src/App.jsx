@@ -11,6 +11,7 @@ import GlossaryModal from './components/GlossaryModal';
 import AboutModal from './components/AboutModal';
 import AudioDeviceModal from './components/AudioDeviceModal';
 import ClassroomModal from './components/ClassroomModal';
+import ClassModeBar from './components/ClassModeBar';
 import ErrorBanner from './components/ErrorBanner';
 import { AudioStreamer, getAudioInputDevices } from './utils/audioStreamer';
 import { globalTTS, getAudioOutputDevices } from './utils/ttsService';
@@ -1681,6 +1682,18 @@ export default function App() {
         onOpenClassroomModal={() => setIsClassroomModalOpen(true)}
       />
 
+      {/* 1.5. Prominent Class Operating Mode Switcher Bar (Real-Time Offline Class vs Online Class) */}
+      <ClassModeBar
+        classMode={classMode}
+        onChangeClassMode={handleClassModeChange}
+        userRole={userRole}
+        onChangeUserRole={handleUserRoleChange}
+        roomCode={roomCode}
+        studentCount={studentCount}
+        hasTeacher={hasTeacher}
+        onOpenClassroomModal={() => setIsClassroomModalOpen(true)}
+      />
+
       {/* Error & Warning Notification Toast */}
       <ErrorBanner
         message={errorMessage}
@@ -1735,6 +1748,9 @@ export default function App() {
               onSpeakSegment={handleSpeakSegment}
               currentlySpeakingId={currentlySpeakingId}
               apiBaseUrl={API_BASE_URL}
+              classMode={classMode}
+              roomCode={roomCode}
+              userRole={userRole}
             />
           </section>
         )}

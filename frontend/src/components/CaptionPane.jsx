@@ -25,6 +25,9 @@ export default function CaptionPane({
   onSpeakSegment,
   currentlySpeakingId = null,
   apiBaseUrl = '',
+  classMode = 'realtime_classroom',
+  roomCode = 'EDU-02',
+  userRole = 'teacher',
 }) {
   const bottomRef = useRef(null);
   const [copied, setCopied] = useState(false);
@@ -110,6 +113,24 @@ export default function CaptionPane({
             <span className="live-indicator-pill">
               <span className="live-dot-pulse" />
               LIVE
+            </span>
+          )}
+
+          {classMode === 'realtime_classroom' && (
+            <span
+              className="caption-mode-pill offline"
+              title={`Real-Time [Offline] Class (${userRole === 'teacher' ? 'Host Broadcaster' : 'Student Listener'})`}
+            >
+              📡 Real-Time Class ({roomCode})
+            </span>
+          )}
+
+          {classMode === 'online_classroom' && (
+            <span
+              className="caption-mode-pill online"
+              title={`Online Class Room ${roomCode}`}
+            >
+              🌐 Online Class ({roomCode})
             </span>
           )}
         </div>
