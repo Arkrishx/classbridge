@@ -190,6 +190,39 @@ export default function StudyGuideModal({
               ) : (
                 <div className="empty-box"><div style={{ fontSize: '14px', color: 'var(--text-muted)' }}>No concept relationships detected in this session.</div></div>
               )}
+              {guide.visuals && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', marginTop: '4px' }}>
+                  <div style={{ padding: '12px', border: '1px solid rgba(52, 211, 153, 0.3)', borderRadius: '10px', background: 'rgba(52, 211, 153, 0.05)' }}>
+                    <div style={{ color: 'var(--accent-emerald)', fontWeight: 700, fontSize: '13px', marginBottom: '6px' }}>Loss decreases during training</div>
+                    <svg viewBox="0 0 320 170" role="img" aria-label="Loss curve descending over training iterations" style={{ width: '100%', height: '170px' }}>
+                      <line x1="38" y1="12" x2="38" y2="140" stroke="rgba(255,255,255,0.3)" />
+                      <line x1="38" y1="140" x2="305" y2="140" stroke="rgba(255,255,255,0.3)" />
+                      <polyline points="42,28 82,55 122,78 162,96 202,110 242,120 300,130" fill="none" stroke="#34d399" strokeWidth="4" strokeLinecap="round" />
+                      {[['42','28'], ['82','55'], ['122','78'], ['162','96'], ['202','110'], ['242','120'], ['300','130']].map(([cx, cy]) => <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="4" fill="#facc15" />)}
+                      <text x="42" y="158" fill="#94a3b8" fontSize="10">iteration</text>
+                      <text x="8" y="24" fill="#94a3b8" fontSize="10">loss</text>
+                    </svg>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '11px' }}>{guide.visuals.lossCurve.caption}</div>
+                  </div>
+                  <div style={{ padding: '12px', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '10px', background: 'rgba(56, 189, 248, 0.05)' }}>
+                    <div style={{ color: 'var(--accent-cyan)', fontWeight: 700, fontSize: '13px', marginBottom: '6px' }}>Neural network learning flow</div>
+                    <svg viewBox="0 0 320 170" role="img" aria-label="Neural network layers connected by arrows" style={{ width: '100%', height: '170px' }}>
+                      <g stroke="rgba(148,163,184,0.45)" strokeWidth="2">
+                        <line x1="55" y1="48" x2="155" y2="38" /><line x1="55" y1="48" x2="155" y2="88" /><line x1="55" y1="112" x2="155" y2="38" /><line x1="55" y1="112" x2="155" y2="88" />
+                        <line x1="165" y1="38" x2="265" y2="62" /><line x1="165" y1="88" x2="265" y2="62" />
+                      </g>
+                      {[['55','48','#facc15'], ['55','112','#facc15'], ['160','38','#38bdf8'], ['160','88','#38bdf8'], ['270','62','#34d399']].map(([cx, cy, fill]) => <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="12" fill={fill} stroke="#0f1422" strokeWidth="4" />)}
+                      <text x="38" y="150" fill="#94a3b8" fontSize="10">input</text><text x="143" y="150" fill="#94a3b8" fontSize="10">hidden</text><text x="252" y="150" fill="#94a3b8" fontSize="10">output</text>
+                    </svg>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '11px' }}>{guide.visuals.network.caption}</div>
+                  </div>
+                  <div style={{ padding: '12px', border: '1px solid rgba(250, 204, 21, 0.35)', borderRadius: '10px', background: 'rgba(250, 204, 21, 0.05)', gridColumn: '1 / -1' }}>
+                    <div style={{ color: 'var(--accent-gold)', fontWeight: 700, fontSize: '13px' }}>Parameter update equation</div>
+                    <div style={{ color: '#f8fafc', fontFamily: 'var(--font-mono)', fontSize: '22px', textAlign: 'center', padding: '16px 8px' }}>{guide.visuals.equation.latex}</div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '11px', textAlign: 'center' }}>{guide.visuals.equation.caption}</div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

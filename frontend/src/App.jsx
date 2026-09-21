@@ -1723,6 +1723,11 @@ export default function App() {
         ],
         edges: []
       },
+      visuals: {
+        lossCurve: { caption: 'Each update moves parameters toward a lower error value.' },
+        network: { caption: 'Backpropagation sends the error signal backward through the hidden layer.' },
+        equation: { latex: 'theta(t+1) = theta(t) - eta * grad J(theta(t))', caption: 'New parameters = current parameters - learning rate x loss gradient.' }
+      },
       definitions: [
         { term: 'Gradient Descent', vernacular_term: 'Gradient Descent', category: 'Machine Learning', definition: 'An iterative optimization method that moves parameters in the direction that reduces loss.' },
         { term: 'Backpropagation', vernacular_term: 'Backpropagation', category: 'Neural Networks', definition: 'A chain-rule method for computing gradients through network layers.' }
