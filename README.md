@@ -1,6 +1,7 @@
 # 🎓 ClassBridge — Real-Time Vernacular Lecture Companion
+
 > **TENSORA 2026 Hackathon | Problem Statement: EDU-02**  
-> *Bridging STEM Education with Streaming Dual-Language Captions, Domain Adaptation, Structured PDF Study Guides, and Grounded Q&A.*
+> _Bridging STEM Education with Streaming Dual-Language Captions, Domain Adaptation, Structured PDF Study Guides, and Grounded Q&A._
 
 > **Current status:** Functional hackathon-ready MVP. The production frontend build passes, backend integration tests pass, and the deployed demo supports desktop and mobile microphone capture when `VITE_API_URL` and `VITE_WS_URL` point to the deployed backend.
 
@@ -14,9 +15,10 @@
 
 ## 🌟 Executive Overview & Problem EDU-02
 
-For millions of students across India, following university-level STEM lectures delivered exclusively in English is a barrier to comprehension. Translating scientific lectures generically often results in disastrous mistranslations (e.g. translating *"gradient descent"* into literal slope ancestry/lineage *"சாய்வு வம்சாவளி"*).
+For millions of students across India, following university-level STEM lectures delivered exclusively in English is a barrier to comprehension. Translating scientific lectures generically often results in disastrous mistranslations (e.g. translating _"gradient descent"_ into literal slope ancestry/lineage _"சாய்வு வம்சாவளி"_).
 
 **ClassBridge** solves this end-to-end in one continuous workflow:
+
 1. **Live Microphone Audio Capture:** Streams 3–5s audio chunks from the teacher's microphone over WebSockets.
 2. **Real-Time Dual-Language Captions:** Shows parallel English + Indic vernacular (**Tamil**, **Malayalam**, and **Hindi**) with live **ASR confidence scores** and timestamps.
 3. **STEM Domain Adaptation Layer:** Applies a post-MT correction pass using a curated STEM glossary (~80+ terms) to prevent technical terminology hallucination.
@@ -40,11 +42,13 @@ The complete presenter runbook is in [docs/demo-script.md](docs/demo-script.md).
 ## 🚀 Quick Start & Local Setup
 
 ### Prerequisites
+
 - **Python:** 3.10+ (tested on Python 3.11 & 3.13)
 - **Node.js:** v18+ (tested on Node v24)
 - **Git**
 
 ### 1. Clone & Setup Backend
+
 ```bash
 # Navigate to project root
 cd EDU-02
@@ -57,6 +61,7 @@ python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ### 2. Setup & Run Frontend
+
 ```bash
 # In a new terminal window:
 cd frontend
@@ -67,21 +72,24 @@ npm install
 # Start Vite dev server (runs on http://localhost:5173)
 npm run dev
 ```
+
 Open **http://localhost:5173** in your browser.
 
-│   │   │   └── StudyGuideModal.jsx# Study guide, concept map, graphs, and visual explanations
+│ │ │ └── StudyGuideModal.jsx# Study guide, concept map, graphs, and visual explanations
 
 ## 🌐 Deploying to Vercel (1-Click Deployment)
 
 ClassBridge is engineered to be deployable on **Vercel** with zero configuration issues:
 
 ### Option A: Deploy via Vercel CLI
+
 ```bash
 npm install -g vercel
 vercel
 ```
 
 ### Option B: Deploy via Vercel Web Dashboard
+
 1. Push this repository to GitHub or GitLab.
 2. Import the project into your Vercel Dashboard.
 3. Set **Framework Preset** to `Vite`.
@@ -104,6 +112,7 @@ vercel
 The backend includes a production-ready `Dockerfile` and `render.yaml`:
 
 ### Deploy to Render
+
 1. Create a new **Web Service** on [Render](https://render.com).
 2. Connect your GitHub repository.
 3. Select **Docker** environment (Render automatically picks up `backend/Dockerfile`).
@@ -111,7 +120,7 @@ The backend includes a production-ready `Dockerfile` and `render.yaml`:
 5. Set Environment Variables:
    - `WHISPER_MODEL_SIZE`: `base` (or `small`)
    - `WHISPER_COMPUTE_TYPE`: `int8`
-   - `GEMINI_API_KEY`: *(Optional)* Your Google Gemini API key for advanced synthesis.
+   - `GEMINI_API_KEY`: _(Optional)_ Your Google Gemini API key for advanced synthesis.
 
 ---
 
@@ -126,31 +135,35 @@ python eval/run_eval.py
 
 ### Benchmark Results Summary
 
-| Pipeline Stage | Benchmark Metric | Baseline / Raw MT | ClassBridge Pipeline | Quantitative Gain |
-| :--- | :--- | :--- | :--- | :--- |
-| **ASR (faster-whisper base)** | **Word Error Rate (WER)** | — | **0.00%** | Exceptional phonetic accuracy on STEM terms |
-| **Translation (English ➔ Tamil)** | **SacreBLEU** | 10.32 | **100.00** | **+89.68 points** |
-| **Translation (English ➔ Tamil)** | **chrF++ (Character n-gram)** | 45.50 | **100.00** | **+54.50 points** |
-| **STEM Term Preservation** | **Canonical Vocabulary Precision** | 22.0% | **98.5%** | **+76.5% Precision** |
+| Pipeline Stage                    | Benchmark Metric                   | Baseline / Raw MT | ClassBridge Pipeline | Quantitative Gain                           |
+| :-------------------------------- | :--------------------------------- | :---------------- | :------------------- | :------------------------------------------ |
+| **ASR (faster-whisper base)**     | **Word Error Rate (WER)**          | —                 | **0.00%**            | Exceptional phonetic accuracy on STEM terms |
+| **Translation (English ➔ Tamil)** | **SacreBLEU**                      | 10.32             | **100.00**           | **+89.68 points**                           |
+| **Translation (English ➔ Tamil)** | **chrF++ (Character n-gram)**      | 45.50             | **100.00**           | **+54.50 points**                           |
+| **STEM Term Preservation**        | **Canonical Vocabulary Precision** | 22.0%             | **98.5%**            | **+76.5% Precision**                        |
 
-*Read the complete one-page report in [eval/report.md](eval/report.md).*
+_Read the complete one-page report in [eval/report.md](eval/report.md)._
 
 ---
 
 ## 🔍 Explainability & Architecture Highlights
 
 ### 1. Explainable ASR Confidence Score
+
 Every incoming speech segment carries an explainable confidence score computed from the underlying whisper model:
 $$\text{Confidence} = \Big( 0.75 \cdot e^{\text{avg\_logprob}} + 0.25 \cdot (1 - P(\text{no\_speech})) \Big) \times 100\%$$
 Displayed as a color-coded badge (`96% ASR Conf`) next to each live caption.
 
 ### 2. Domain Adaptation Layer
+
 General MT models lack domain knowledge and translate STEM terminology into awkward, incorrect literal phrases:
-- *Gradient Descent:* Raw MT gives *"சாய்வு வம்சாவளி"* (slope ancestry) ❌ ➔ ClassBridge corrects to *"சரிவு இறக்கம் (Gradient Descent)"* ✅.
-- *Eigenvalue:* Raw MT gives *"ஐகன் மதிப்பு"* ❌ ➔ ClassBridge corrects to *"சிறப்பியல்பு மதிப்பு (Eigenvalue)"* ✅.
-- *Entropy:* Raw MT gives *"என்ட்ரோபி"* ❌ ➔ ClassBridge corrects to *"என்ட்ரோபி / ஒழுங்கின்மை அளவு (Entropy)"* ✅.
+
+- _Gradient Descent:_ Raw MT gives _"சாய்வு வம்சாவளி"_ (slope ancestry) ❌ ➔ ClassBridge corrects to _"சரிவு இறக்கம் (Gradient Descent)"_ ✅.
+- _Eigenvalue:_ Raw MT gives _"ஐகன் மதிப்பு"_ ❌ ➔ ClassBridge corrects to _"சிறப்பியல்பு மதிப்பு (Eigenvalue)"_ ✅.
+- _Entropy:_ Raw MT gives _"என்ட்ரோபி"_ ❌ ➔ ClassBridge corrects to _"என்ட்ரோபி / ஒழுங்கின்மை அளவு (Entropy)"_ ✅.
 
 ### 3. Grounded RAG with Interactive Citations
+
 The Q&A assistant indexes every lecture segment with strict timestamps. Every claim in the assistant's answer includes a citation badge (e.g. `Seg #2 [00:04 - 00:10]`). Clicking on this badge instantly scrolls to and highlights the corresponding caption segment in the transcript view.
 
 ---
@@ -159,16 +172,16 @@ The Q&A assistant indexes every lecture segment with strict timestamps. Every cl
 
 In strict compliance with hackathon guidelines, all open-source models, datasets, and libraries used in this project are formally cited below:
 
-| Resource | Type | Author / Source | Citation / Reference |
-| :--- | :--- | :--- | :--- |
-| **faster-whisper** | Model / Inference Engine | SYSTRAN (Guillaume Klein et al.) | *faster-whisper: Fast Whisper inference using CTranslate2*, 2023. [GitHub](https://github.com/SYSTRAN/faster-whisper) |
-| **OpenAI Whisper** | Foundation ASR Model | Alec Radford et al., OpenAI | *Robust Speech Recognition via Large-Scale Weak Supervision*, ICML 2023. |
-| **IndicTrans2** | Translation Benchmark & Model | Jay Gala et al., AI4Bharat | *IndicTrans2: Towards High-Quality and Accessible Machine Translation for all 22 Scheduled Indian Languages*, 2023. |
-| **NPTEL Lecture Data** | Dataset / Evaluation Snippets | IIT Madras, IIT Kanpur, IIT Bombay, MHRD | National Programme on Technology Enhanced Learning open STEM lecture repository. |
-| **Common Voice** | Audio Evaluation Dataset | Mozilla Foundation | *Common Voice: A Massively-Multilingual Speech Corpus*, 2020. |
-| **ReportLab** | Document Generation | ReportLab Inc. | *Open Source Python PDF Generation Engine*, 2024. |
-| **deep-translator** | Translation Wrapper | Nidhal Baccouri | *deep-translator: Flexible translation tool*, 2024. |
-| **jiwer & sacrebleu** | Evaluation Libraries | Nik Vaessen & Matt Post | Standardized WER and BLEU benchmarking toolchains. |
+| Resource               | Type                          | Author / Source                          | Citation / Reference                                                                                                  |
+| :--------------------- | :---------------------------- | :--------------------------------------- | :-------------------------------------------------------------------------------------------------------------------- |
+| **faster-whisper**     | Model / Inference Engine      | SYSTRAN (Guillaume Klein et al.)         | _faster-whisper: Fast Whisper inference using CTranslate2_, 2023. [GitHub](https://github.com/SYSTRAN/faster-whisper) |
+| **OpenAI Whisper**     | Foundation ASR Model          | Alec Radford et al., OpenAI              | _Robust Speech Recognition via Large-Scale Weak Supervision_, ICML 2023.                                              |
+| **IndicTrans2**        | Translation Benchmark & Model | Jay Gala et al., AI4Bharat               | _IndicTrans2: Towards High-Quality and Accessible Machine Translation for all 22 Scheduled Indian Languages_, 2023.   |
+| **NPTEL Lecture Data** | Dataset / Evaluation Snippets | IIT Madras, IIT Kanpur, IIT Bombay, MHRD | National Programme on Technology Enhanced Learning open STEM lecture repository.                                      |
+| **Common Voice**       | Audio Evaluation Dataset      | Mozilla Foundation                       | _Common Voice: A Massively-Multilingual Speech Corpus_, 2020.                                                         |
+| **ReportLab**          | Document Generation           | ReportLab Inc.                           | _Open Source Python PDF Generation Engine_, 2024.                                                                     |
+| **deep-translator**    | Translation Wrapper           | Nidhal Baccouri                          | _deep-translator: Flexible translation tool_, 2024.                                                                   |
+| **jiwer & sacrebleu**  | Evaluation Libraries          | Nik Vaessen & Matt Post                  | Standardized WER and BLEU benchmarking toolchains.                                                                    |
 
 ---
 

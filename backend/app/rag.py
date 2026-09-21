@@ -510,7 +510,7 @@ class LectureQAService:
                         f"the lecture quote and concept. Include the timestamp [{top_seg['timestamp']}]."
                     )
                     resp = client.models.generate_content(
-                        model="gemini-2.5-flash",
+                        model="gemini-3.6-flash",
                         contents=prompt
                     )
                     if resp and resp.text:

@@ -290,7 +290,7 @@ Return ONLY valid JSON matching this exact JSON schema:
 }}
 """
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-3.6-flash',
                 contents=prompt,
                 config=dict(response_mime_type="application/json")
             )
