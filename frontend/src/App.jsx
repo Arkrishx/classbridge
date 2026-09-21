@@ -1810,11 +1810,16 @@ export default function App() {
   const handleSendQaComment = (text) => {
     if (!text || !text.trim()) return;
     const cleanText = text.trim();
+    const sender = userRole === 'teacher' ? (teacherName || 'Teacher') : (studentName || 'Student');
+    const rollNo = userRole === 'student' ? (studentRollNo || '') : '';
     const commentObj = {
       id: 'qa_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now(),
-      sender_name: userRole === 'teacher' ? (teacherName || 'Teacher') : (studentName || 'Student'),
+      sender: sender,
+      sender_name: sender,
+      role: userRole,
       sender_role: userRole,
-      sender_roll_no: userRole === 'student' ? (studentRollNo || '') : '',
+      roll_no: rollNo,
+      sender_roll_no: rollNo,
       text: cleanText,
       timestamp: Date.now()
     };

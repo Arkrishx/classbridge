@@ -407,6 +407,13 @@ export default function OnlineClassStage({
     const clean = qaInput.trim();
     if (!clean) return;
 
+    if (userRole === 'student' && (!studentName || !studentRollNo)) {
+      if (onOpenStudentRegister) {
+        onOpenStudentRegister();
+      }
+      return;
+    }
+
     if (onSendQaComment) {
       onSendQaComment(clean);
     }
@@ -778,7 +785,7 @@ export default function OnlineClassStage({
       {layoutMode === 'split' && (
         <div className="online-caption-sidebar">
           {/* Tabs: Subtitles vs Q&A Chat vs Hand Raises */}
-          <div className="sidebar-tab-bar">
+          <div className="sidebar-tab-bar sidebar-tabs-bar">
             <button
               type="button"
               className={`sidebar-tab-btn ${sidebarTab === 'subtitles' ? 'active' : ''}`}
@@ -793,7 +800,10 @@ export default function OnlineClassStage({
               onClick={() => setSidebarTab('qa')}
             >
               <MessageSquare size={13} />
-              <span>Q&A ({qaComments.length})</span>
+              <span>Q&A</span>
+              {qaComments.length > 0 && (
+                <span className="tab-counter-badge">{qaComments.length}</span>
+              )}
             </button>
             {handRaises.length > 0 && (
               <button
@@ -802,7 +812,8 @@ export default function OnlineClassStage({
                 onClick={() => setSidebarTab('hands')}
               >
                 <Hand size={13} />
-                <span>Hands ({handRaises.length})</span>
+                <span>Hands</span>
+                <span className="tab-counter-badge amber">{handRaises.length}</span>
               </button>
             )}
           </div>
@@ -819,7 +830,7 @@ export default function OnlineClassStage({
                 <div className="caption-export-actions">
                   <button
                     type="button"
-                    className="export-mini-btn"
+                    className="export-mini-btn export-btn"
                     onClick={() => exportCaptionsAsTxt(segments, sourceLang, targetLang)}
                     title="Export Captions as Plain Text (.txt)"
                   >
@@ -828,7 +839,7 @@ export default function OnlineClassStage({
                   </button>
                   <button
                     type="button"
-                    className="export-mini-btn pdf-btn"
+                    className="export-mini-btn export-btn pdf-btn pdf"
                     onClick={() => exportCaptionsAsPdf(segments, sourceLang, targetLang)}
                     title="Export Academic Publication PDF (.pdf)"
                   >
@@ -885,39 +896,138 @@ export default function OnlineClassStage({
                     </div>
                     <div style={{ fontSize: '11.5px', color: 'var(--text-dim)', marginTop: '2px' }}>
                       {userRole === 'teacher'
-                        ? "Students can ask questions or post comments here in real time."
-                        : "Have a question about the lecture? Ask below!"}
+                        ? "Students can ask questions or post comments here in real time with their Roll Number."
+                        : "Have a question about the lecture? Ask below with your verified Roll Number!"}
                     </div>
                   </div>
                 ) : (
-                  qaComments.map((c) => (
-                    <div key={c.id} className={`qa-comment-card ${c.role === 'teacher' ? 'teacher-comment' : ''}`}>
-                      <div className="qa-card-meta">
-                        <span className="qa-sender-name">
-                          {c.role === 'teacher' ? <Crown size={12} color="#f59e0b" style={{ display: 'inline', marginRight: '3px' }} /> : null}
-                          {c.sender}
-                        </span>
-                        {c.roll_no && <span className="qa-roll-badge">{c.roll_no}</span>}
-                        <span className="qa-time-stamp">
-                          {c.timestamp ? new Date(c.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Now'}
-                        </span>
+                  qaComments.map((c) => {
+                    const isTeacher = c.role === 'teacher' || c.sender_role === 'teacher';
+                    const senderName = c.sender_name || c.sender || (isTeacher ? (teacherName || 'Faculty Host') : (studentName || 'Student'));
+                    const rollNumber = c.sender_roll_no || c.roll_no;
+                    const timeMs = c.timestamp ? (c.timestamp > 1e11 ? c.timestamp : c.timestamp * 1000) : Date.now();
+                    const timeString = new Date(timeMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const initials = senderName
+                      ? senderName.split(' ').map((n) => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
+                      : (isTeacher ? 'T' : 'S');
+
+                    return (
+                      <div key={c.id} className={`qa-comment-card ${isTeacher ? 'teacher-comment teacher-card' : 'student-card'}`}>
+                        <div className="qa-card-meta qa-comment-header">
+                          <div className="qa-user-profile">
+                            <div className={`qa-avatar ${isTeacher ? 'teacher-avatar' : ''}`}>
+                              {isTeacher ? <Crown size={13} color="#f59e0b" /> : initials}
+                            </div>
+                            <div className="qa-user-details">
+                              <span className="qa-sender-name">
+                                {senderName}
+                              </span>
+                              {isTeacher ? (
+                                <span className="qa-role-badge teacher-role-badge teacher">
+                                  <Crown size={10} style={{ marginRight: '3px' }} />
+                                  Faculty / Host
+                                </span>
+                              ) : (
+                                <span className="qa-roll-badge qa-roll-no" title={`Student Roll No: ${rollNumber || 'Unassigned'}`}>
+                                  <Tag size={10} style={{ marginRight: '3px' }} />
+                                  Roll: {rollNumber || 'N/A'}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <span className="qa-time-stamp qa-timestamp" title={new Date(timeMs).toLocaleString()}>
+                            {timeString}
+                          </span>
+                        </div>
+                        <div className="qa-card-text qa-comment-body">
+                          {c.text}
+                        </div>
                       </div>
-                      <div className="qa-card-text">{c.text}</div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
+
+              {/* Author Identity Bar: Shows who is asking & Roll Number reference */}
+              {userRole === 'student' ? (
+                studentName && studentRollNo ? (
+                  <div className="qa-author-identity-bar">
+                    <div className="qa-author-badge">
+                      <span className="qa-active-dot" />
+                      <span className="qa-posting-text">
+                        Posting as: <strong>{studentName}</strong>
+                      </span>
+                      <span className="qa-roll-reference-tag" title="Verified Academic Roll Number">
+                        <Tag size={10} />
+                        Roll: {studentRollNo}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="qa-change-id-btn"
+                      onClick={onOpenStudentRegister}
+                      title="Edit your Name and Roll Number"
+                    >
+                      <Edit3 size={11} />
+                      <span>Change</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="qa-missing-identity-bar">
+                    <div className="qa-missing-text">
+                      <AlertCircle size={13} color="#f59e0b" />
+                      <span>Set your <b>Name & Roll Number</b> before asking questions</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="qa-set-id-btn"
+                      onClick={onOpenStudentRegister}
+                    >
+                      Set ID
+                    </button>
+                  </div>
+                )
+              ) : (
+                <div className="qa-author-identity-bar teacher-identity-bar">
+                  <div className="qa-author-badge">
+                    <Crown size={12} color="#f59e0b" />
+                    <span className="qa-posting-text">
+                      Posting as Host: <strong>{teacherName || 'Faculty Host'}</strong>
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="qa-change-id-btn"
+                    onClick={onOpenTeacherSetup}
+                    title="Teacher Settings"
+                  >
+                    <Settings size={11} />
+                    <span>Settings</span>
+                  </button>
+                </div>
+              )}
 
               {/* Q&A Input Box */}
               <form onSubmit={handleQaSubmit} className="qa-input-form">
                 <input
                   type="text"
                   className="google-input qa-input"
-                  placeholder={userRole === 'teacher' ? "Post an announcement or answer..." : "Ask a question (tagged with your Roll No)..."}
+                  placeholder={
+                    userRole === 'teacher'
+                      ? "Post an announcement or answer to class..."
+                      : (studentName && studentRollNo
+                          ? `Ask question as ${studentName} (Roll: ${studentRollNo})...`
+                          : "Enter your Roll No & Name to ask a question...")
+                  }
                   value={qaInput}
                   onChange={(e) => setQaInput(e.target.value)}
                 />
-                <button type="submit" className="google-icon-btn send-qa-btn" title="Send Question / Comment">
+                <button
+                  type="submit"
+                  className="google-icon-btn send-qa-btn qa-send-btn"
+                  title="Send Question / Comment"
+                  disabled={!qaInput.trim()}
+                >
                   <Send size={15} color="var(--google-blue)" />
                 </button>
               </form>
@@ -939,21 +1049,28 @@ export default function OnlineClassStage({
                 )}
               </div>
               <div className="hands-list">
-                {handRaises.map((h, i) => (
-                  <div key={h.id || i} className="hand-raise-row">
-                    <div className="hand-row-avatar">
-                      <Hand size={14} color="#f59e0b" />
+                {handRaises.map((h, i) => {
+                  const hTimeMs = h.timestamp ? (h.timestamp > 1e11 ? h.timestamp : h.timestamp * 1000) : Date.now();
+                  const hTimeString = new Date(hTimeMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                  return (
+                    <div key={h.id || i} className="hand-raise-row">
+                      <div className="hand-row-avatar hand-avatar">
+                        <Hand size={14} color="#f59e0b" />
+                      </div>
+                      <div className="hand-row-info hand-info">
+                        <div className="hand-row-name hand-name">{h.name || 'Student'}</div>
+                        <div className="hand-row-roll hand-roll">
+                          <Tag size={10} style={{ marginRight: '3px' }} />
+                          Roll: {h.roll_no || 'N/A'}
+                        </div>
+                      </div>
+                      <div className="hand-row-time hand-time">
+                        <Clock size={11} />
+                        <span>{hTimeString}</span>
+                      </div>
                     </div>
-                    <div className="hand-row-info">
-                      <div className="hand-row-name">{h.name || 'Student'}</div>
-                      <div className="hand-row-roll">{h.roll_no || 'Roll N/A'}</div>
-                    </div>
-                    <div className="hand-row-time">
-                      <Clock size={11} />
-                      <span>{h.timestamp ? new Date(h.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Raised'}</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
