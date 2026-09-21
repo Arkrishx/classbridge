@@ -26,6 +26,7 @@ export default function ClassModeBar({
   onOpenClassroomModal,
 }) {
   const [copiedLink, setCopiedLink] = useState(false);
+  const isTeacherOnline = userRole === 'teacher' || Boolean(hasTeacher);
 
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
   const studentInviteUrl = `${currentOrigin}?room=${encodeURIComponent(roomCode)}&role=student`;
@@ -141,8 +142,19 @@ export default function ClassModeBar({
               <span className="room-code-tag">{roomCode}</span>
               <span className="room-divider">•</span>
               <Users size={12} color="var(--google-blue)" />
-              <span className="room-count">{studentCount} connected</span>
-              {hasTeacher && <span className="teacher-live-indicator" title="Teacher microphone is active">🟢 Host Live</span>}
+              <span className="room-count">
+                <b>{studentCount}</b> {studentCount === 1 ? 'Student' : 'Students'} Connected
+              </span>
+              <span className="room-divider">•</span>
+              {isTeacherOnline ? (
+                <span className="teacher-live-indicator online" title="Teacher microphone is active and broadcasting">
+                  🟢 {userRole === 'teacher' ? 'Teacher Online (You)' : 'Teacher Online'}
+                </span>
+              ) : (
+                <span className="teacher-live-indicator offline" title="Teacher has not connected to this room yet">
+                  ⚪ Teacher Offline
+                </span>
+              )}
             </button>
 
             {/* 1-Click Share Student Link Button */}

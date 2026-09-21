@@ -39,6 +39,7 @@ export default function ClassroomModal({
   const [copiedLink, setCopiedLink] = useState(false);
   const [tempRoomInput, setTempRoomInput] = useState(roomCode);
   const [copiedTeacherLink, setCopiedTeacherLink] = useState(false);
+  const isTeacherOnline = userRole === 'teacher' || Boolean(hasTeacher);
 
   useEffect(() => {
     setTempRoomInput(roomCode);
@@ -312,8 +313,8 @@ export default function ClassroomModal({
                   <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                     👥 <b>{studentCount}</b> Student{studentCount === 1 ? '' : 's'} Connected
                   </span>
-                  <span style={{ fontSize: '11px', color: hasTeacher ? 'var(--google-green)' : 'var(--text-dim)' }}>
-                    • {hasTeacher ? '👑 Teacher Live' : '⚪ Teacher Offline'}
+                  <span style={{ fontSize: '11px', color: isTeacherOnline ? 'var(--google-green)' : 'var(--text-dim)', fontWeight: 600 }}>
+                    • {isTeacherOnline ? (userRole === 'teacher' ? '🟢 Teacher Online (You)' : '🟢 Teacher Online') : '⚪ Teacher Offline'}
                   </span>
                 </div>
               </div>

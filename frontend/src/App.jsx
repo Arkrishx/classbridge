@@ -469,12 +469,29 @@ export default function App() {
   });
   const [isClassroomModalOpen, setIsClassroomModalOpen] = useState(false);
   const [studentCount, setStudentCount] = useState(0);
-  const [hasTeacher, setHasTeacher] = useState(false);
+  const [hasTeacher, setHasTeacher] = useState(() => userRole === 'teacher');
 
   const wsRef = useRef(null);
   const streamerRef = useRef(null);
   const timerRef = useRef(null);
   const broadcastChannelRef = useRef(null);
+  const tabIdRef = useRef('tab_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now());
+  const studentTabsMapRef = useRef(new Map());
+  const userRoleRef = useRef(userRole);
+  const roomCodeRef = useRef(roomCode);
+  const classModeRef = useRef(classMode);
+
+  useEffect(() => {
+    userRoleRef.current = userRole;
+  }, [userRole]);
+
+  useEffect(() => {
+    roomCodeRef.current = roomCode;
+  }, [roomCode]);
+
+  useEffect(() => {
+    classModeRef.current = classMode;
+  }, [classMode]);
 
   // Initialize Connection, Audio Devices & Load Glossary
   useEffect(() => {
@@ -500,7 +517,8 @@ export default function App() {
       bc.onmessage = (event) => {
         try {
           const msg = event.data;
-          if (!msg || (msg.room_id && msg.room_id !== roomCode)) return;
+          if (!msg || (msg.room_id && msg.room_id !== roomCodeRef.current)) return;
+
           if (msg.type === 'caption' && msg.segment) {
             setSegments((prev) => {
               if (prev.some((s) => s.id === msg.segment.id || (s.text_source || s.text_en).trim().toLowerCase() === (msg.segment.text_source || msg.segment.text_en).trim().toLowerCase())) {
@@ -514,9 +532,58 @@ export default function App() {
             });
           } else if (msg.type === 'room_cleared') {
             setSegments([]);
+          } else if (msg.type === 'student_ping' || msg.type === 'student_heartbeat') {
+            // Received by Teacher tab
+            if (userRoleRef.current === 'teacher') {
+              if (msg.student_tab_id) {
+                studentTabsMapRef.current.set(msg.student_tab_id, Date.now());
+              }
+              const now = Date.now();
+              for (const [id, ts] of studentTabsMapRef.current.entries()) {
+                if (now - ts > 6000) {
+                  studentTabsMapRef.current.delete(id);
+                }
+              }
+              const count = studentTabsMapRef.current.size;
+              setStudentCount(count);
+              bc.postMessage({
+                type: 'teacher_announce',
+                room_id: roomCodeRef.current,
+                has_teacher: true,
+                student_count: count
+              });
+            }
+          } else if (msg.type === 'student_leave') {
+            if (userRoleRef.current === 'teacher') {
+              if (msg.student_tab_id) {
+                studentTabsMapRef.current.delete(msg.student_tab_id);
+              }
+              const count = studentTabsMapRef.current.size;
+              setStudentCount(count);
+              bc.postMessage({
+                type: 'teacher_announce',
+                room_id: roomCodeRef.current,
+                has_teacher: true,
+                student_count: count
+              });
+            }
+          } else if (msg.type === 'teacher_announce') {
+            // Received by Student tabs
+            if (userRoleRef.current === 'student') {
+              setHasTeacher(Boolean(msg.has_teacher));
+              if (msg.student_count !== undefined) {
+                setStudentCount(msg.student_count);
+              }
+            }
+          } else if (msg.type === 'teacher_leave') {
+            if (userRoleRef.current === 'student') {
+              setHasTeacher(false);
+            }
           } else if (msg.type === 'room_presence') {
             if (msg.student_count !== undefined) setStudentCount((c) => Math.max(c, msg.student_count));
-            if (msg.has_teacher !== undefined) setHasTeacher(msg.has_teacher);
+            if (msg.has_teacher !== undefined && userRoleRef.current === 'student') {
+              setHasTeacher(Boolean(msg.has_teacher));
+            }
           }
         } catch (e) {
           console.warn("BroadcastChannel message error:", e);
@@ -535,6 +602,116 @@ export default function App() {
       }
     };
   }, [roomCode, targetLang, isReadAloudEnabled]);
+
+  // Real-Time Classroom Cross-Tab & Multi-Window Heartbeat Protocol
+  useEffect(() => {
+    if (classMode !== 'realtime_classroom') return;
+
+    // Immediately announce role on mount or role/room change
+    if (broadcastChannelRef.current) {
+      if (userRole === 'teacher') {
+        setHasTeacher(true);
+        const count = studentTabsMapRef.current.size;
+        broadcastChannelRef.current.postMessage({
+          type: 'teacher_announce',
+          room_id: roomCode,
+          has_teacher: true,
+          student_count: count
+        });
+      } else {
+        broadcastChannelRef.current.postMessage({
+          type: 'student_ping',
+          room_id: roomCode,
+          student_tab_id: tabIdRef.current
+        });
+      }
+    }
+
+    // Periodic heartbeat every 2.5s
+    const hbInterval = setInterval(() => {
+      if (!broadcastChannelRef.current) return;
+
+      if (userRoleRef.current === 'teacher') {
+        const now = Date.now();
+        for (const [id, ts] of studentTabsMapRef.current.entries()) {
+          if (now - ts > 6000) {
+            studentTabsMapRef.current.delete(id);
+          }
+        }
+        const count = studentTabsMapRef.current.size;
+        setStudentCount(count);
+        broadcastChannelRef.current.postMessage({
+          type: 'teacher_announce',
+          room_id: roomCodeRef.current,
+          has_teacher: true,
+          student_count: count
+        });
+      } else {
+        broadcastChannelRef.current.postMessage({
+          type: 'student_ping',
+          room_id: roomCodeRef.current,
+          student_tab_id: tabIdRef.current
+        });
+      }
+    }, 2500);
+
+    const handleBeforeUnload = () => {
+      if (!broadcastChannelRef.current) return;
+      if (userRoleRef.current === 'teacher') {
+        broadcastChannelRef.current.postMessage({
+          type: 'teacher_leave',
+          room_id: roomCodeRef.current
+        });
+      } else {
+        broadcastChannelRef.current.postMessage({
+          type: 'student_leave',
+          room_id: roomCodeRef.current,
+          student_tab_id: tabIdRef.current
+        });
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      clearInterval(hbInterval);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [classMode, userRole, roomCode]);
+
+  // REST Polling Fallback to sync WebSocket room stats across network devices
+  useEffect(() => {
+    if (classMode !== 'realtime_classroom') return;
+
+    let isMounted = true;
+    const checkRoomStatus = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/classroom/${encodeURIComponent(roomCode)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && data) {
+            if (userRoleRef.current === 'student' && data.has_teacher !== undefined) {
+              setHasTeacher(Boolean(data.has_teacher));
+            }
+            if (data.student_count !== undefined) {
+              // Combine max count from backend and local BroadcastChannel
+              setStudentCount((prev) => Math.max(prev, data.student_count));
+            }
+          }
+        }
+      } catch (err) {
+        // Backend might be offline (browser-assisted mode active)
+      }
+    };
+
+    checkRoomStatus();
+    const pollInterval = setInterval(checkRoomStatus, 3500);
+
+    return () => {
+      isMounted = false;
+      clearInterval(pollInterval);
+    };
+  }, [classMode, roomCode, userRole]);
 
   const loadAudioDevices = async () => {
     try {
@@ -688,11 +865,23 @@ export default function App() {
           const data = JSON.parse(event.data);
           if (data.type === 'handshake') {
             setConnectionStatus('connected');
-            if (data.student_count !== undefined) setStudentCount(data.student_count);
-            if (data.has_teacher !== undefined) setHasTeacher(data.has_teacher);
+            if (data.student_count !== undefined) {
+              setStudentCount((prev) => Math.max(prev, data.student_count));
+            }
+            if (userRoleRef.current === 'teacher') {
+              setHasTeacher(true);
+            } else if (data.has_teacher !== undefined) {
+              setHasTeacher(Boolean(data.has_teacher));
+            }
           } else if (data.type === 'room_presence') {
-            if (data.student_count !== undefined) setStudentCount(data.student_count);
-            if (data.has_teacher !== undefined) setHasTeacher(data.has_teacher);
+            if (data.student_count !== undefined) {
+              setStudentCount((prev) => Math.max(prev, data.student_count));
+            }
+            if (userRoleRef.current === 'teacher') {
+              setHasTeacher(true);
+            } else if (data.has_teacher !== undefined) {
+              setHasTeacher(Boolean(data.has_teacher));
+            }
           } else if (data.type === 'history') {
             if (data.segments && Array.isArray(data.segments)) {
               setSegments(data.segments);
@@ -712,7 +901,11 @@ export default function App() {
           } else if (data.type === 'room_cleared') {
             setSegments([]);
           } else if (data.type === 'teacher_status') {
-            if (data.status === 'offline') setHasTeacher(false);
+            if (data.status === 'offline') {
+              if (userRoleRef.current === 'student') setHasTeacher(false);
+            } else if (data.status === 'online') {
+              setHasTeacher(true);
+            }
           } else if (data.type === 'silence') {
             // Ambient noise / silence detected
           } else if (data.type === 'error') {
@@ -1128,15 +1321,43 @@ export default function App() {
   };
 
   const handleUserRoleChange = (role) => {
-    setUserRole(role);
+    const cleanRole = role === 'teacher' ? 'teacher' : 'student';
+    setUserRole(cleanRole);
     try {
-      localStorage.setItem('classbridge_user_role', role);
+      localStorage.setItem('classbridge_user_role', cleanRole);
     } catch (e) {}
+
+    if (cleanRole === 'teacher') {
+      setHasTeacher(true);
+      if (broadcastChannelRef.current) {
+        broadcastChannelRef.current.postMessage({
+          type: 'teacher_announce',
+          room_id: roomCodeRef.current,
+          has_teacher: true,
+          student_count: studentTabsMapRef.current.size
+        });
+      }
+    } else {
+      setHasTeacher(false);
+      if (broadcastChannelRef.current) {
+        broadcastChannelRef.current.postMessage({
+          type: 'teacher_leave',
+          room_id: roomCodeRef.current
+        });
+        broadcastChannelRef.current.postMessage({
+          type: 'student_ping',
+          room_id: roomCodeRef.current,
+          student_tab_id: tabIdRef.current
+        });
+      }
+    }
   };
 
   const handleRoomCodeChange = (code) => {
     const clean = code.trim().toUpperCase() || 'EDU-02';
     setRoomCode(clean);
+    studentTabsMapRef.current.clear();
+    setStudentCount(0);
     try {
       localStorage.setItem('classbridge_room_code', clean);
     } catch (e) {}
