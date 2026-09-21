@@ -34,7 +34,7 @@ import {
 import ErrorBoundary from './components/ErrorBoundary';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
+const WS_BASE_URL = import.meta.env.VITE_WS_URL || API_BASE_URL.replace(/^http/, 'ws');
 
 // Fallback STEM Glossary for standalone Vercel preview (Tamil, Malayalam, Hindi)
 const FALLBACK_GLOSSARY = {
@@ -1110,6 +1110,12 @@ export default function App() {
       const wsUrl = isClassroom
         ? `${WS_BASE_URL}/ws/classroom/${encodeURIComponent(roomCode)}?role=${userRole}&source_lang=${sourceLang}&target_lang=${targetLang}${userRole === 'teacher' && teacherName ? `&teacher_name=${encodeURIComponent(teacherName)}` : ''}`
         : `${WS_BASE_URL}/ws/lecture?target_lang=${targetLang}&source_lang=${sourceLang}`;
+
+      if (typeof window !== 'undefined' && window.location.protocol === 'https:' && /^ws:\/\/(localhost|127\.0\.0\.1)/i.test(wsUrl)) {
+        setErrorMessage('Live mobile captions need a deployed backend. Set VITE_API_URL to your HTTPS backend before deploying Vercel.');
+        setConnectionStatus('browser_assisted');
+        return;
+      }
 
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;

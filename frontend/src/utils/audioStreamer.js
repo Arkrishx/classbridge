@@ -50,6 +50,9 @@ export class AudioStreamer {
     this.mediaRecorder = null;
     this.audioContext = null;
     this.analyser = null;
+    this.pcmProcessor = null;
+    this.pcmBuffers = [];
+    this.pcmSamples = 0;
 
     // Buffers, timers, and state
     this.currentInterimText = '';
@@ -318,13 +321,62 @@ export class AudioStreamer {
     if (SpeechRec) {
       this.initSpeechRecognition(SpeechRec);
     } else {
-      console.warn("Web Speech API not supported; relying on MediaStream fallback.");
-      if (this.onError) {
-        this.onError(new Error("Your browser does not natively support speech recognition (e.g. Mozilla Firefox). Please use Google Chrome or Microsoft Edge for live voice dictation."));
+      console.warn("Web Speech API not supported; using raw PCM backend transcription.");
+      if (this.mediaRecorder) {
+        try { this.mediaRecorder.stop(); } catch (e) {}
+        this.mediaRecorder = null;
       }
+      this.startPcmFallback();
+      if (this.onStatusChange) this.onStatusChange('listening');
     }
 
     return true;
+  }
+
+  startPcmFallback() {
+    if (!this.audioContext || !this.mediaStream || this.pcmProcessor) return;
+
+    try {
+      const source = this.audioContext.createMediaStreamSource(this.mediaStream);
+      const processor = this.audioContext.createScriptProcessor(4096, 1, 1);
+      this.pcmBuffers = [];
+      this.pcmSamples = 0;
+      processor.onaudioprocess = (event) => {
+        if (!this.isRecording) return;
+        const input = event.inputBuffer.getChannelData(0);
+        const pcm = new Int16Array(input.length);
+        for (let index = 0; index < input.length; index += 1) {
+          pcm[index] = Math.max(-1, Math.min(1, input[index])) * 32767;
+        }
+        this.pcmBuffers.push(pcm);
+        this.pcmSamples += pcm.length;
+        const targetSamples = Math.floor((this.audioContext.sampleRate || 44100) * 3);
+        if (this.pcmSamples < targetSamples) return;
+
+        const output = new Int16Array(this.pcmSamples);
+        let offset = 0;
+        for (const buffer of this.pcmBuffers) {
+          output.set(buffer, offset);
+          offset += buffer.length;
+        }
+        this.pcmBuffers = [];
+        this.pcmSamples = 0;
+        const sourceRate = this.audioContext.sampleRate || 44100;
+        const targetRate = 16000;
+        const resampled = new Int16Array(Math.floor(output.length * targetRate / sourceRate));
+        for (let index = 0; index < resampled.length; index += 1) {
+          const sourceIndex = Math.min(output.length - 1, Math.floor(index * sourceRate / targetRate));
+          resampled[index] = output[sourceIndex];
+        }
+        if (this.onAudioData) this.onAudioData(resampled.buffer);
+      };
+      source.connect(processor);
+      processor.connect(this.audioContext.destination);
+      this.pcmProcessor = processor;
+      this.audioContext.resume?.().catch(() => {});
+    } catch (error) {
+      console.warn('[AudioStreamer] PCM mobile fallback unavailable:', error);
+    }
   }
 
   initSpeechRecognition(SpeechRec) {
@@ -593,6 +645,14 @@ export class AudioStreamer {
         this.mediaRecorder.stop();
       } catch (e) {}
     }
+
+    if (this.pcmProcessor) {
+      try { this.pcmProcessor.disconnect(); } catch (e) {}
+      this.pcmProcessor.onaudioprocess = null;
+      this.pcmProcessor = null;
+    }
+    this.pcmBuffers = [];
+    this.pcmSamples = 0;
 
     if (this.mediaStream) {
       this.mediaStream.getTracks().forEach((track) => track.stop());
