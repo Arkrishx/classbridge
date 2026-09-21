@@ -1,8 +1,14 @@
 import React from 'react';
 import { Clock3, X, RotateCcw } from 'lucide-react';
 
-export default function LectureHistoryModal({ history = [], onClose, onRestore }) {
-  if (!history.length) return null;
+export default function LectureHistoryModal({ isOpen = false, history = [], onClose, onRestore }) {
+  if (!isOpen || !history.length) return null;
+
+  const handleClose = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onClose();
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -11,7 +17,7 @@ export default function LectureHistoryModal({ history = [], onClose, onRestore }
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700 }}>
             <Clock3 size={17} color="var(--accent-cyan)" /> Lecture History
           </div>
-          <button className="btn-minimal" onClick={onClose} title="Close" type="button"><X size={16} /></button>
+          <button className="btn-minimal" onClick={handleClose} title="Close lecture history" aria-label="Close lecture history" type="button"><X size={16} /></button>
         </div>
         <div className="modal-scroll" style={{ padding: '16px' }}>
           {history.map((entry) => (
