@@ -23,13 +23,15 @@ export default function ClassModeBar({
   roomCode = 'EDU-02',
   studentCount = 0,
   hasTeacher = false,
+  isCameraActive = false,
+  onOpenAttendanceRoster,
   onOpenClassroomModal,
 }) {
   const [copiedLink, setCopiedLink] = useState(false);
   const isTeacherOnline = userRole === 'teacher' || Boolean(hasTeacher);
 
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
-  const studentInviteUrl = `${currentOrigin}?room=${encodeURIComponent(roomCode)}&role=student`;
+  const studentInviteUrl = `${currentOrigin}?room=${encodeURIComponent(roomCode)}&mode=${classMode === 'online_classroom' ? 'online' : 'offline'}&role=student`;
 
   const handleCopyStudentLink = async (e) => {
     if (e) e.stopPropagation();
@@ -173,18 +175,87 @@ export default function ClassModeBar({
         {/* When in Online Class Mode */}
         {classMode === 'online_classroom' && (
           <div className="class-context-deck online-deck">
-            <div className="online-room-tag">
-              <Video size={13} color="var(--google-yellow)" />
-              <span>Room: <b>{roomCode}</b></span>
+            {/* Direct Role Toggle (Teacher vs Student) */}
+            <div className="role-switch-pills" title="Toggle your online classroom role">
+              <button
+                type="button"
+                className={`role-pill ${userRole === 'teacher' ? 'active-teacher' : ''}`}
+                onClick={() => onChangeUserRole && onChangeUserRole('teacher')}
+                title="Teacher: Broadcast your camera & microphone to the entire online classroom"
+              >
+                <Crown size={13} />
+                <span>Teacher (Host)</span>
+              </button>
+
+              <button
+                type="button"
+                className={`role-pill ${userRole === 'student' ? 'active-student' : ''}`}
+                onClick={() => onChangeUserRole && onChangeUserRole('student')}
+                title="Student: View teacher camera stream & synchronized multi-lingual subtitles"
+              >
+                <Headphones size={13} />
+                <span>Student (Listener)</span>
+              </button>
             </div>
+
+            {/* Room Code & Connected Students Badge */}
             <button
               type="button"
-              className="google-pill-btn primary"
-              style={{ fontSize: '12px', padding: '5px 14px' }}
+              className="room-info-pill"
               onClick={onOpenClassroomModal}
+              title={`Room: ${roomCode}. Click to change room code or settings.`}
             >
-              <Settings2 size={13} />
-              <span>Online Class Settings</span>
+              <span className="room-label">Room:</span>
+              <span className="room-code-tag">{roomCode}</span>
+              <span className="room-divider">•</span>
+              <Users size={12} color="var(--google-blue)" />
+              <span className="room-count">
+                <b>{studentCount}</b> {studentCount === 1 ? 'Student' : 'Students'}
+              </span>
+              <span className="room-divider">•</span>
+              {isTeacherOnline ? (
+                <span className="teacher-live-indicator online" title="Teacher is broadcasting online">
+                  🟢 {userRole === 'teacher' ? 'Teacher Live (You)' : 'Teacher Live'}
+                </span>
+              ) : (
+                <span className="teacher-live-indicator offline" title="Teacher has not started class yet">
+                  ⚪ Teacher Offline
+                </span>
+              )}
+              {isCameraActive && (
+                <>
+                  <span className="room-divider">•</span>
+                  <span className="camera-active-tag">
+                    <Video size={11} color="var(--google-green)" />
+                    Camera Live
+                  </span>
+                </>
+              )}
+            </button>
+
+            {/* Teacher: Live Attendance Roster Button */}
+            {userRole === 'teacher' && onOpenAttendanceRoster && (
+              <button
+                type="button"
+                className="google-pill-btn secondary"
+                onClick={onOpenAttendanceRoster}
+                style={{ fontSize: '12px', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                title="View registered student attendance roster (Roll Numbers & Names)"
+              >
+                <Users size={13} color="var(--google-blue)" />
+                <span>Attendance ({studentCount})</span>
+              </button>
+            )}
+
+            {/* 1-Click Share Student Link Button */}
+            <button
+              type="button"
+              className={`copy-student-link-btn ${copiedLink ? 'copied' : ''}`}
+              onClick={handleCopyStudentLink}
+              title="Copy shareable link for students to join online class"
+            >
+              {copiedLink ? <Check size={13} /> : <Copy size={13} />}
+              <span>{copiedLink ? 'Link Copied!' : 'Share Student Link'}</span>
             </button>
           </div>
         )}

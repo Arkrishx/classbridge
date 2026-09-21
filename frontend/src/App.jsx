@@ -12,6 +12,9 @@ import AboutModal from './components/AboutModal';
 import AudioDeviceModal from './components/AudioDeviceModal';
 import ClassroomModal from './components/ClassroomModal';
 import ClassModeBar from './components/ClassModeBar';
+import OnlineClassStage from './components/OnlineClassStage';
+import StudentRegisterModal from './components/StudentRegisterModal';
+import AttendanceRosterModal from './components/AttendanceRosterModal';
 import ErrorBanner from './components/ErrorBanner';
 import { AudioStreamer, getAudioInputDevices } from './utils/audioStreamer';
 import { globalTTS, getAudioOutputDevices } from './utils/ttsService';
@@ -441,7 +444,10 @@ export default function App() {
   const [classMode, setClassMode] = useState(() => {
     try {
       const p = new URLSearchParams(window.location.search);
-      if (p.get('mode')) return p.get('mode');
+      const m = p.get('mode');
+      if (m === 'online' || m === 'online_classroom') return 'online_classroom';
+      if (m === 'offline' || m === 'realtime_classroom') return 'realtime_classroom';
+      if (m === 'solo') return 'solo';
       return localStorage.getItem('classbridge_class_mode') || 'realtime_classroom';
     } catch (e) {
       return 'realtime_classroom';
@@ -470,6 +476,30 @@ export default function App() {
   const [isClassroomModalOpen, setIsClassroomModalOpen] = useState(false);
   const [studentCount, setStudentCount] = useState(0);
   const [hasTeacher, setHasTeacher] = useState(() => userRole === 'teacher');
+
+  // Online Classroom Student Identity & Attendance Roster State
+  const [studentName, setStudentName] = useState(() => {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      return p.get('name') || localStorage.getItem('classbridge_student_name') || '';
+    } catch (e) {
+      return '';
+    }
+  });
+  const [studentRollNo, setStudentRollNo] = useState(() => {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      return p.get('roll') || p.get('roll_no') || localStorage.getItem('classbridge_student_roll') || '';
+    } catch (e) {
+      return '';
+    }
+  });
+  const [isStudentRegisterOpen, setIsStudentRegisterOpen] = useState(false);
+  const [attendanceRoster, setAttendanceRoster] = useState([]);
+  const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
+  const [isTeacherCameraOn, setIsTeacherCameraOn] = useState(false);
+  const [isTeacherScreenSharing, setIsTeacherScreenSharing] = useState(false);
+  const [remoteVideoFrame, setRemoteVideoFrame] = useState(null);
 
   const wsRef = useRef(null);
   const streamerRef = useRef(null);
@@ -584,6 +614,56 @@ export default function App() {
             if (msg.has_teacher !== undefined && userRoleRef.current === 'student') {
               setHasTeacher(Boolean(msg.has_teacher));
             }
+            if (msg.is_camera_on !== undefined && userRoleRef.current === 'student') {
+              setIsTeacherCameraOn(Boolean(msg.is_camera_on));
+            }
+            if (msg.is_screen_sharing !== undefined && userRoleRef.current === 'student') {
+              setIsTeacherScreenSharing(Boolean(msg.is_screen_sharing));
+            }
+          } else if (msg.type === 'student_identify') {
+            if (userRoleRef.current === 'teacher') {
+              if (msg.student_tab_id) {
+                studentTabsMapRef.current.set(msg.student_tab_id, Date.now());
+              }
+              const studentEntry = {
+                id: msg.student_tab_id || `tab_${Math.random().toString(36).substr(2, 6)}`,
+                name: msg.name,
+                roll_no: msg.roll_no,
+                target_lang: msg.target_lang || 'ta',
+                joined_at: Date.now() / 1000,
+                status: 'online'
+              };
+              setAttendanceRoster((prev) => {
+                const filtered = prev.filter((s) => s.id !== msg.student_tab_id && s.roll_no !== msg.roll_no);
+                const updated = [...filtered, studentEntry];
+                bc.postMessage({
+                  type: 'roster_update',
+                  room_id: roomCodeRef.current,
+                  students: updated,
+                  student_count: updated.length
+                });
+                return updated;
+              });
+              setStudentCount(studentTabsMapRef.current.size);
+            }
+          } else if (msg.type === 'roster_update') {
+            if (msg.students && Array.isArray(msg.students)) {
+              setAttendanceRoster(msg.students);
+              setStudentCount(msg.students.length);
+            }
+          } else if (msg.type === 'video_frame') {
+            if (userRoleRef.current === 'student') {
+              setRemoteVideoFrame(msg.frame);
+              setIsTeacherCameraOn(true);
+            }
+          } else if (msg.type === 'video_state') {
+            if (userRoleRef.current === 'student') {
+              setIsTeacherCameraOn(Boolean(msg.is_camera_on));
+              setIsTeacherScreenSharing(Boolean(msg.is_screen_sharing));
+              if (!msg.is_camera_on) {
+                setRemoteVideoFrame(null);
+              }
+            }
           }
         } catch (e) {
           console.warn("BroadcastChannel message error:", e);
@@ -605,7 +685,7 @@ export default function App() {
 
   // Real-Time Classroom Cross-Tab & Multi-Window Heartbeat Protocol
   useEffect(() => {
-    if (classMode !== 'realtime_classroom') return;
+    if (classMode !== 'realtime_classroom' && classMode !== 'online_classroom') return;
 
     // Immediately announce role on mount or role/room change
     if (broadcastChannelRef.current) {
@@ -624,6 +704,16 @@ export default function App() {
           room_id: roomCode,
           student_tab_id: tabIdRef.current
         });
+        if (studentName && studentRollNo) {
+          broadcastChannelRef.current.postMessage({
+            type: 'student_identify',
+            room_id: roomCode,
+            student_tab_id: tabIdRef.current,
+            name: studentName,
+            roll_no: studentRollNo,
+            target_lang: targetLang
+          });
+        }
       }
     }
 
@@ -677,11 +767,11 @@ export default function App() {
       clearInterval(hbInterval);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [classMode, userRole, roomCode]);
+  }, [classMode, userRole, roomCode, studentName, studentRollNo, targetLang]);
 
-  // REST Polling Fallback to sync WebSocket room stats across network devices
+  // REST Polling Fallback to sync WebSocket room stats and roster across network devices
   useEffect(() => {
-    if (classMode !== 'realtime_classroom') return;
+    if (classMode !== 'realtime_classroom' && classMode !== 'online_classroom') return;
 
     let isMounted = true;
     const checkRoomStatus = async () => {
@@ -696,6 +786,26 @@ export default function App() {
             if (data.student_count !== undefined) {
               // Combine max count from backend and local BroadcastChannel
               setStudentCount((prev) => Math.max(prev, data.student_count));
+            }
+            if (data.is_camera_on !== undefined && userRoleRef.current === 'student') {
+              setIsTeacherCameraOn(Boolean(data.is_camera_on));
+            }
+            if (data.is_screen_sharing !== undefined && userRoleRef.current === 'student') {
+              setIsTeacherScreenSharing(Boolean(data.is_screen_sharing));
+            }
+          }
+        }
+
+        // If in online_classroom, also sync roster from backend
+        if (classModeRef.current === 'online_classroom') {
+          const rosterRes = await fetch(`${API_BASE_URL}/api/classroom/${encodeURIComponent(roomCode)}/roster`);
+          if (rosterRes.ok) {
+            const rData = await rosterRes.json();
+            if (isMounted && rData && rData.roster && Array.isArray(rData.roster)) {
+              setAttendanceRoster(rData.roster);
+              if (rData.roster.length > 0) {
+                setStudentCount((prev) => Math.max(prev, rData.roster.length));
+              }
             }
           }
         }
@@ -847,7 +957,7 @@ export default function App() {
     }
 
     try {
-      const isClassroom = classMode === 'realtime_classroom';
+      const isClassroom = classMode === 'realtime_classroom' || classMode === 'online_classroom';
       const wsUrl = isClassroom
         ? `${WS_BASE_URL}/ws/classroom/${encodeURIComponent(roomCode)}?role=${userRole}&source_lang=${sourceLang}&target_lang=${targetLang}`
         : `${WS_BASE_URL}/ws/lecture?target_lang=${targetLang}&source_lang=${sourceLang}`;
@@ -858,6 +968,19 @@ export default function App() {
       ws.onopen = () => {
         setConnectionStatus('connected');
         setErrorMessage(null);
+
+        // Auto identify student to backend if credentials exist
+        if (userRoleRef.current === 'student' && studentName && studentRollNo) {
+          try {
+            ws.send(JSON.stringify({
+              action: 'student_identify',
+              name: studentName,
+              roll_no: studentRollNo,
+              target_lang: targetLang,
+              student_tab_id: tabIdRef.current
+            }));
+          } catch (e) {}
+        }
       };
 
       ws.onmessage = (event) => {
@@ -870,8 +993,17 @@ export default function App() {
             }
             if (userRoleRef.current === 'teacher') {
               setHasTeacher(true);
+              if (data.roster && Array.isArray(data.roster)) {
+                setAttendanceRoster(data.roster);
+              }
             } else if (data.has_teacher !== undefined) {
               setHasTeacher(Boolean(data.has_teacher));
+            }
+            if (data.is_camera_on !== undefined && userRoleRef.current === 'student') {
+              setIsTeacherCameraOn(Boolean(data.is_camera_on));
+            }
+            if (data.is_screen_sharing !== undefined && userRoleRef.current === 'student') {
+              setIsTeacherScreenSharing(Boolean(data.is_screen_sharing));
             }
           } else if (data.type === 'room_presence') {
             if (data.student_count !== undefined) {
@@ -881,6 +1013,30 @@ export default function App() {
               setHasTeacher(true);
             } else if (data.has_teacher !== undefined) {
               setHasTeacher(Boolean(data.has_teacher));
+            }
+            if (data.is_camera_on !== undefined && userRoleRef.current === 'student') {
+              setIsTeacherCameraOn(Boolean(data.is_camera_on));
+            }
+            if (data.is_screen_sharing !== undefined && userRoleRef.current === 'student') {
+              setIsTeacherScreenSharing(Boolean(data.is_screen_sharing));
+            }
+          } else if (data.type === 'roster_update') {
+            if (data.students && Array.isArray(data.students)) {
+              setAttendanceRoster(data.students);
+              setStudentCount(data.students.length);
+            }
+          } else if (data.type === 'video_frame') {
+            if (userRoleRef.current === 'student') {
+              setRemoteVideoFrame(data.frame);
+              setIsTeacherCameraOn(true);
+            }
+          } else if (data.type === 'video_state') {
+            if (userRoleRef.current === 'student') {
+              setIsTeacherCameraOn(Boolean(data.is_camera_on));
+              setIsTeacherScreenSharing(Boolean(data.is_screen_sharing));
+              if (!data.is_camera_on) {
+                setRemoteVideoFrame(null);
+              }
             }
           } else if (data.type === 'history') {
             if (data.segments && Array.isArray(data.segments)) {
@@ -1118,7 +1274,7 @@ export default function App() {
       }
 
       // If in teacher role, broadcast across local tabs immediately for 0ms multi-window demo
-      if (classMode === 'realtime_classroom' && userRole === 'teacher' && broadcastChannelRef.current) {
+      if ((classMode === 'realtime_classroom' || classMode === 'online_classroom') && userRole === 'teacher' && broadcastChannelRef.current) {
         broadcastChannelRef.current.postMessage({
           type: 'caption',
           room_id: roomCode,
@@ -1161,7 +1317,7 @@ export default function App() {
   // Toggle Microphone
   const toggleRecording = async () => {
     // If student in classroom mode, mic is locked to prevent classroom audio feedback
-    if (classMode === 'realtime_classroom' && userRole === 'student') {
+    if ((classMode === 'realtime_classroom' || classMode === 'online_classroom') && userRole === 'student') {
       setIsClassroomModalOpen(true);
       return;
     }
@@ -1265,7 +1421,7 @@ export default function App() {
         });
 
         // Broadcast to student tabs immediately
-        if (classMode === 'realtime_classroom' && userRole === 'teacher' && broadcastChannelRef.current) {
+        if ((classMode === 'realtime_classroom' || classMode === 'online_classroom') && userRole === 'teacher' && broadcastChannelRef.current) {
           broadcastChannelRef.current.postMessage({
             type: 'caption',
             room_id: roomCode,
@@ -1302,7 +1458,7 @@ export default function App() {
       });
     }
 
-    if (classMode === 'realtime_classroom' && userRole === 'teacher') {
+    if ((classMode === 'realtime_classroom' || classMode === 'online_classroom') && userRole === 'teacher') {
       try {
         await fetch(`${API_BASE_URL}/api/classroom/${encodeURIComponent(roomCode)}/reset`, { method: 'POST' });
       } catch (e) {}
@@ -1361,6 +1517,94 @@ export default function App() {
     try {
       localStorage.setItem('classbridge_room_code', clean);
     } catch (e) {}
+  };
+
+  // Auto-open student registration modal when entering online_classroom as student if credentials missing
+  useEffect(() => {
+    if (classMode === 'online_classroom' && userRole === 'student') {
+      if (!studentName || !studentRollNo) {
+        setIsStudentRegisterOpen(true);
+      }
+    }
+  }, [classMode, userRole, studentName, studentRollNo]);
+
+  const handleStudentRegisterSubmit = ({ name, roll_no, target_lang }) => {
+    setStudentName(name);
+    setStudentRollNo(roll_no);
+    if (target_lang && target_lang !== targetLang) {
+      setTargetLang(target_lang);
+    }
+    setIsStudentRegisterOpen(false);
+
+    // 1. Announce via WebSocket
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify({
+          action: 'student_identify',
+          name,
+          roll_no,
+          target_lang: target_lang || targetLang,
+          student_tab_id: tabIdRef.current
+        }));
+      } catch (e) {}
+    }
+
+    // 2. Announce over BroadcastChannel
+    if (broadcastChannelRef.current) {
+      broadcastChannelRef.current.postMessage({
+        type: 'student_identify',
+        room_id: roomCodeRef.current,
+        student_tab_id: tabIdRef.current,
+        name,
+        roll_no,
+        target_lang: target_lang || targetLang
+      });
+    }
+  };
+
+  const handleBroadcastVideoFrame = (frameData) => {
+    // 1. BroadcastChannel (zero-latency local tab/window relay)
+    if (broadcastChannelRef.current) {
+      broadcastChannelRef.current.postMessage({
+        type: 'video_frame',
+        room_id: roomCodeRef.current,
+        frame: frameData
+      });
+    }
+
+    // 2. WebSocket (for network clients)
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify({
+          action: 'video_frame',
+          frame: frameData
+        }));
+      } catch (e) {}
+    }
+  };
+
+  const handleBroadcastVideoState = ({ is_camera_on, is_screen_sharing }) => {
+    setIsTeacherCameraOn(is_camera_on);
+    setIsTeacherScreenSharing(is_screen_sharing);
+
+    if (broadcastChannelRef.current) {
+      broadcastChannelRef.current.postMessage({
+        type: 'video_state',
+        room_id: roomCodeRef.current,
+        is_camera_on,
+        is_screen_sharing
+      });
+    }
+
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify({
+          action: 'video_state',
+          is_camera_on,
+          is_screen_sharing
+        }));
+      } catch (e) {}
+    }
   };
 
   // Grounded Q&A with Caption Grounding & Internet Definition
@@ -1912,6 +2156,8 @@ export default function App() {
         roomCode={roomCode}
         studentCount={studentCount}
         hasTeacher={hasTeacher}
+        isCameraActive={isTeacherCameraOn}
+        onOpenAttendanceRoster={() => setIsAttendanceModalOpen(true)}
         onOpenClassroomModal={() => setIsClassroomModalOpen(true)}
       />
 
@@ -1943,55 +2189,83 @@ export default function App() {
         </button>
       </div>
 
-      {/* 3. Main Center Stage: Live Bilingual Subtitles + BridgeAI Tutor */}
-      <main className={`google-main-stage view-${viewMode} mobile-${mobileActiveTab}`}>
-        {(viewMode === 'split' || viewMode === 'theater') && (
-          <section className={`google-stage-caption ${viewMode === 'theater' ? 'theater-mode' : ''}`}>
-            <CaptionPane
-              segments={segments}
-              sourceLang={sourceLang}
-              sourceLangName={`${sourceLangMeta.name} (${sourceLangMeta.native})`}
-              targetLangName={`${targetLangMeta.name} (${targetLangMeta.native})`}
-              targetLang={targetLang}
-              onSwapLanguages={handleSwapLanguages}
-              highlightedSegmentId={highlightedSegmentId}
-              autoScroll={autoScroll}
-              onToggleAutoScroll={() => setAutoScroll((prev) => !prev)}
-              isRecording={isRecording}
-              liveMicStatus={liveMicStatus}
-              interimSpeech={interimSpeech}
-              interimVernacular={interimVernacular}
-              glossary={glossary}
-              onClearCaptions={clearSession}
-              isReadAloud={isReadAloudEnabled}
-              onToggleReadAloud={toggleReadAloud}
-              isSpeakingAudio={isSpeakingAudio}
-              onSpeakSegment={handleSpeakSegment}
-              currentlySpeakingId={currentlySpeakingId}
-              apiBaseUrl={API_BASE_URL}
-              classMode={classMode}
-              roomCode={roomCode}
-              userRole={userRole}
-            />
-          </section>
-        )}
-
-        {(viewMode === 'split' || viewMode === 'tutor') && (
-          <aside className={`google-stage-gemini google-stage-tutor ${viewMode === 'tutor' ? 'tutor-mode' : ''}`}>
-            <ErrorBoundary title="BridgeAI Tutor">
-              <ChatPanel
-                messages={messages}
-                onSendMessage={handleSendMessage}
-                isLoading={isAskingQa}
-                onSelectCitation={handleSelectCitation}
-                segmentCount={segments.length}
+      {/* 3. Main Center Stage: Online Class Stage vs Dual Captions + BridgeAI Tutor */}
+      {classMode === 'online_classroom' ? (
+        <OnlineClassStage
+          userRole={userRole}
+          roomCode={roomCode}
+          studentName={studentName}
+          studentRollNo={studentRollNo}
+          onOpenStudentRegister={() => setIsStudentRegisterOpen(true)}
+          onOpenAttendanceRoster={() => setIsAttendanceModalOpen(true)}
+          studentCount={studentCount}
+          hasTeacher={hasTeacher}
+          isTeacherCameraOn={isTeacherCameraOn}
+          remoteVideoFrame={remoteVideoFrame}
+          onBroadcastVideoFrame={handleBroadcastVideoFrame}
+          onBroadcastVideoState={handleBroadcastVideoState}
+          isRecording={isRecording}
+          onToggleRecording={toggleRecording}
+          segments={segments}
+          sourceLang={sourceLang}
+          targetLang={targetLang}
+          sourceLangName={`${sourceLangMeta.name} (${sourceLangMeta.native})`}
+          targetLangName={`${targetLangMeta.name} (${targetLangMeta.native})`}
+          onSwapLanguages={handleSwapLanguages}
+          isReadAloud={isReadAloudEnabled}
+          onToggleReadAloud={toggleReadAloud}
+          selectedDeviceId={selectedDeviceId}
+        />
+      ) : (
+        <main className={`google-main-stage view-${viewMode} mobile-${mobileActiveTab}`}>
+          {(viewMode === 'split' || viewMode === 'theater') && (
+            <section className={`google-stage-caption ${viewMode === 'theater' ? 'theater-mode' : ''}`}>
+              <CaptionPane
+                segments={segments}
                 sourceLang={sourceLang}
+                sourceLangName={`${sourceLangMeta.name} (${sourceLangMeta.native})`}
+                targetLangName={`${targetLangMeta.name} (${targetLangMeta.native})`}
                 targetLang={targetLang}
+                onSwapLanguages={handleSwapLanguages}
+                highlightedSegmentId={highlightedSegmentId}
+                autoScroll={autoScroll}
+                onToggleAutoScroll={() => setAutoScroll((prev) => !prev)}
+                isRecording={isRecording}
+                liveMicStatus={liveMicStatus}
+                interimSpeech={interimSpeech}
+                interimVernacular={interimVernacular}
+                glossary={glossary}
+                onClearCaptions={clearSession}
+                isReadAloud={isReadAloudEnabled}
+                onToggleReadAloud={toggleReadAloud}
+                isSpeakingAudio={isSpeakingAudio}
+                onSpeakSegment={handleSpeakSegment}
+                currentlySpeakingId={currentlySpeakingId}
+                apiBaseUrl={API_BASE_URL}
+                classMode={classMode}
+                roomCode={roomCode}
+                userRole={userRole}
               />
-            </ErrorBoundary>
-          </aside>
-        )}
-      </main>
+            </section>
+          )}
+
+          {(viewMode === 'split' || viewMode === 'tutor') && (
+            <aside className={`google-stage-gemini google-stage-tutor ${viewMode === 'tutor' ? 'tutor-mode' : ''}`}>
+              <ErrorBoundary title="BridgeAI Tutor">
+                <ChatPanel
+                  messages={messages}
+                  onSendMessage={handleSendMessage}
+                  isLoading={isAskingQa}
+                  onSelectCitation={handleSelectCitation}
+                  segmentCount={segments.length}
+                  sourceLang={sourceLang}
+                  targetLang={targetLang}
+                />
+              </ErrorBoundary>
+            </aside>
+          )}
+        </main>
+      )}
 
       {/* 4. Official Google Meet-Style Floating Bottom Dock */}
       <GoogleBottomDock
@@ -2030,6 +2304,26 @@ export default function App() {
         hasTeacher={hasTeacher}
         connectionStatus={connectionStatus}
         onClearRoom={clearSession}
+      />
+
+      <StudentRegisterModal
+        isOpen={isStudentRegisterOpen}
+        onClose={() => setIsStudentRegisterOpen(false)}
+        initialName={studentName}
+        initialRollNo={studentRollNo}
+        targetLang={targetLang}
+        onChangeTargetLang={handleLanguageChange}
+        roomCode={roomCode}
+        onSubmit={handleStudentRegisterSubmit}
+        isEditing={Boolean(studentName && studentRollNo)}
+      />
+
+      <AttendanceRosterModal
+        isOpen={isAttendanceModalOpen}
+        onClose={() => setIsAttendanceModalOpen(false)}
+        roster={attendanceRoster}
+        roomCode={roomCode}
+        studentCount={studentCount}
       />
 
       <StudyGuideModal

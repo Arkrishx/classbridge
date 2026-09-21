@@ -183,7 +183,29 @@ def get_room_details(room_id: str):
         "segments_count": len(room.segments),
         "source_lang": room.source_lang,
         "default_target_lang": room.default_target_lang,
+        "is_camera_on": room.is_camera_on,
+        "is_screen_sharing": room.is_screen_sharing,
+        "roster_count": len(room.student_roster),
         "recent_segments": room.segments[-20:]
+    }
+
+@app.get("/api/classroom/{room_id}/roster")
+def get_classroom_roster(room_id: str):
+    room = classroom_manager.get_room(room_id)
+    if not room:
+        return {
+            "room_id": room_id.upper(),
+            "exists": False,
+            "student_count": 0,
+            "roster": []
+        }
+    return {
+        "room_id": room.room_id,
+        "exists": True,
+        "student_count": room.student_count,
+        "is_camera_on": room.is_camera_on,
+        "is_screen_sharing": room.is_screen_sharing,
+        "roster": room.get_roster()
     }
 
 @app.post("/api/classroom/{room_id}/reset")
@@ -562,8 +584,19 @@ async def websocket_classroom_endpoint(
             "has_teacher": room.has_teacher,
             "student_count": room.student_count,
             "source_lang": room.source_lang,
+            "is_camera_on": room.is_camera_on,
+            "is_screen_sharing": room.is_screen_sharing,
+            "roster": room.get_roster() if role == "teacher" else None,
             "message": f"Connected to room {clean_room} as {role}."
         })
+
+        if role == "teacher":
+            await websocket.send_json({
+                "type": "roster_update",
+                "room_id": clean_room,
+                "students": room.get_roster(),
+                "student_count": room.student_count
+            })
 
         # Send existing transcript history to new joiner
         if room.segments:
@@ -713,6 +746,24 @@ async def websocket_classroom_endpoint(
                                 "message": "Lecture session has been cleared by the teacher."
                             })
 
+                        elif action == "video_frame":
+                            frame = payload.get("frame")
+                            if frame:
+                                await classroom_manager.broadcast_video_frame(clean_room, frame)
+
+                        elif action == "video_state":
+                            is_cam = bool(payload.get("is_camera_on", False))
+                            is_scr = bool(payload.get("is_screen_sharing", False))
+                            await classroom_manager.broadcast_video_state(clean_room, is_cam, is_scr)
+
+                        elif action == "request_roster":
+                            await websocket.send_json({
+                                "type": "roster_update",
+                                "room_id": clean_room,
+                                "students": room.get_roster(),
+                                "student_count": room.student_count
+                            })
+
                         elif action == "ping":
                             await websocket.send_json({"type": "pong"})
 
@@ -720,7 +771,7 @@ async def websocket_classroom_endpoint(
                         pass
 
             else:
-                # Student role: read-only captions stream
+                # Student role: read-only captions & video stream, plus identity registration
                 if "text" in message and message["text"]:
                     try:
                         payload = json.loads(message["text"])
@@ -733,6 +784,19 @@ async def websocket_classroom_endpoint(
                                 "room_id": clean_room,
                                 "segments": room.segments
                             })
+                        elif action == "student_identify":
+                            name = payload.get("name", "").strip()
+                            roll_no = payload.get("roll_no", "").strip()
+                            tgt = payload.get("target_lang", "ta")
+                            tab_id = payload.get("student_tab_id", "")
+                            if name and roll_no:
+                                s_info = room.identify_student(websocket, name=name, roll_no=roll_no, target_lang=tgt, student_tab_id=tab_id)
+                                await websocket.send_json({
+                                    "type": "student_registered",
+                                    "room_id": clean_room,
+                                    "student": s_info
+                                })
+                                await classroom_manager.broadcast_roster(clean_room)
                     except json.JSONDecodeError:
                         pass
 
