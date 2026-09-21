@@ -498,7 +498,9 @@ export default function App() {
   const [attendanceRoster, setAttendanceRoster] = useState([]);
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const [isTeacherCameraOn, setIsTeacherCameraOn] = useState(false);
+  const isTeacherCameraOnRef = useRef(false);
   const [isTeacherScreenSharing, setIsTeacherScreenSharing] = useState(false);
+  const isTeacherScreenSharingRef = useRef(false);
   const [remoteVideoFrame, setRemoteVideoFrame] = useState(null);
 
   const wsRef = useRef(null);
@@ -522,6 +524,14 @@ export default function App() {
   useEffect(() => {
     classModeRef.current = classMode;
   }, [classMode]);
+
+  useEffect(() => {
+    isTeacherCameraOnRef.current = isTeacherCameraOn;
+  }, [isTeacherCameraOn]);
+
+  useEffect(() => {
+    isTeacherScreenSharingRef.current = isTeacherScreenSharing;
+  }, [isTeacherScreenSharing]);
 
   // Initialize Connection, Audio Devices & Load Glossary
   useEffect(() => {
@@ -547,7 +557,7 @@ export default function App() {
       bc.onmessage = (event) => {
         try {
           const msg = event.data;
-          if (!msg || (msg.room_id && msg.room_id !== roomCodeRef.current)) return;
+          if (!msg || (msg.room_id && msg.room_id.trim().toUpperCase() !== (roomCodeRef.current || 'EDU-02').trim().toUpperCase())) return;
 
           if (msg.type === 'caption' && msg.segment) {
             setSegments((prev) => {
@@ -580,7 +590,9 @@ export default function App() {
                 type: 'teacher_announce',
                 room_id: roomCodeRef.current,
                 has_teacher: true,
-                student_count: count
+                student_count: count,
+                is_camera_on: isTeacherCameraOnRef.current,
+                is_screen_sharing: isTeacherScreenSharingRef.current
               });
             }
           } else if (msg.type === 'student_leave') {
@@ -594,7 +606,9 @@ export default function App() {
                 type: 'teacher_announce',
                 room_id: roomCodeRef.current,
                 has_teacher: true,
-                student_count: count
+                student_count: count,
+                is_camera_on: isTeacherCameraOnRef.current,
+                is_screen_sharing: isTeacherScreenSharingRef.current
               });
             }
           } else if (msg.type === 'teacher_announce') {
@@ -604,10 +618,21 @@ export default function App() {
               if (msg.student_count !== undefined) {
                 setStudentCount(msg.student_count);
               }
+              if (msg.is_camera_on !== undefined) {
+                setIsTeacherCameraOn(Boolean(msg.is_camera_on));
+                isTeacherCameraOnRef.current = Boolean(msg.is_camera_on);
+              }
+              if (msg.is_screen_sharing !== undefined) {
+                setIsTeacherScreenSharing(Boolean(msg.is_screen_sharing));
+                isTeacherScreenSharingRef.current = Boolean(msg.is_screen_sharing);
+              }
             }
           } else if (msg.type === 'teacher_leave') {
             if (userRoleRef.current === 'student') {
               setHasTeacher(false);
+              setIsTeacherCameraOn(false);
+              isTeacherCameraOnRef.current = false;
+              setRemoteVideoFrame(null);
             }
           } else if (msg.type === 'room_presence') {
             if (msg.student_count !== undefined) setStudentCount((c) => Math.max(c, msg.student_count));
@@ -616,9 +641,11 @@ export default function App() {
             }
             if (msg.is_camera_on !== undefined && userRoleRef.current === 'student') {
               setIsTeacherCameraOn(Boolean(msg.is_camera_on));
+              isTeacherCameraOnRef.current = Boolean(msg.is_camera_on);
             }
             if (msg.is_screen_sharing !== undefined && userRoleRef.current === 'student') {
               setIsTeacherScreenSharing(Boolean(msg.is_screen_sharing));
+              isTeacherScreenSharingRef.current = Boolean(msg.is_screen_sharing);
             }
           } else if (msg.type === 'student_identify') {
             if (userRoleRef.current === 'teacher') {
@@ -655,11 +682,14 @@ export default function App() {
             if (userRoleRef.current === 'student') {
               setRemoteVideoFrame(msg.frame);
               setIsTeacherCameraOn(true);
+              isTeacherCameraOnRef.current = true;
             }
           } else if (msg.type === 'video_state') {
             if (userRoleRef.current === 'student') {
               setIsTeacherCameraOn(Boolean(msg.is_camera_on));
+              isTeacherCameraOnRef.current = Boolean(msg.is_camera_on);
               setIsTeacherScreenSharing(Boolean(msg.is_screen_sharing));
+              isTeacherScreenSharingRef.current = Boolean(msg.is_screen_sharing);
               if (!msg.is_camera_on) {
                 setRemoteVideoFrame(null);
               }
@@ -1478,6 +1508,7 @@ export default function App() {
 
   const handleUserRoleChange = (role) => {
     const cleanRole = role === 'teacher' ? 'teacher' : 'student';
+    userRoleRef.current = cleanRole;
     setUserRole(cleanRole);
     try {
       localStorage.setItem('classbridge_user_role', cleanRole);
@@ -1488,9 +1519,11 @@ export default function App() {
       if (broadcastChannelRef.current) {
         broadcastChannelRef.current.postMessage({
           type: 'teacher_announce',
-          room_id: roomCodeRef.current,
+          room_id: (roomCodeRef.current || 'EDU-02').trim().toUpperCase(),
           has_teacher: true,
-          student_count: studentTabsMapRef.current.size
+          student_count: studentTabsMapRef.current.size,
+          is_camera_on: isTeacherCameraOnRef.current,
+          is_screen_sharing: isTeacherScreenSharingRef.current
         });
       }
     } else {
@@ -1498,11 +1531,11 @@ export default function App() {
       if (broadcastChannelRef.current) {
         broadcastChannelRef.current.postMessage({
           type: 'teacher_leave',
-          room_id: roomCodeRef.current
+          room_id: (roomCodeRef.current || 'EDU-02').trim().toUpperCase()
         });
         broadcastChannelRef.current.postMessage({
           type: 'student_ping',
-          room_id: roomCodeRef.current,
+          room_id: (roomCodeRef.current || 'EDU-02').trim().toUpperCase(),
           student_tab_id: tabIdRef.current
         });
       }
@@ -1532,7 +1565,7 @@ export default function App() {
     setStudentName(name);
     setStudentRollNo(roll_no);
     if (target_lang && target_lang !== targetLang) {
-      setTargetLang(target_lang);
+      handleLanguageChange(target_lang);
     }
     setIsStudentRegisterOpen(false);
 
@@ -1553,7 +1586,7 @@ export default function App() {
     if (broadcastChannelRef.current) {
       broadcastChannelRef.current.postMessage({
         type: 'student_identify',
-        room_id: roomCodeRef.current,
+        room_id: (roomCodeRef.current || 'EDU-02').trim().toUpperCase(),
         student_tab_id: tabIdRef.current,
         name,
         roll_no,
@@ -1563,11 +1596,13 @@ export default function App() {
   };
 
   const handleBroadcastVideoFrame = (frameData) => {
+    const normalizedRoom = (roomCodeRef.current || 'EDU-02').trim().toUpperCase();
+
     // 1. BroadcastChannel (zero-latency local tab/window relay)
     if (broadcastChannelRef.current) {
       broadcastChannelRef.current.postMessage({
         type: 'video_frame',
-        room_id: roomCodeRef.current,
+        room_id: normalizedRoom,
         frame: frameData
       });
     }
@@ -1585,12 +1620,15 @@ export default function App() {
 
   const handleBroadcastVideoState = ({ is_camera_on, is_screen_sharing }) => {
     setIsTeacherCameraOn(is_camera_on);
+    isTeacherCameraOnRef.current = is_camera_on;
     setIsTeacherScreenSharing(is_screen_sharing);
+    isTeacherScreenSharingRef.current = is_screen_sharing;
+    const normalizedRoom = (roomCodeRef.current || 'EDU-02').trim().toUpperCase();
 
     if (broadcastChannelRef.current) {
       broadcastChannelRef.current.postMessage({
         type: 'video_state',
-        room_id: roomCodeRef.current,
+        room_id: normalizedRoom,
         is_camera_on,
         is_screen_sharing
       });

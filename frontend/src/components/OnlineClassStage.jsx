@@ -48,13 +48,13 @@ export default function OnlineClassStage({
   selectedDeviceId = 'default',
 }) {
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const isCameraActiveRef = useRef(false);
   const [isMicMuted, setIsMicMuted] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [layoutMode, setLayoutMode] = useState('split'); // 'split' | 'docked'
 
   const localVideoRef = useRef(null);
-  const remoteCanvasRef = useRef(null);
   const offscreenCanvasRef = useRef(null);
   const localStreamRef = useRef(null);
   const frameIntervalRef = useRef(null);
@@ -73,8 +73,8 @@ export default function OnlineClassStage({
     try {
       const constraints = {
         video: {
-          width: { ideal: 1280, max: 1920 },
-          height: { ideal: 720, max: 1080 },
+          width: { ideal: 640, max: 1280 },
+          height: { ideal: 360, max: 720 },
           facingMode: 'user'
         },
         audio: selectedDeviceId && selectedDeviceId !== 'default'
@@ -84,13 +84,17 @@ export default function OnlineClassStage({
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       localStreamRef.current = stream;
+      isCameraActiveRef.current = true;
+      setIsCameraActive(true);
 
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
+        localVideoRef.current.onloadedmetadata = () => {
+          localVideoRef.current?.play().catch(() => {});
+        };
         localVideoRef.current.play().catch(() => {});
       }
 
-      setIsCameraActive(true);
       if (onBroadcastVideoState) {
         onBroadcastVideoState({ is_camera_on: true, is_screen_sharing: false });
       }
@@ -98,15 +102,15 @@ export default function OnlineClassStage({
       // Setup audio level visualizer
       setupAudioMeter(stream);
 
-      // Start capturing frames at 12 fps for broadcast
+      // Start capturing frames for broadcast
       startFrameBroadcasting();
     } catch (err) {
       console.warn("Could not start camera:", err);
-      alert("Could not access camera or microphone. Please check browser permissions.");
     }
   };
 
   const stopCamera = () => {
+    isCameraActiveRef.current = false;
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((t) => t.stop());
       localStreamRef.current = null;
@@ -135,7 +139,7 @@ export default function OnlineClassStage({
   };
 
   const toggleCamera = () => {
-    if (isCameraActive) {
+    if (isCameraActiveRef.current) {
       stopCamera();
     } else {
       startCamera();
@@ -143,11 +147,15 @@ export default function OnlineClassStage({
   };
 
   const toggleMic = () => {
-    if (!localStreamRef.current) return;
-    const audioTrack = localStreamRef.current.getAudioTracks()[0];
-    if (audioTrack) {
-      audioTrack.enabled = !audioTrack.enabled;
-      setIsMicMuted(!audioTrack.enabled);
+    if (localStreamRef.current) {
+      const audioTrack = localStreamRef.current.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        setIsMicMuted(!audioTrack.enabled);
+      }
+    }
+    if (onToggleRecording) {
+      onToggleRecording();
     }
   };
 
@@ -160,12 +168,18 @@ export default function OnlineClassStage({
       try {
         const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
         localStreamRef.current = screenStream;
+        isCameraActiveRef.current = true;
+        setIsCameraActive(true);
+        setIsScreenSharing(true);
+
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = screenStream;
+          localVideoRef.current.onloadedmetadata = () => {
+            localVideoRef.current?.play().catch(() => {});
+          };
           localVideoRef.current.play().catch(() => {});
         }
-        setIsScreenSharing(true);
-        setIsCameraActive(true);
+
         if (onBroadcastVideoState) {
           onBroadcastVideoState({ is_camera_on: true, is_screen_sharing: true });
         }
@@ -219,47 +233,35 @@ export default function OnlineClassStage({
       offscreenCanvasRef.current = document.createElement('canvas');
     }
     const canvas = offscreenCanvasRef.current;
-    canvas.width = 640;
-    canvas.height = 360;
+    canvas.width = 480;
+    canvas.height = 270;
     const ctx = canvas.getContext('2d');
 
     frameIntervalRef.current = setInterval(() => {
-      if (!localVideoRef.current || !isCameraActive) return;
+      const video = localVideoRef.current;
+      if (!video || !isCameraActiveRef.current) return;
+      if (video.readyState < 2 || video.videoWidth === 0) return;
       try {
-        ctx.drawImage(localVideoRef.current, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.65);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.55);
         if (onBroadcastVideoFrame) {
           onBroadcastVideoFrame(dataUrl);
         }
       } catch (e) {
         // Video might not be ready yet
       }
-    }, 85); // ~12 fps
+    }, 90); // ~11 fps
   };
 
-  // Cleanup teacher stream on unmount or role change
+  // Auto-start camera when entering as teacher, cleanup on unmount
   useEffect(() => {
+    if (userRole === 'teacher') {
+      startCamera();
+    }
     return () => {
       stopCamera();
     };
   }, [userRole]);
-
-  // ==========================================
-  // STUDENT: Render Remote Video Frames
-  // ==========================================
-  useEffect(() => {
-    if (userRole === 'student' && remoteVideoFrame && remoteCanvasRef.current) {
-      const canvas = remoteCanvasRef.current;
-      const ctx = canvas.getContext('2d');
-      const img = new Image();
-      img.onload = () => {
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-      };
-      img.src = remoteVideoFrame;
-    }
-  }, [userRole, remoteVideoFrame]);
 
   // Fullscreen toggle
   const toggleFullscreen = () => {
@@ -353,11 +355,22 @@ export default function OnlineClassStage({
           ) : (
             /* Student View */
             <>
-              <canvas
-                ref={remoteCanvasRef}
-                className={`main-video-feed ${isTeacherCameraOn || remoteVideoFrame ? 'active' : 'hidden'}`}
-              />
-              {!(isTeacherCameraOn || remoteVideoFrame) && (
+              {remoteVideoFrame ? (
+                <img
+                  src={remoteVideoFrame}
+                  alt="Teacher Live Broadcast"
+                  className="main-video-feed"
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                />
+              ) : isTeacherCameraOn ? (
+                <div className="camera-placeholder">
+                  <div className="placeholder-avatar pulse-animation">
+                    <Video size={40} color="var(--google-blue)" />
+                  </div>
+                  <div className="placeholder-title">Connecting to Teacher's Video Stream...</div>
+                  <div className="placeholder-sub">Receiving live lecture broadcast from room {roomCode}.</div>
+                </div>
+              ) : (
                 <div className="camera-placeholder">
                   <div className="placeholder-avatar">
                     <Crown size={40} color="var(--google-blue)" />
