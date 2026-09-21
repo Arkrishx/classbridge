@@ -2,6 +2,8 @@
 > **TENSORA 2026 Hackathon | Problem Statement: EDU-02**  
 > *Bridging STEM Education with Streaming Dual-Language Captions, Domain Adaptation, Structured PDF Study Guides, and Grounded Q&A.*
 
+> **Current status:** Functional hackathon-ready MVP. The production frontend build passes, backend integration tests pass, and the deployed demo supports desktop and mobile microphone capture when `VITE_API_URL` and `VITE_WS_URL` point to the deployed backend.
+
 [![Vercel Deployment](https://img.shields.io/badge/Deploy%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com)
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com)
 [![faster-whisper](https://img.shields.io/badge/ASR-faster--whisper-blue?style=for-the-badge)](https://github.com/SYSTRAN/faster-whisper)
@@ -18,9 +20,20 @@ For millions of students across India, following university-level STEM lectures 
 1. **Live Microphone Audio Capture:** Streams 3–5s audio chunks from the teacher's microphone over WebSockets.
 2. **Real-Time Dual-Language Captions:** Shows parallel English + Indic vernacular (**Tamil**, **Malayalam**, and **Hindi**) with live **ASR confidence scores** and timestamps.
 3. **STEM Domain Adaptation Layer:** Applies a post-MT correction pass using a curated STEM glossary (~80+ terms) to prevent technical terminology hallucination.
-4. **Automated Structured Study Guide & PDF Export:** Synthesizes the session transcript into executive overviews, bilingual definitions, LaTeX formulas, bulleted takeaways, and interactive flip flashcards, exportable to a publication-grade PDF.
-5. **Grounded Retrieval-Augmented Q&A:** A conversational assistant that answers student questions strictly using transcript facts and **cites the exact timestamp `[MM:SS]` and segment line**, highlighting the corresponding lecture segment upon click.
-6. **Vercel & Cloud Deployable:** Fully optimized for seamless Vercel frontend deployment with containerized backend options.
+4. **Independent Student Languages:** The teacher controls the spoken source language while each student chooses a personal Tamil, Malayalam, Hindi, or English subtitle language.
+5. **Automated Structured Study Guide & PDF Export:** Synthesizes the session transcript into executive overviews, bilingual definitions, formulas, takeaways, flashcards, and grounded concept maps, exportable to PDF.
+6. **Visual Explanations:** The demo includes a loss curve, neural-network flow diagram, and parameter-update equation connected to the ML lecture concepts.
+7. **Grounded Retrieval-Augmented Q&A:** A conversational assistant answers from transcript evidence, cites timestamps, and clearly labels external reference definitions when used.
+8. **Lecture History:** Stores recent transcripts locally in the browser and allows restoration after refresh.
+9. **Vercel & Cloud Deployable:** Vercel frontend with a containerized FastAPI backend on Render, Railway, or another persistent host.
+
+## 🎬 Judge Demo
+
+For a reliable five-minute presentation, open the app and click **Demo Showcase**. It preloads ready-to-show ML captions, a structured study guide, a Concept Map with visual explanations, and predefined lecture-history entries.
+
+Recommended flow: **Demo Showcase → Live Captions → BridgeAI Tutor → Study Guide → Concept Map → History**.
+
+The complete presenter runbook is in [docs/demo-script.md](docs/demo-script.md).
 
 ---
 
@@ -56,7 +69,7 @@ npm run dev
 ```
 Open **http://localhost:5173** in your browser.
 
----
+│   │   │   └── StudyGuideModal.jsx# Study guide, concept map, graphs, and visual explanations
 
 ## 🌐 Deploying to Vercel (1-Click Deployment)
 
@@ -73,14 +86,16 @@ vercel
 2. Import the project into your Vercel Dashboard.
 3. Set **Framework Preset** to `Vite`.
 4. Set **Root Directory** to `frontend` (or keep root; root `vercel.json` is provided!).
-5. (Optional) Set environment variables:
-   - `VITE_API_URL`: URL of your deployed backend (e.g. on Render/Railway).
-   - `VITE_WS_URL`: WebSocket URL of your backend (`wss://your-backend.onrender.com`).
+5. Set environment variables for real microphone transcription:
+   - `VITE_API_URL`: HTTPS URL of your deployed backend, for example `https://classbridge-backend.onrender.com`.
+   - `VITE_WS_URL`: Secure WebSocket URL of the same backend, for example `wss://classbridge-backend.onrender.com`.
 6. Click **Deploy**!
 
 > [!TIP]
 > **Built-in Browser/Demo Resilience on Vercel:**  
 > When deployed on Vercel without an external GPU/backend connected, the app automatically operates in **Demo/Browser-Assisted Mode**. Judges can click **"Sample: ML & Optimization"** or **"Sample: Linear Algebra"** to test streaming captions, domain adaptation tags, structured study guide synthesis, interactive flashcards, grounded Q&A with citations, and PDF export immediately!
+
+> **Mobile note:** A phone cannot reach a backend running on the developer laptop's `localhost`. Deploy the backend publicly and set both Vercel variables above. Mobile browsers without Web Speech support use the raw PCM microphone fallback and send 16 kHz audio to the backend Whisper service.
 
 ---
 
@@ -185,7 +200,8 @@ EDU-02/
 │   │   │   ├── ErrorBanner.jsx    # Graceful UI notifications (mic denial, silence)
 │   │   │   ├── GlossaryModal.jsx  # Searchable STEM glossary browser
 │   │   │   ├── Header.jsx         # Language switcher, connection status, session timer
-│   │   │   └── StudyGuideModal.jsx# Tabbed study guide (Summary, Defs, Formulas, Flashcards)
+│   │   │   ├── StudyGuideModal.jsx# Study guide, concept map, graphs, and visual explanations
+│   │   │   └── LectureHistoryModal.jsx # Local lecture history and transcript restore
 │   │   ├── utils/
 │   │   │   └── audioStreamer.js   # Web Audio / MediaRecorder microphone streamer
 │   │   ├── App.jsx                # Master application coordinator & fallback engine
@@ -210,11 +226,21 @@ EDU-02/
 ## 🏆 TENSORA 2026 Checklist Verification
 
 - [x] **1. Mic Capture:** Teacher live microphone streaming via Web Audio & MediaRecorder.
-- [x] **2. Real-Time Dual Captions:** English + Tamil (config-driven for any Indic language) with ASR confidence score pills.
+- [x] **2. Real-Time Dual Captions:** English + Tamil, Malayalam, or Hindi with ASR confidence score pills.
 - [x] **3. Domain Adaptation Layer:** 80+ STEM glossary post-MT correction preventing mistranslation of technical terms.
-- [x] **4. Auto-Generated Study Guide & PDF:** Overview, Definitions, Formulas, Takeaways, Flashcards, and ReportLab PDF export.
-- [x] **5. Grounded Q&A with Citations:** RAG bot citing exact timestamp `[MM:SS]` and segment line, clicking jumps to caption.
-- [x] **6. Error Handling:** Graceful UI states for silence, mic denial, model failure, empty transcript without raw stack traces.
-- [x] **7. Quantitative Evaluation:** Automated script computing WER, BLEU, chrF with generated report in `/eval/report.md`.
-- [x] **8. Deployable on Vercel:** Configured with `vercel.json` and client-side demo resilience.
-- [x] **9. Documentation & Citations:** Full citations in `README.md` and technical spec in `docs/architecture.md`.
+- [x] **4. Independent Student Languages:** Each student can choose a preferred subtitle language without changing other students' views.
+- [x] **5. Auto-Generated Study Guide & PDF:** Overview, Definitions, Formulas, Takeaways, Flashcards, concept map, visual explanations, and ReportLab PDF export.
+- [x] **6. Grounded Q&A with Citations:** RAG bot citing exact timestamp `[MM:SS]` and segment line, clicking jumps to caption.
+- [x] **7. Lecture History:** Recent transcripts can be restored from browser-local history.
+- [x] **8. Mobile Audio Fallback:** Raw PCM capture supports browsers without Web Speech recognition.
+- [x] **9. Error Handling:** Graceful UI states for silence, mic denial, model failure, empty transcript without raw stack traces.
+- [x] **10. Quantitative Evaluation:** Automated backend integration checks and evaluation scripts in `/eval`.
+- [x] **11. Deployable on Vercel:** Configured with `vercel.json`, mobile backend configuration, and client-side demo resilience.
+- [x] **12. Documentation & Citations:** Full citations in `README.md` and technical spec in `docs/architecture.md`.
+
+## ⚠️ Current Limitations
+
+- Lecture history is browser-local, not cross-device cloud storage.
+- External translation providers can be rate-limited; the glossary and offline dictionary provide fallback coverage.
+- The concept visuals are curated for the demo ML lecture; production-grade subject-specific diagram generation would require a richer diagram engine and evaluation set.
+- Production deployment should add authentication, persistent classroom storage, monitoring, and larger noisy-accent evaluation datasets.
