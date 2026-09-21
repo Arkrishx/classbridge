@@ -41,6 +41,12 @@ def test_all():
     assert len(trans_res["adapted_translation"]) > 0
     print(f"[OK] en -> ta translation passed: {trans_res['adapted_translation'][:30]}...")
 
+    # Verify Malayalam STEM glossary adaptation uses the Malayalam canonical term
+    r = client.post("/api/translate", json={"text": "Eigenvalue", "source_lang": "en", "target_lang": "ml"})
+    assert r.status_code == 200
+    assert "സ്വഭാവഗുണ മൂല്യം" in r.json()["adapted_translation"]
+    print("[OK] Malayalam STEM glossary adaptation passed")
+
     # Test ta -> en
     r = client.post("/api/translate", json={"text": "வணக்கம் மாணவர்களே", "source_lang": "ta", "target_lang": "en"})
     assert r.status_code == 200

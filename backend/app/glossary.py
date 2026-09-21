@@ -49,8 +49,8 @@ class DomainAdaptationGlossary:
                     "definition": info.get("definition", ""),
                     "translations": {
                         "ta": info.get("ta"),
+                        "ml": info.get("ml"),
                         "hi": info.get("hi"),
-                        "te": info.get("te")
                     }
                 })
         return detected
