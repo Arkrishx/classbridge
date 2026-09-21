@@ -2663,6 +2663,7 @@ export default function App() {
           studentCount={studentCount}
           hasTeacher={hasTeacher}
           isTeacherCameraOn={isTeacherCameraOn}
+          isTeacherScreenSharing={isTeacherScreenSharing}
           remoteVideoFrame={remoteVideoFrame}
           onBroadcastVideoFrame={handleBroadcastVideoFrame}
           onBroadcastVideoState={handleBroadcastVideoState}

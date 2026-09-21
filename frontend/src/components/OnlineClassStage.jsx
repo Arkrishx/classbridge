@@ -48,6 +48,7 @@ export default function OnlineClassStage({
   studentCount = 0,
   hasTeacher = false,
   isTeacherCameraOn = false,
+  isTeacherScreenSharing = false,
   remoteVideoFrame = null,
   onBroadcastVideoFrame,
   onBroadcastVideoState,
@@ -581,7 +582,12 @@ export default function OnlineClassStage({
                   src={remoteVideoFrame}
                   alt="Teacher Live Broadcast"
                   className="main-video-feed"
-                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain',
+                    transform: isTeacherScreenSharing ? 'none' : 'scaleX(-1)'
+                  }}
                 />
               ) : isTeacherCameraOn ? (
                 <div className="camera-placeholder">
