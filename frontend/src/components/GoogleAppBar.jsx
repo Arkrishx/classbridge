@@ -137,16 +137,18 @@ export default function GoogleAppBar({
             {userRole === 'teacher' ? (
               <>
                 <Radio size={13} color="var(--google-blue)" />
-                <span className="google-chip-text">
+                <span className="google-chip-text status-label-desktop">
                   <b>Real-Time Class</b> • 👑 Teacher ({roomCode})
                 </span>
+                <span className="google-chip-text status-label-tablet">👑 {roomCode}</span>
               </>
             ) : (
               <>
                 <Radio size={13} color="var(--google-blue)" />
-                <span className="google-chip-text">
+                <span className="google-chip-text status-label-desktop">
                   <b>Real-Time Class</b> • 🎧 Student ({roomCode})
                 </span>
+                <span className="google-chip-text status-label-tablet">🎧 {roomCode}</span>
               </>
             )}
           </button>
@@ -158,9 +160,10 @@ export default function GoogleAppBar({
             type="button"
           >
             <Globe size={13} color="var(--google-yellow)" />
-            <span className="google-chip-text">
+            <span className="google-chip-text status-label-desktop">
               <b>Online Class</b> • {roomCode}
             </span>
+            <span className="google-chip-text status-label-tablet">{roomCode}</span>
           </button>
         ) : (
           <button
@@ -170,7 +173,8 @@ export default function GoogleAppBar({
             type="button"
           >
             <Radio size={13} color="var(--google-green)" />
-            <span className="google-chip-text">Solo Studio</span>
+            <span className="google-chip-text status-label-desktop">Solo Studio</span>
+            <span className="google-chip-text status-label-tablet">Solo</span>
           </button>
         )}
 
@@ -239,53 +243,57 @@ export default function GoogleAppBar({
             }}
           >
             <Sparkles size={13} className={isGeneratingGuide ? "spin-fast" : ""} color="#fff" />
-            <span>{isGeneratingGuide ? 'Generating...' : 'Study Guide'}</span>
+            <span className="pill-btn-label">{isGeneratingGuide ? 'Generating...' : 'Study Guide'}</span>
           </button>
         )}
 
-        {/* Glossary Modal Button */}
-        <button
-          className="google-icon-btn"
-          onClick={onOpenGlossary}
-          title="STEM Technical Glossary & Domain Adaptation"
-          type="button"
-          aria-label="Open STEM Glossary"
-        >
-          <BookOpen size={15} />
-        </button>
+        {/* Secondary actions group — hidden on ≤680px */}
+        <div className="google-bar-overflow-group">
+          {/* Glossary Modal Button */}
+          <button
+            className="google-icon-btn"
+            onClick={onOpenGlossary}
+            title="STEM Technical Glossary & Domain Adaptation"
+            type="button"
+            aria-label="Open STEM Glossary"
+          >
+            <BookOpen size={15} />
+          </button>
 
-        {/* Caption Export Actions (TXT & PDF) */}
-        {segmentCount > 0 && (
-          <div className="google-bar-export-group" style={{ display: 'flex', gap: '4px' }}>
-            <button
-              className="google-icon-btn"
-              onClick={onExportTxt}
-              title="Export Captions as Plain Text (.txt)"
-              type="button"
-            >
-              <FileText size={16} color="var(--google-blue)" />
-            </button>
-            <button
-              className="google-icon-btn"
-              onClick={onExportPdf}
-              title="Export Captions as Formatted PDF (.pdf)"
-              type="button"
-            >
-              <FileDown size={16} color="var(--google-red)" />
-            </button>
-          </div>
-        )}
+          {/* Caption Export Actions (TXT & PDF) */}
+          {segmentCount > 0 && (
+            <div className="google-bar-export-group" style={{ display: 'flex', gap: '4px' }}>
+              <button
+                className="google-icon-btn export-icon"
+                onClick={onExportTxt}
+                title="Export Captions as Plain Text (.txt)"
+                type="button"
+              >
+                <FileText size={16} color="var(--google-blue)" />
+              </button>
+              <button
+                className="google-icon-btn export-icon"
+                onClick={onExportPdf}
+                title="Export Captions as Formatted PDF (.pdf)"
+                type="button"
+              >
+                <FileDown size={16} color="var(--google-red)" />
+              </button>
+            </div>
+          )}
 
-        {/* About / Architecture Button */}
-        <button
-          className="google-icon-btn"
-          onClick={onOpenArchitecture}
-          title="About ClassBridge (Problem EDU-02)"
-          type="button"
-        >
-          <Sparkles size={16} />
-        </button>
+          {/* About / Architecture Button */}
+          <button
+            className="google-icon-btn"
+            onClick={onOpenArchitecture}
+            title="About ClassBridge (Problem EDU-02)"
+            type="button"
+          >
+            <Sparkles size={16} />
+          </button>
+        </div>
       </div>
     </header>
   );
 }
+

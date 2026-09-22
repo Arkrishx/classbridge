@@ -64,6 +64,7 @@ export default function ClassModeBar({
             </div>
             <div className="tab-text-box">
               <span className="tab-title">Real-Time [Offline] Class</span>
+              <span className="tab-title-short">Offline</span>
               <span className="tab-desc">Single Teacher Mic Broadcast</span>
             </div>
             {classMode === 'realtime_classroom' && (
@@ -85,6 +86,7 @@ export default function ClassModeBar({
             </div>
             <div className="tab-text-box">
               <span className="tab-title">Online Class</span>
+              <span className="tab-title-short">Online</span>
               <span className="tab-desc">Remote Video & Captions</span>
             </div>
             {classMode === 'online_classroom' && (
@@ -104,7 +106,10 @@ export default function ClassModeBar({
             <div className="tab-icon-box solo">
               <Laptop size={14} />
             </div>
-            <span className="tab-title solo-title">Solo Studio</span>
+            <div className="tab-text-box">
+              <span className="tab-title solo-title">Solo Studio</span>
+              <span className="tab-title-short">Solo</span>
+            </div>
           </button>
         </div>
 

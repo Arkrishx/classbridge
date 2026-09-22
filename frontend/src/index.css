@@ -2,21 +2,21 @@
   --font-sans: 'Google Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', 'Roboto Mono', monospace;
 
-  /* Official Google Dark Theme Palette (Google Meet / Workspace / Translate) */
-  --bg-base: #202124;
-  --bg-surface: #282a2d;
-  --bg-surface-hover: #35373a;
-  --bg-elevated: #303134;
-  
-  --border-subtle: #3c4043;
-  --border-active: #8ab4f8;
-  --border-focus: #8ab4f8;
+  /* Dark Ocean Palette (unified, final) */
+  --bg-base: #11161d;
+  --bg-surface: #171e27;
+  --bg-surface-hover: #202b36;
+  --bg-elevated: #1d2732;
 
-  --text-main: #e8eaed;
-  --text-muted: #9aa0a6;
-  --text-dim: #70757a;
+  --border-subtle: rgba(148, 163, 184, 0.18);
+  --border-active: #67e8f9;
+  --border-focus: #67e8f9;
 
-  /* Official Google Brand Colors */
+  --text-main: #f1f5f9;
+  --text-muted: #a7b4c3;
+  --text-dim: #718096;
+
+  /* Google Brand Colors */
   --google-blue: #8ab4f8;
   --google-blue-bold: #1a73e8;
   --google-red: #ea4335;
@@ -25,12 +25,18 @@
   --google-green: #34a853;
   --google-green-soft: #81c995;
 
-  /* Harmonized Accent Mappings */
-  --accent-cyan: #8ab4f8;
-  --accent-indigo: #8ab4f8;
-  --accent-emerald: #81c995;
-  --accent-gold: #fdd663;
+  /* Accent tokens */
+  --accent-cyan: #67e8f9;
+  --accent-indigo: #93c5fd;
+  --accent-emerald: #6ee7b7;
+  --accent-gold: #fcd34d;
   --accent-rose: #f28b82;
+  --shadow-stage: 0 20px 60px rgba(0, 0, 0, 0.28);
+
+  /* Layout height tokens (updated per breakpoint via media queries) */
+  --app-bar-height: 72px;
+  --class-mode-bar-height: 68px;
+  --header-total: 140px;
 
   --glass-blur: blur(16px);
   --radius-sm: 8px;
@@ -550,14 +556,14 @@ body {
 }
 
 .caption-en {
-  font-size: 15px;
+  font-size: clamp(13.5px, 1.8vw, 15.5px);
   color: var(--text-main);
   line-height: 1.55;
   font-weight: 450;
 }
 
 .caption-vernacular {
-  font-size: 16px;
+  font-size: clamp(14.5px, 2vw, 17px);
   color: var(--accent-gold);
   line-height: 1.6;
   font-weight: 500;
@@ -2735,13 +2741,14 @@ body {
 }
 
 .google-app-title {
-  font-size: 19px;
+  font-size: clamp(15px, 2.5vw, 20px);
   font-weight: 600;
   color: #e8eaed;
   letter-spacing: -0.015em;
   background: linear-gradient(135deg, #ffffff 40%, #8ab4f8 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  white-space: nowrap;
 }
 
 .google-tag-pill {
@@ -2990,6 +2997,12 @@ body {
   gap: 4px;
 }
 
+.google-bar-overflow-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 /* 1.5. Class Mode Bar (Real-Time Offline Class vs Online Class Switcher) */
 .class-mode-bar-container {
   width: 100%;
@@ -3095,9 +3108,17 @@ body {
 }
 
 .tab-title {
-  font-size: 13.5px;
+  font-size: clamp(11px, 1.8vw, 13.5px);
   font-weight: 700;
   line-height: 1.2;
+}
+
+.tab-title-short {
+  display: none; /* shown only at ≤680px via media query */
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .tab-desc {
@@ -3351,10 +3372,10 @@ body {
 .google-stage-caption .caption-card,
 .google-stage-gemini .chat-card,
 .google-stage-tutor .chat-card {
-  height: calc(100vh - 180px);
+  height: calc(100vh - var(--header-total) - 24px);
   min-height: 520px;
   max-height: none;
-  background: #282a2d;
+  background: rgba(23, 30, 39, 0.92);
   border: 1px solid var(--border-subtle);
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
@@ -3364,22 +3385,6 @@ body {
 /* ==========================================================================
    Presentation UI system: calm hierarchy, stronger focus, clearer workspace
    ========================================================================== */
-:root {
-  --bg-base: #11161d;
-  --bg-surface: #171e27;
-  --bg-surface-hover: #202b36;
-  --bg-elevated: #1d2732;
-  --border-subtle: rgba(148, 163, 184, 0.18);
-  --border-active: #67e8f9;
-  --text-main: #f1f5f9;
-  --text-muted: #a7b4c3;
-  --text-dim: #718096;
-  --accent-cyan: #67e8f9;
-  --accent-indigo: #93c5fd;
-  --accent-emerald: #6ee7b7;
-  --accent-gold: #fcd34d;
-  --shadow-stage: 0 20px 60px rgba(0, 0, 0, 0.28);
-}
 
 body {
   background:
@@ -3673,7 +3678,9 @@ select:focus-visible {
   border-radius: 48px;
   padding: 8px 16px;
   box-shadow: 0 10px 32px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.35);
-  max-width: 95vw;
+  max-width: min(95vw, 680px);
+  overflow-x: auto;
+  scrollbar-width: none;
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -3997,7 +4004,7 @@ select:focus-visible {
   .google-stage-caption .caption-card,
   .google-stage-gemini .chat-card,
   .google-stage-tutor .chat-card {
-    height: calc(100vh - 170px);
+    height: calc(100vh - var(--header-total) - 16px);
   }
   .segment-item .vernacular-text {
     font-size: 18px;
@@ -4185,7 +4192,7 @@ select:focus-visible {
   .google-stage-caption .caption-card,
   .google-stage-gemini .chat-card,
   .google-stage-tutor .chat-card {
-    height: calc(100vh - 195px);
+    height: calc(100vh - var(--header-total) - 24px);
     min-height: 420px;
   }
 
@@ -4229,7 +4236,7 @@ select:focus-visible {
 
   .google-mobile-tab-bar {
     top: 52px;
-    padding: 6px 10px;
+    padding: 5px 10px;
   }
 
   .google-mobile-tab-btn {
@@ -4373,6 +4380,326 @@ select:focus-visible {
   }
 }
 
+/* ==========================================================================
+   EXTENDED RESPONSIVE FIXES — All Device Tiers
+   ========================================================================== */
+
+/* ── Update header-total CSS var per breakpoint ── */
+@media (max-width: 1200px) {
+  :root {
+    --app-bar-height: 60px;
+    --class-mode-bar-height: 64px;
+    --header-total: 124px;
+  }
+}
+
+@media (max-width: 992px) {
+  :root {
+    --app-bar-height: 58px;
+    --class-mode-bar-height: 62px;
+    --header-total: 120px;
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --app-bar-height: 56px;
+    --class-mode-bar-height: 96px;   /* wraps to 2 rows on mobile */
+    --header-total: 152px;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --app-bar-height: 52px;
+    --class-mode-bar-height: 88px;
+    --header-total: 140px;
+  }
+}
+
+/* ── Tablet portrait (640–768px) NEW BREAKPOINT ── */
+@media (max-width: 680px) {
+
+  /* App bar: keep only essentials */
+  .google-app-bar {
+    padding: 0 10px;
+    gap: 6px;
+    height: 56px;
+    min-height: 56px;
+  }
+
+  .google-bar-export-group {
+    display: none;
+  }
+
+  /* Class mode bar — compact tabs */
+  .class-mode-bar-container {
+    padding: 6px 12px;
+  }
+
+  .class-mode-bar {
+    gap: 8px;
+  }
+
+  .class-mode-tabs {
+    gap: 6px;
+    flex: 1;
+  }
+
+  /* Hide tab description text, show short label */
+  .tab-desc {
+    display: none;
+  }
+
+  .tab-title-short {
+    display: inline;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .tab-title {
+    display: none;
+  }
+
+  .tab-icon-box {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+  }
+
+  .class-mode-tab {
+    padding: 5px 10px;
+    gap: 7px;
+    min-height: 40px;
+  }
+
+  /* Context deck: compact single row */
+  .class-context-deck {
+    gap: 6px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .class-context-deck::-webkit-scrollbar { display: none; }
+
+  .copy-student-link-btn span:last-child {
+    display: none;
+  }
+
+  .room-info-pill .room-label { display: none; }
+
+  /* Main stage single column */
+  .google-main-stage {
+    grid-template-columns: 1fr;
+    padding: 10px 10px;
+    gap: 10px;
+  }
+
+  .google-stage-caption .caption-card,
+  .google-stage-gemini .chat-card,
+  .google-stage-tutor .chat-card {
+    height: calc(100vh - var(--header-total) - 96px);
+    min-height: 380px;
+  }
+
+  /* Mobile tabs visible */
+  .google-mobile-tab-bar {
+    display: flex;
+    top: 56px;
+  }
+
+  /* Bottom dock compact */
+  .google-dock-input-bar {
+    display: none;
+  }
+  .google-view-switcher {
+    display: none;
+  }
+  .google-pill-btn .pill-btn-label {
+    display: none;
+  }
+  .google-pill-btn {
+    padding: 7px 10px;
+    min-width: 40px;
+    justify-content: center;
+  }
+}
+
+/* ── 640px: Modals safe area ── */
+@media (max-width: 640px) {
+  .modal-overlay {
+    padding: 8px 8px max(8px, env(safe-area-inset-bottom));
+    align-items: flex-end;
+  }
+  .modal-card {
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    max-height: 94vh;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .modal-scroll {
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+  }
+}
+
+/* ── Bottom dock safe area (iOS notch) for all mobile ── */
+@media (max-width: 768px) {
+  .google-meet-dock-wrapper {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .google-app-bar {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+}
+
+/* ── Study Guide modal responsive ── */
+@media (max-width: 768px) {
+  .study-guide-modal-root {
+    padding: 12px;
+  }
+  .flashcard-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .definition-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .study-guide-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+
+/* ── Caption pane header compact on mobile ── */
+@media (max-width: 640px) {
+  .caption-header,
+  .chat-header {
+    padding: 10px 12px;
+    min-height: 52px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .caption-header-left,
+  .chat-header-left {
+    flex: 1;
+    min-width: 0;
+  }
+  .caption-header-right,
+  .chat-header-right {
+    gap: 4px;
+  }
+  .segment-item {
+    padding: 10px 12px;
+  }
+  .caption-list,
+  .chat-messages {
+    padding: 10px;
+    gap: 8px;
+  }
+}
+
+/* ── Extra small (360px): Survival layout ── */
+@media (max-width: 380px) {
+  .google-app-bar {
+    padding: 0 6px;
+    height: 50px;
+    min-height: 50px;
+    gap: 4px;
+  }
+  .google-mobile-tab-bar {
+    top: 50px;
+    padding: 5px 8px;
+  }
+  .google-mobile-tab-btn {
+    padding: 7px 8px;
+    font-size: 11.5px;
+    gap: 5px;
+  }
+  .google-circle-btn {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+  }
+  .google-pill-btn {
+    padding: 6px 8px;
+  }
+  .google-meet-dock {
+    gap: 6px;
+    padding: 5px 8px;
+  }
+}
+
+/* ── Online class stage: Portrait phones ── */
+@media (max-width: 600px) {
+  .online-class-stage {
+    padding: 6px 10px 10px;
+    gap: 10px;
+  }
+  .video-caption-overlay {
+    bottom: 70px;
+    left: 10px;
+    right: 10px;
+    padding: 10px 14px;
+  }
+  .overlay-caption-source {
+    font-size: 12px;
+  }
+  .overlay-caption-target {
+    font-size: 15px;
+  }
+  .video-control-dock {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  .meet-dock-btn {
+    height: 40px;
+    min-width: 40px;
+  }
+  .dock-btn-text {
+    display: none;
+  }
+  .meet-dock-btn.end-session-btn .dock-btn-text,
+  .meet-dock-btn.record-session-btn .dock-btn-text {
+    display: none;
+  }
+  .meet-dock-btn.end-session-btn,
+  .meet-dock-btn.record-session-btn {
+    border-radius: 50%;
+    padding: 0;
+    gap: 0;
+  }
+}
+
+/* ── Chat panel bottom dock input bar — clamp width ── */
+@media (min-width: 993px) and (max-width: 1400px) {
+  .google-dock-input-bar {
+    min-width: 160px;
+    max-width: clamp(160px, 20vw, 300px);
+  }
+}
+
+/* ── App bar right section: graduated hiding ── */
+@media (max-width: 1100px) {
+  .google-chip-action.device-chip .google-chip-text {
+    max-width: 80px;
+  }
+}
+
+@media (max-width: 860px) {
+  .google-bar-export-group {
+    gap: 2px;
+  }
+  .google-icon-btn.export-icon {
+    display: none;
+  }
+  /* Show compact export as single icon */
+  .google-icon-btn.export-compact {
+    display: flex !important;
+  }
+}
+
+
 /* Classroom Room & Role Chip in GoogleAppBar */
 .google-chip-action.classroom-chip {
   padding: 4px 10px;
@@ -4445,8 +4772,8 @@ select:focus-visible {
   display: flex;
   gap: 16px;
   width: 100%;
-  height: calc(100vh - 170px);
-  min-height: 520px;
+  height: calc(100vh - var(--header-total) - 24px);
+  min-height: 480px;
   padding: 8px 16px 16px;
   box-sizing: border-box;
 }
@@ -4883,11 +5210,11 @@ select:focus-visible {
     min-height: unset;
   }
   .video-viewport {
-    height: 380px;
+    height: clamp(240px, 45vw, 380px);
   }
   .online-caption-sidebar {
     width: 100%;
-    height: 300px;
+    height: 260px;
   }
 }
 
@@ -5845,3 +6172,122 @@ select:focus-visible {
 
 
 
+
+/* ==========================================================================
+   FINAL RESPONSIVE POLISH — App Bar Overflow & Study Guide Responsive
+   ========================================================================== */
+
+/* Hide secondary action group on small screens */
+@media (max-width: 680px) {
+  .google-bar-overflow-group {
+    display: none;
+  }
+
+  /* Keep essential: status pill becomes icon-only */
+  .google-status-pill {
+    padding: 3px 6px;
+    gap: 4px;
+  }
+
+  /* Classroom chip: short label only */
+  .google-chip-action.classroom-chip {
+    padding: 4px 8px;
+  }
+
+  /* Class mode bar: update header total for sticky offset */
+  .google-mobile-tab-bar {
+    top: var(--app-bar-height);
+  }
+}
+
+/* Study guide button — icon only at very narrow */
+@media (max-width: 520px) {
+  .study-guide-topbar-btn .pill-btn-label {
+    display: none;
+  }
+  .study-guide-topbar-btn {
+    padding: 4px 8px !important;
+    min-width: 32px;
+  }
+}
+
+/* ── Google Workspace Root: safe area insets ── */
+.google-workspace-root {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* ── Chat panel responsive min-widths ── */
+@media (min-width: 993px) {
+  .google-main-stage {
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+  }
+}
+
+/* ── Compact role deck on narrow tablets ── */
+@media (max-width: 640px) {
+  .role-switch-pills {
+    padding: 2px;
+    border-radius: 16px;
+  }
+  .role-pill {
+    padding: 3px 8px;
+    font-size: 11px;
+    gap: 4px;
+  }
+  .room-info-pill {
+    padding: 4px 8px;
+    font-size: 11px;
+    gap: 4px;
+  }
+  .copy-student-link-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+}
+
+/* ── Segment items touch-friendly ── */
+@media (hover: none) {
+  .segment-item:hover {
+    transform: none;
+    background: var(--bg-surface);
+    border-color: var(--border-subtle);
+  }
+  .google-pill-btn:hover:not(:disabled),
+  .google-chip-action:hover,
+  .class-mode-tab:hover {
+    transform: none;
+  }
+}
+
+/* ── Keyboard navigation focus rings ── */
+.google-circle-btn:focus-visible,
+.google-pill-btn:focus-visible,
+.google-chip-action:focus-visible,
+.class-mode-tab:focus-visible,
+.meet-dock-btn:focus-visible,
+.role-pill:focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 3px;
+}
+
+/* ── Print styles ── */
+@media print {
+  .google-app-bar,
+  .class-mode-bar-container,
+  .google-mobile-tab-bar,
+  .google-meet-dock-wrapper {
+    display: none !important;
+  }
+  .google-workspace-root {
+    padding-bottom: 0;
+  }
+  .google-stage-caption .caption-card,
+  .google-stage-gemini .chat-card {
+    height: auto !important;
+    max-height: none !important;
+    box-shadow: none;
+    border: 1px solid #ccc;
+  }
+}
