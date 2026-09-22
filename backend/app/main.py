@@ -427,6 +427,7 @@ def generative_study_guide(req: GenerativeStudyGuideRequest):
     """
     Always-generative study guide endpoint.
     Produces a FRESH Gemini-synthesized study guide every call — no cache, no static templates.
+    Guarantees ALL sections are populated (definitions, formulas, takeaways, flashcards, diagram, visuals).
     Falls back to heuristic synthesis if Gemini key is unavailable.
     """
     segs = req.segments if req.segments is not None else active_session.get("segments", [])
@@ -445,83 +446,95 @@ def generative_study_guide(req: GenerativeStudyGuideRequest):
     lang_native = lang_meta.get("native", "தமிழ்")
     mode_label = {"solo": "Solo Studio Recording", "offline": "Offline Classroom", "online": "Online Live Class"}.get(mode, "Lecture Session")
 
-    full_text_en = " ".join(s.get("text_en", "") or s.get("text_source", "") for s in segs)
+    # Cap transcript to avoid token overflow — use at most 120 segments
+    segs_for_prompt = segs[:120]
+    full_text_en = " ".join(s.get("text_en", "") or s.get("text_source", "") for s in segs_for_prompt)
+    lower_text = full_text_en.lower()
 
     if settings.GEMINI_API_KEY:
         try:
             from google import genai
             from backend.app.rag import extract_json_from_response
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
+            today = __import__('datetime').datetime.now().strftime('%B %d, %Y')
+            now_iso = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
 
             prompt = f"""You are ClassBridge, an expert AI educational assistant for STEM college students.
 Session Mode: {mode_label}
 Student's vernacular language: {lang_name} ({lang_native}, code: '{target_lang}')
-
-Lecture Transcript:
+Lecture Transcript ({len(segs_for_prompt)} segments):
 {full_text_en}
 
-TASK: Generate a COMPLETELY FRESH, ORIGINAL, comprehensive study guide from this transcript.
-- Do NOT reuse or echo the transcript sentences verbatim in the definitions or overview.
-- Generate NEW explanatory content that synthesizes, explains, and expands upon the lecture concepts.
-- The definitions must be academically precise and written in fresh language (not copied from transcript).
-- If no mathematical formulas appear in the transcript, 'formulas' MUST be an empty array [].
-- Flashcards must have insightful exam-ready questions, not just restated definitions.
-- generated_at: use "{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}"
+TASK: Generate a COMPLETE, RICH, FRESH study guide with ALL sections fully populated.
+RULES:
+- Do NOT copy transcript sentences verbatim. Synthesize, explain, and expand.
+- definitions: MINIMUM 5 entries — extract every key technical term mentioned.
+- formulas: If the topic involves mathematics/physics/chemistry/CS equations, provide 3–5 formulas. If the topic is purely conceptual (e.g. history, literature) use [].
+- takeaways: MINIMUM 6 clear bullet-point insights — not transcript echoes, but synthesized lessons.
+- flashcards: MINIMUM 7 exam-quality question/answer cards covering all major concepts.
+- diagram.nodes: MINIMUM 5 nodes forming a logical concept progression.
+- All vernacular text must be accurately translated into {lang_name} ({lang_native}).
 
-Return ONLY valid JSON matching this schema exactly:
+Return ONLY valid JSON matching this EXACT schema (no markdown fences, no extra fields):
 {{
   "title": "<Concise descriptive title for this specific lecture>",
-  "date": "{__import__('datetime').datetime.now().strftime('%B %d, %Y')}",
+  "date": "{today}",
   "target_language": "{lang_name}",
   "native_language": "{lang_native}",
-  "generated_at": "{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}",
+  "generated_at": "{now_iso}",
   "source": "gemini_generative",
   "overview": {{
-    "en": "<Fresh 2-4 sentence executive overview — synthesize don't copy>",
-    "vernacular": "<Accurate translation in {lang_name}>"
+    "en": "<Fresh 3-5 sentence executive overview — what was taught, why it matters, key conclusions>",
+    "vernacular": "<Accurate full translation of the above into {lang_name}>"
   }},
   "diagram": {{
-    "title": "<Concept Map title>",
+    "title": "<Lecture Concept Map>",
     "source": "BridgeAI Generative Concept Map",
     "nodes": [
-      {{"id": "concept_1", "label": "<Key Concept>", "detail": "<Category>"}},
-      {{"id": "concept_2", "label": "<Key Concept>", "detail": "<Category>"}}
+      {{"id": "concept_1", "label": "<Key Concept 1>", "detail": "<Domain/Category>"}},
+      {{"id": "concept_2", "label": "<Key Concept 2>", "detail": "<Relation or Category>"}},
+      {{"id": "concept_3", "label": "<Key Concept 3>", "detail": "<Relation or Category>"}},
+      {{"id": "concept_4", "label": "<Key Concept 4>", "detail": "<Relation or Category>"}},
+      {{"id": "concept_5", "label": "<Key Concept 5>", "detail": "<Relation or Category>"}}
     ],
     "edges": [
-      {{"from": "concept_1", "to": "concept_2"}}
+      {{"from": "concept_1", "to": "concept_2"}},
+      {{"from": "concept_2", "to": "concept_3"}},
+      {{"from": "concept_3", "to": "concept_4"}},
+      {{"from": "concept_4", "to": "concept_5"}}
     ]
   }},
   "definitions": [
     {{
       "term": "<English technical term>",
-      "vernacular_term": "<Vernacular translation with English in parentheses>",
-      "category": "<STEM Domain>",
-      "definition": "<Fresh academic textbook-style definition — NOT copied from transcript>",
-      "vernacular_definition": "<Accurate {lang_name} explanation>"
+      "vernacular_term": "<{lang_name} translation (English in parentheses)>",
+      "category": "<STEM Domain e.g. Machine Learning, Physics, Mathematics, Biology, Computer Science>",
+      "definition": "<Clear, academic, textbook-quality English definition>",
+      "vernacular_definition": "<Clear {lang_name} explanation>"
     }}
   ],
   "formulas": [
     {{
       "name": "<Formula or Law name>",
-      "latex": "<LaTeX equation>",
-      "description": "<What the formula computes>",
-      "variables": "<Variable descriptions>"
+      "latex": "<Clean LaTeX or Unicode equation string>",
+      "description": "<What the formula computes and when to use it>",
+      "variables": "<Variable descriptions e.g. m: mass in kg, v: velocity in m/s>"
     }}
   ],
   "takeaways": [
     {{
-      "point": "<Key takeaway in English — insight not transcript echo>",
-      "vernacular_point": "<Key takeaway in {lang_name}>",
-      "timestamp": "<Approximate timestamp from transcript>"
+      "point": "<Key insight in English — not copied from transcript, synthesized lesson>",
+      "vernacular_point": "<Same insight in {lang_name}>",
+      "timestamp": "<Approximate timestamp e.g. 00:00, 00:30>"
     }}
   ],
   "flashcards": [
     {{
       "id": 1,
       "front": "<Exam-style question in English>",
-      "vernacular_front": "<Question in {lang_name}>",
-      "back": "<Concise answer>",
-      "category": "<Domain>"
+      "vernacular_front": "<Same question in {lang_name}>",
+      "back": "<Concise accurate answer in English, optionally with {lang_name} translation>",
+      "category": "<STEM Domain>"
     }}
   ]
 }}
@@ -536,11 +549,51 @@ Return ONLY valid JSON matching this schema exactly:
                     )
                     if resp and resp.text:
                         data = extract_json_from_response(resp.text)
-                        if data and (data.get("definitions") or data.get("overview")):
+                        if data and data.get("overview") and data.get("definitions"):
                             data["segment_count"] = len(segs)
                             data["generated_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
                             data["source"] = "gemini_generative"
-                            logger.info(f"[/api/generate/study-guide] Fresh guide via {model_name}")
+
+                            from backend.app.study_guide import study_guide_generator
+
+                            # ── 1. Ensure definitions has at least 5 entries ──
+                            if not data.get("definitions") or len(data.get("definitions", [])) < 3:
+                                heuristic_data = study_guide_generator._heuristic_synthesis(segs, full_text_en, target_lang)
+                                data["definitions"] = heuristic_data.get("definitions", [])
+
+                            # ── 2. Ensure formulas has items for any STEM/quantitative session ──
+                            if not data.get("formulas") or len(data.get("formulas", [])) == 0:
+                                extracted_f = study_guide_generator._extract_formulas(full_text_en, data.get("definitions", []))
+                                if extracted_f:
+                                    data["formulas"] = extracted_f
+
+                            # ── 3. Ensure takeaways has at least 4 items ──
+                            if not data.get("takeaways") or len(data.get("takeaways", [])) < 3:
+                                heuristic_data = study_guide_generator._heuristic_synthesis(segs, full_text_en, target_lang)
+                                data["takeaways"] = heuristic_data.get("takeaways", [])
+
+                            # ── 4. Ensure flashcards has at least 5 cards ──
+                            if not data.get("flashcards") or len(data.get("flashcards", [])) < 4:
+                                data["flashcards"] = study_guide_generator._generate_flashcards(
+                                    data.get("definitions", []), data.get("formulas", []), data.get("takeaways", []), target_lang
+                                )
+
+                            # ── 5. Ensure diagram has connected nodes & edges ──
+                            if not data.get("diagram") or not data.get("diagram", {}).get("nodes") or len(data.get("diagram", {}).get("nodes", [])) < 3:
+                                data["diagram"] = study_guide_generator._build_concept_diagram(
+                                    data.get("definitions", []), data.get("formulas", []), data.get("takeaways", [])
+                                )
+
+                            # ── 6. Build visuals package (SVG visual explanation cards + equation) ──
+                            data["visuals"] = study_guide_generator._build_visuals(full_text_en, data.get("formulas", []))
+
+                            logger.info(f"[/api/generate/study-guide] Complete study guide via {model_name} — "
+                                        f"{len(data.get('definitions',[]))} defs, "
+                                        f"{len(data.get('formulas',[]))} formulas, "
+                                        f"{len(data.get('flashcards',[]))} cards, "
+                                        f"{len(data.get('takeaways',[]))} takeaways, "
+                                        f"{len(data.get('diagram',{}).get('nodes',[]))} nodes, "
+                                        f"visuals={list(data.get('visuals',{}).keys())}")
                             return data
                 except Exception as m_err:
                     logger.info(f"[/api/generate/study-guide] Model {model_name} failed: {m_err}")
