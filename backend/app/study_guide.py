@@ -17,6 +17,192 @@ QUANT_INDICATORS = [
     "current", "resistance", "power", "bayes", "probability", "entropy", "variance", "optimi", "physics"
 ]
 
+STEM_KB: Dict[str, Dict[str, str]] = {
+    "glucose": {
+        "term": "Glucose",
+        "cat": "Biochemistry",
+        "def": "A 6-carbon monosaccharide sugar (C6H12O6) serving as the primary cellular fuel oxidized during cellular respiration to synthesize ATP.",
+        "ta": "குளுக்கோஸ் (Glucose) - செல்லுலார் ஆற்றல் உற்பத்திக்கு உதவும் முதன்மை மோனோசாக்கரைடு சர்க்கரை.",
+        "ml": "ഗ്ലൂക്കോസ് (Glucose) - കോശ ശ്വസനത്തിന് ഉപയോഗിക്കുന്ന പ്രധാന ഊർജ്ജ പഞ്ചസാര.",
+        "hi": "ग्लूकोज (Glucose) - कोशिकीय श्वसन में उपयोग होने वाली प्राथमिक ऊर्जा शर्करा।"
+    },
+    "cellular": {
+        "term": "Cellular",
+        "cat": "Cell Biology",
+        "def": "Relating to the biological cell, the fundamental structural, functional, and metabolic unit of all living organisms.",
+        "ta": "செல்லுலார் (Cellular) - உயிரினங்களின் அடிப்படை கட்டமைப்பு மற்றும் செயல்பாட்டு அலகு.",
+        "ml": "കോശീയ (Cellular) - ജീവജാലങ്ങളുടെ ഘടനാപരമായ അടിസ്ഥാന ഘടകം.",
+        "hi": "कोशिकीय (Cellular) - सभी जीवों की मौलिक संरचनात्मक और जैविक इकाई।"
+    },
+    "respiration": {
+        "term": "Cellular Respiration",
+        "cat": "Cell Biology",
+        "def": "The catabolic biochemical process in cells that breaks down glucose in the presence of oxygen to generate usable ATP energy.",
+        "ta": "செல்லுலார் சுவாசம் (Respiration) - குளுக்கோஸை ஆக்ஸிஜனேற்றம் செய்து ஏடிபி வடிவில் ஆற்றலை உருவாக்கும் முறை.",
+        "ml": "കോശ ശ്വസനം (Respiration) - ഊർജ്ജം ഉത്പാദിപ്പിക്കുന്നതിനുള്ള രാസപ്രക്രിയ.",
+        "hi": "श्वसन (Respiration) - ऊर्जा (ATP) उत्पन्न करने वाली कोशिकीय प्रक्रिया।"
+    },
+    "mitochondria": {
+        "term": "Mitochondria",
+        "cat": "Cell Biology",
+        "def": "Double-membrane cellular organelles acting as the powerhouses of the cell, hosting the Krebs citric acid cycle and oxidative phosphorylation.",
+        "ta": "மைட்டோகாண்ட்ரியா (Mitochondria) - செல்லின் ஆற்றல் மையம், ஏடிபி உற்பத்தியை நிகழ்த்துகிறது.",
+        "ml": "മൈറ്റോകോൺഡ്രിയ (Mitochondria) - കോശത്തിന്റെ ഊർജ്ജ നിലയം.",
+        "hi": "माइटोकॉन्ड्रिया (Mitochondria) - कोशिका का ऊर्जा घर (Powerhouse)।"
+    },
+    "mitochondrial": {
+        "term": "Mitochondrial Matrix",
+        "cat": "Cell Biology",
+        "def": "The gel-like internal space bounded by the inner mitochondrial membrane containing enzymes for the Krebs cycle and mitochondrial DNA.",
+        "ta": "மைட்டோகாண்ட்ரியல் மேட்ரிக்ஸ் (Mitochondrial Matrix) - கிரெப்ஸ் சுழற்சி நொதிகளைக் கொண்ட உட்சுவர் திரவம்.",
+        "ml": "മൈറ്റോകോൺഡ്രിയൽ മാട്രിക്സ് (Mitochondrial Matrix) - ക്രെബ്സ് ചക്രം നടക്കുന്ന ഉൾഭാഗം.",
+        "hi": "माइटोकॉन्ड्रियल मैट्रिक्स (Mitochondrial Matrix) - क्रेब्स चक्र का स्थान।"
+    },
+    "atp": {
+        "term": "Adenosine Triphosphate (ATP)",
+        "cat": "Biochemistry",
+        "def": "Adenosine Triphosphate, the universal molecular energy currency of living cells utilized to drive cellular processes and synthesis.",
+        "ta": "ஏடிபி (ATP) - செல்களின் உலகளாவிய வேதியியல் ஆற்றல் நாணயம்.",
+        "ml": "എ.ടി.പി (ATP) - കോശങ്ങളുടെ സാർവത്രിക ഊർജ്ജ നാണയം.",
+        "hi": "एटीपी (ATP) - कोशिकाओं की सार्वभौमिक ऊर्जा मुद्रा।"
+    },
+    "glycolysis": {
+        "term": "Glycolysis",
+        "cat": "Biochemistry",
+        "def": "The 10-step enzymatic metabolic pathway in the cytoplasm converting one glucose molecule into two pyruvates, yielding net 2 ATP and 2 NADH.",
+        "ta": "கிளைகோலிசிஸ் (Glycolysis) - குளுக்கோஸை பைருவேட்டாக உடைத்து ஆற்றல் உருவாக்கும் நிலை.",
+        "ml": "ഗ്ലൈക്കോളിസിസ് (Glycolysis) - ഗ്ലൂക്കോസ് വിഘടിച്ച് പൈറുവേറ്റ് ആകുന്ന പ്രക്രിയ.",
+        "hi": "ग्लाइकोलाइसिस (Glycolysis) - ग्लूकोज को पाइरूवेट में तोड़ने की प्रक्रिया।"
+    },
+    "pyruvate": {
+        "term": "Pyruvate",
+        "cat": "Biochemistry",
+        "def": "A 3-carbon organic carboxylate produced by glycolysis that is transported into the mitochondrial matrix to fuel the Krebs cycle.",
+        "ta": "பைருவேட் (Pyruvate) - கிளைகோலிசிஸில் உருவாகும் 3-கார்பன் கரிம அமிலம்.",
+        "ml": "പൈറുവേറ്റ് (Pyruvate) - ഗ്ലൈക്കോളിസിസിന്റെ ഉൽപ്പന്നം.",
+        "hi": "पाइरूवेट (Pyruvate) - ग्लाइकोलाइसिस का अंतिम 3-कार्बन उत्पाद।"
+    },
+    "krebs": {
+        "term": "Krebs Cycle",
+        "cat": "Cell Biology",
+        "def": "The citric acid cycle in the mitochondrial matrix that oxidizes Acetyl-CoA, reducing NAD+ and FAD into high-energy electron carriers.",
+        "ta": "கிரெப்ஸ் சுழற்சி (Krebs Cycle) - மைட்டோகாண்ட்ரியல் மேட்ரிக்ஸில் நிகழும் சிட்ரிக் அமில ஆக்சிஜனேற்ற சுழற்சி.",
+        "ml": "ക്രെബ്സ് ചക്രം (Krebs Cycle) - സിട്രിക് ആസിഡ് ചക്രം.",
+        "hi": "क्रेब्स चक्र (Krebs Cycle) - माइटोकॉन्ड्रियल मैट्रिक्स में सिट्रिक एसिड चक्र।"
+    },
+    "oxygen": {
+        "term": "Oxygen",
+        "cat": "Chemistry",
+        "def": "The essential atmospheric gas functioning as the final electron acceptor in the mitochondrial electron transport chain during aerobic respiration.",
+        "ta": "ஆக்ஸிஜன் (Oxygen) - ஏரோபிக் சுவாசத்தில் இறுதி எலக்ட்ரான் ஏற்பியாக செயல்படும் வாயு.",
+        "ml": "ഓക്സിജൻ (Oxygen) - കോശ ശ്വസനത്തിലെ പ്രധാന ഇലക്ട്രോൺ സ്വീകർത്താവ്.",
+        "hi": "ऑक्सीजन (Oxygen) - कोशिकीय श्वसन में अंतिम इलेक्ट्रॉन स्वीकर्ता।"
+    },
+    "carbon": {
+        "term": "Carbon",
+        "cat": "Chemistry",
+        "def": "The tetravalent nonmetallic chemical element forming the essential structural backbone of all organic biomolecules in living systems.",
+        "ta": "கார்பன் (Carbon) - அனைத்து கரிம மூலக்கூறுகளின் மைய வேதியியல் முதுகெலும்பு.",
+        "ml": "കാർബൺ (Carbon) - ജൈവ തന്മാത്രകളുടെ അടിസ്ഥാന രാസമൂലകം.",
+        "hi": "कार्बन (Carbon) - सभी कार्बनिक अणुओं का मूलभूत आधार तत्व।"
+    },
+    "photosynthesis": {
+        "term": "Photosynthesis",
+        "cat": "Plant Biology",
+        "def": "The anabolic biological process in plant chloroplasts utilizing solar photons to synthesize glucose from carbon dioxide and water.",
+        "ta": "ஒளிச்சேர்க்கை (Photosynthesis) - சூரிய ஒளியால் தாவரங்கள் உணவு தயாரிக்கும் உயிர்முறை.",
+        "ml": "പ്രകാശസംശ്ലേഷണം (Photosynthesis) - സസ്യങ്ങൾ ആഹാരം നിർമ്മിക്കുന്ന പ്രക്രിയ.",
+        "hi": "प्रकाश संश्लेषण (Photosynthesis) - सौर ऊर्जा से भोजन बनाने की जैविक प्रक्रिया।"
+    },
+    "chloroplast": {
+        "term": "Chloroplast",
+        "cat": "Plant Biology",
+        "def": "Plastid organelle in plant and algal cells containing thylakoids and chlorophyll pigments where photosynthesis occurs.",
+        "ta": "பசுங்கணிகம் (Chloroplast) - தாவரங்களில் ஒளிச்சேர்க்கை நிகழும் செல் உறுப்பு.",
+        "ml": "ഹരിതകം (Chloroplast) - പ്രകാശസംശ്ലേഷണം നടക്കുന്ന കോശാംഗം.",
+        "hi": "हरितलवक (Chloroplast) - पादप कोशिकाओं में प्रकाश संश्लेषण का अंगक।"
+    },
+    "enzyme": {
+        "term": "Enzymes",
+        "cat": "Biochemistry",
+        "def": "Macromolecular biological protein catalysts that increase biochemical reaction velocities by lowering activation energy barriers.",
+        "ta": "என்சைம் / நொதி (Enzyme) - உயிர்வேதியியல் வினைகளை விரைவுபடுத்தும் புரத வினையூக்கி.",
+        "ml": "എൻസൈം (Enzyme) - ജൈവ രാസപ്രവർത്തനങ്ങളുടെ വേഗത കൂട്ടുന്ന രാസത്വരകം.",
+        "hi": "एंजाइम (Enzyme) - जैव रासायनिक प्रतिक्रियाओं को तेज करने वाला उत्प्रेरक।"
+    },
+    "gradient": {
+        "term": "Gradient Descent",
+        "cat": "Optimization & Math",
+        "def": "A multi-variable differential vector pointing in the direction of greatest instantaneous rate of increase of a scalar objective function.",
+        "ta": "சரிவு இறக்கம் (Gradient Descent) - சார்பு குறையும் திசையில் எடைகளை மாற்றும் முறை.",
+        "ml": "ഗ്രേഡിയന്റ് ഡിസന്റ് (Gradient Descent) - ഒപ്റ്റിമൈസേഷൻ രീതി.",
+        "hi": "प्रवणता ह्रास (Gradient Descent) - न्यूनतम त्रुटि खोजने की अनुकूलन विधि।"
+    },
+    "loss": {
+        "term": "Loss Function",
+        "cat": "Machine Learning",
+        "def": "A mathematical scalar objective function quantifying the penalty or discrepancy between model predictions and true empirical targets.",
+        "ta": "இழப்புச் சார்பு (Loss Function) - மாதிரி கணிப்புகளின் பிழையை அளவிடும் சார்பு.",
+        "ml": "നഷ്ട ഫംഗ്ഷൻ (Loss Function) - പ്രവചനത്തിലെ പിശക് കണക്കാക്കുന്ന തത്വം.",
+        "hi": "हानि फलन (Loss Function) - मॉडल की त्रुटि मापने वाला गणितीय फलन।"
+    },
+    "neural": {
+        "term": "Neural Network",
+        "cat": "Artificial Intelligence",
+        "def": "A computational learning system composed of layers of artificial interconnected nodes (neurons) that approximate complex non-linear functions.",
+        "ta": "நரம்பியல் நெட்வொர்க் (Neural Network) - செயற்கை நியூரான்களைக் கொண்ட கணினி மாதிரி.",
+        "ml": "ന്യൂറൽ നെറ്റ്വർക്ക് (Neural Network) - കമ്പ്യൂട്ടേഷണൽ ലേണിംഗ് ഘടന.",
+        "hi": "न्यूरल नेटवर्क (Neural Network) - कृत्रिम न्यूरॉन्स पर आधारित कम्प्यूटेशनल मॉडल।"
+    },
+    "backpropagation": {
+        "term": "Backpropagation",
+        "cat": "Deep Learning",
+        "def": "The iterative learning algorithm applying the calculus chain rule backward through neural layers to compute weight gradient updates.",
+        "ta": "பின்னோக்கிய பரவல் (Backpropagation) - நரம்பியல் நெட்வொர்க் எடைகளை புதுப்பிக்கும் முறை.",
+        "ml": "ബാക്ക്പ്രൊപ്പഗേഷൻ (Backpropagation) - പിശക് തിരുത്തൽ രീതി.",
+        "hi": "बैकप्रॉपैगैशन (Backpropagation) - ग्रेडिएंट गणना और भार अद्यतन की कलन विधि।"
+    },
+    "eigenvalue": {
+        "term": "Eigenvalue",
+        "cat": "Linear Algebra",
+        "def": "A characteristic scalar factor by which an eigenvector is multiplied and scaled during a linear matrix transformation (Av = λv).",
+        "ta": "ஐகன் மதிப்பு (Eigenvalue) - நேரியல் உருமாற்றத்தில் திசையன் அளவிடப்படும் காரணி.",
+        "ml": "ഐഗൻ മൂല്യം (Eigenvalue) - ലീനിയർ പരിവർത്തനത്തിലെ സ്കെയിലിംഗ് ഘടകം.",
+        "hi": "आइगेन मान (Eigenvalue) - रैखिक रूपांतरण में प्रयुक्त अदिश स्केलर।"
+    },
+    "eigenvector": {
+        "term": "Eigenvector",
+        "cat": "Linear Algebra",
+        "def": "A non-zero vector whose directional orientation remains invariant (unchanged) under a linear matrix transformation, scaled only by λ.",
+        "ta": "ஐகன் திசையன் (Eigenvector) - உருமாற்றத்தில் திசை மாறாத சிறப்பியல்பு திசையன்.",
+        "ml": "ഐഗൻ വെക്ടർ (Eigenvector) - ദിശ മാറാത്ത പ്രത്യേക വെക്ടർ.",
+        "hi": "आइगेन सदिश (Eigenvector) - रूपांतरण के बाद भी दिशा अपरिवर्तित रखने वाला सदिश।"
+    },
+    "thermodynamics": {
+        "term": "Thermodynamics",
+        "cat": "Physics",
+        "def": "The branch of physical science examining the relationships between thermal heat, mechanical work, internal energy, and system entropy.",
+        "ta": "வெப்ப இயக்கவியல் (Thermodynamics) - வெப்பம், வேலை மற்றும் ஆற்றல் பரிமாற்ற அறிவியல்.",
+        "ml": "താപഗതികം (Thermodynamics) - താപോർജ്ജവും യാന്ത്രികോർജ്ജവും തമ്മിലുള്ള ബന്ധം പഠിക്കുന്ന ശാസ്ത്രം.",
+        "hi": "ऊष्मागतिकी (Thermodynamics) - ऊष्मा और ऊर्जा रूपांतरण का विज्ञान।"
+    },
+    "algorithm": {
+        "term": "Algorithm",
+        "cat": "Computer Science",
+        "def": "A finite, unambiguous, deterministic sequence of computational instructions designed to solve a well-defined computational problem.",
+        "ta": "வழிமுறை (Algorithm) - கணினி சிக்கல்களைத் தீர்க்கும் படிநிலைக் கட்டளைகள்.",
+        "ml": "അൽഗോരിതം (Algorithm) - പ്രശ്നപരിഹാരത്തിനായുള്ള നിർദ്ദേശങ്ങളുടെ ക്രമം.",
+        "hi": "कलन विधि (Algorithm) - समस्या समाधान के लिए चरणबद्ध निर्देश।"
+    }
+}
+
+def find_word_context(text: str, word: str) -> Optional[str]:
+    pattern = re.compile(rf"([^.!?]*\b{re.escape(word)}\b[^.!?]*)", re.IGNORECASE)
+    match = pattern.search(text)
+    if match and len(match.group(1).strip()) > 15:
+        return match.group(1).strip()
+    return None
+
 class StudyGuideGenerator:
     """
     Synthesizes session transcripts into a comprehensive structured study guide:
@@ -167,6 +353,15 @@ class StudyGuideGenerator:
         seen = {t["en"].lower() for t in terms}
 
         domain_patterns = [
+            (r"\b(?:cellular\s+respiration|respiration)\b", "Cellular Respiration", "Cell Biology", "Catabolic biochemical process converting glucose and oxygen into usable ATP biochemical energy, water, and CO2.", "செல்லுலார் சுவாசம் (Cellular Respiration)"),
+            (r"\b(?:glucose)\b", "Glucose", "Biochemistry", "Six-carbon hexose monosaccharide (C6H12O6) serving as the primary metabolic fuel source in cellular energy production.", "குளுக்கோஸ் (Glucose)"),
+            (r"\b(?:mitochondri(?:a|on))\b", "Mitochondria", "Cell Biology", "Double-membraned eukaryotic cellular organelle known as the powerhouse of the cell, executing the Krebs cycle and oxidative phosphorylation.", "மைட்டோகாண்ட்ரியா (Mitochondria)"),
+            (r"\b(?:mitochondrial(?:\s+matrix)?)\b", "Mitochondrial Matrix", "Cell Biology", "The internal gel space bounded by the inner mitochondrial membrane containing enzymes for the Krebs cycle and mitochondrial DNA.", "மைட்டோகாண்ட்ரியல் மேட்ரிக்ஸ் (Mitochondrial Matrix)"),
+            (r"\b(?:glycolysis)\b", "Glycolysis", "Metabolism", "Anaerobic sequence of enzymatic reactions in the cytoplasm breaking down glucose into two molecules of pyruvate while generating net 2 ATP.", "கிளைகோலிசிஸ் (Glycolysis)"),
+            (r"\b(?:atp|adenosine\s+triphosphate)\b", "Adenosine Triphosphate (ATP)", "Biochemistry", "Universal cellular energy currency storing high-energy chemical bonds in terminal phosphate groups.", "ஏடிபி (ATP)"),
+            (r"\b(?:krebs\s+cycle|citric\s+acid\s+cycle)\b", "Krebs Cycle", "Metabolism", "Cyclical series of enzymatic chemical reactions in mitochondrial matrix generating NADH and FADH2 via acetyl-CoA oxidation.", "கிரெப்ஸ் சுழற்சி (Krebs Cycle)"),
+            (r"\b(?:pyruvate)\b", "Pyruvate", "Biochemistry", "Three-carbon carboxylate compound produced at the end of glycolysis that enters mitochondria for aerobic oxidation.", "பைருவேட் (Pyruvate)"),
+            (r"\b(?:electron\s+transport\s+chain|oxidative\s+phosphorylation)\b", "Electron Transport Chain", "Cell Biology", "Series of mitochondrial inner-membrane protein complexes transferring electrons to generate a proton gradient powering ATP synthesis.", "எலக்ட்ரான் கடத்து சங்கிலி (ETC)"),
             (r"\b(?:digital\s+logic\s+gates?|logic\s+gates?)\b", "Logic Gates", "Digital Electronics", "Fundamental building blocks of digital circuits performing boolean operations.", "தர்க்க வாயில்கள் (Logic Gates)"),
             (r"\b(?:boolean\s+algebra)\b", "Boolean Algebra", "Mathematics & CS", "Algebraic system dealing with binary variables and logic operations (AND, OR, NOT).", "பூலியன் இயற்கணிதம் (Boolean Algebra)"),
             (r"\b(?:truth\s+tables?)\b", "Truth Table", "Digital Electronics", "Mathematical table showing output states for all possible input combinations.", "உண்மை அட்டவணை (Truth Table)"),
@@ -230,33 +425,59 @@ class StudyGuideGenerator:
                 if word not in seen and len(terms) < 8:
                     seen.add(word)
                     display_word = word.capitalize()
-                    terms.append({
-                        "en": display_word,
-                        "term": display_word,
-                        "category": "Core Principle",
-                        "definition": f"Key foundational concept in this lecture: {display_word}, essential for analytical understanding.",
-                        "translations": {
-                            "ta": f"{display_word} (கருத்து)",
-                            "ml": f"{display_word} (തത്വം)",
-                            "hi": f"{display_word} (सिद्धांत)"
-                        }
-                    })
+                    kb_entry = STEM_KB.get(word)
+                    if kb_entry:
+                        terms.append({
+                            "en": kb_entry["term"],
+                            "term": kb_entry["term"],
+                            "category": kb_entry["cat"],
+                            "definition": kb_entry["def"],
+                            "translations": {
+                                "ta": kb_entry["ta"].split(" - ")[0],
+                                "ml": kb_entry["ml"].split(" - ")[0],
+                                "hi": kb_entry["hi"].split(" - ")[0]
+                            }
+                        })
+                    else:
+                        sentence_ctx = find_word_context(text, word)
+                        if sentence_ctx:
+                            def_str = f"Discussed in lecture: \"{sentence_ctx}\". Key conceptual principle essential for analytical understanding."
+                        else:
+                            def_str = f"Foundational technical term: {display_word}, central to the structural and analytical development of this lecture session."
+                        terms.append({
+                            "en": display_word,
+                            "term": display_word,
+                            "category": "Core Principle",
+                            "definition": def_str,
+                            "translations": {
+                                "ta": f"{display_word} (கருத்து)",
+                                "ml": f"{display_word} (തത്വം)",
+                                "hi": f"{display_word} (सिद्धांत)"
+                            }
+                        })
 
         return terms
 
     def _infer_lecture_topic(self, terms: List[Dict[str, Any]], text: str) -> str:
+        lower = text.lower()
+        if any(w in lower for w in ["respiration", "glycolysis", "mitochondri", "krebs", "pyruvate", "atp", "glucose"]):
+            return "Cell Biology: Cellular Respiration & ATP Metabolic Energy"
+        if "photosynthesis" in lower or "chloroplast" in lower:
+            return "Biochemistry: Photosynthetic Energy Conversion"
+
         if terms:
             top_term = terms[0].get("en", "STEM")
             cat = terms[0].get("category", "STEM")
+            if any(w in lower for w in ["respiration", "glycolysis", "mitochondri", "glucose"]) and cat == "Linear Algebra":
+                return "Cell Biology: Cellular Respiration & ATP Metabolic Energy"
             if len(terms) >= 2:
                 second_term = terms[1].get("en", "Concepts")
                 return f"{cat}: {top_term} & {second_term}"
             return f"{cat}: {top_term} Principles"
         
-        lower = text.lower()
         if "gradient" in lower or "neural" in lower:
             return "Machine Learning: Gradient Optimization & Neural Networks"
-        if "matrix" in lower or "eigen" in lower:
+        if ("matrix" in lower and not any(w in lower for w in ["mitochondri", "cell", "biolog", "organelle", "respiration"])) or "eigen" in lower:
             return "Linear Algebra: Eigenvalues & Vector Spaces"
         if "thermo" in lower or "heat" in lower:
             return "Thermodynamics: Heat Engines & Energy Conservation"
@@ -277,8 +498,37 @@ class StudyGuideGenerator:
         if not has_quant and not detected_terms:
             return []
 
-        # 1. Machine Learning, Neural Networks & Optimization
-        if any(k in combined_text for k in ["gradient descent", "loss", "optimizer", "backprop", "weight update"]):
+        # Prioritize Biology so terms like 'mitochondrial matrix' do NOT trigger linear algebra
+        is_bio = any(k in combined_text for k in [
+            "respiration", "glucose", "mitochondri", "glycolysis", "pyruvate", "atp", "krebs",
+            "photosynthesis", "chloroplast", "calvin", "thylakoid", "biology", "biochem"
+        ])
+
+        # 1. Biology, Photosynthesis & Cellular Respiration
+        if is_bio:
+            if any(k in combined_text for k in ["photosynthesis", "chloroplast", "calvin", "thylakoid"]):
+                formulas.append({
+                    "name": "Photosynthesis Stoichiometric Equation",
+                    "latex": "6\\text{CO}_2 + 6\\text{H}_2\\text{O} + hν \\xrightarrow{\\text{chlorophyll}} \\text{C}_6\\text{H}_{12}\\text{O}_6 + 6\\text{O}_2",
+                    "description": "Solar photolysis and carbon fixation yielding high-energy glucose and breathable oxygen.",
+                    "variables": "hν: photon solar energy, C6H12O6: glucose hexose sugar, CO2: carbon dioxide"
+                })
+            else:
+                formulas.append({
+                    "name": "Cellular Respiration Net Oxidation Reaction",
+                    "latex": "\\text{C}_6\\text{H}_{12}\\text{O}_6 + 6\\text{O}_2 \\longrightarrow 6\\text{CO}_2 + 6\\text{H}_2\\text{O} + 30\\text{--}32\\,\\text{ATP}",
+                    "description": "Aerobic catabolic oxidation of hexose glucose into carbon dioxide, water, and usable ATP energy.",
+                    "variables": "C6H12O6: glucose fuel, O2: terminal electron acceptor, ATP: cellular energy currency"
+                })
+                formulas.append({
+                    "name": "Glycolysis Net Energy Yield",
+                    "latex": "\\text{Glucose} + 2\\text{NAD}^+ + 2\\text{ADP} + 2\\text{P}_i \\longrightarrow 2\\text{Pyruvate} + 2\\text{NADH} + 2\\text{ATP}",
+                    "description": "Anaerobic cytoplasmic metabolic pathway splitting 6-carbon glucose into two 3-carbon pyruvates.",
+                    "variables": "NAD+: electron carrier, ADP: adenosine diphosphate, Pi: inorganic phosphate"
+                })
+
+        # 2. Machine Learning, Neural Networks & Optimization
+        if not is_bio and any(k in combined_text for k in ["gradient descent", "loss", "optimizer", "backprop", "weight update"]):
             formulas.append({
                 "name": "Gradient Descent Parameter Update",
                 "latex": "θ_{t+1} = θ_t - η ∇J(θ_t)",
@@ -292,7 +542,7 @@ class StudyGuideGenerator:
                 "variables": "m: training sample count, h_θ(x): model hypothesis, y: true target label"
             })
 
-        if any(k in combined_text for k in ["neural", "activation", "sigmoid", "softmax", "deep learning"]):
+        if not is_bio and any(k in combined_text for k in ["neural", "activation", "sigmoid", "softmax", "deep learning"]):
             formulas.append({
                 "name": "Logistic Sigmoid Activation Function",
                 "latex": "σ(z) = \\frac{1}{1 + e^{-z}}",
@@ -300,8 +550,8 @@ class StudyGuideGenerator:
                 "variables": "z: linear input (W·x + b), σ(z): activated output probability"
             })
 
-        # 2. Linear Algebra, Matrices & Transformations
-        if any(k in combined_text for k in ["eigenvalue", "eigenvector", "matrix", "linear algebra", "determinant"]):
+        # 3. Linear Algebra, Matrices & Transformations
+        if not is_bio and any(k in combined_text for k in ["eigenvalue", "eigenvector", "matrix", "linear algebra", "determinant"]):
             formulas.append({
                 "name": "Eigenvalue Characteristic Equation",
                 "latex": "A v = λ v \\iff \\det(A - λ I) = 0",
@@ -361,16 +611,7 @@ class StudyGuideGenerator:
                 "variables": "η: thermal efficiency (0–1), T_C: cold sink temp (K), T_H: hot source temp (K)"
             })
 
-        # 6. Photosynthesis & Biochemistry
-        if any(k in combined_text for k in ["photosynthesis", "chloroplast", "calvin", "thylakoid", "glucose"]):
-            formulas.append({
-                "name": "Photosynthesis Stoichiometric Equation",
-                "latex": "6\\text{CO}_2 + 6\\text{H}_2\\text{O} + hν \\xrightarrow{\\text{chlorophyll}} \\text{C}_6\\text{H}_{12}\\text{O}_6 + 6\\text{O}_2",
-                "description": "Solar photolysis and carbon fixation yielding high-energy glucose and breathable oxygen.",
-                "variables": "hν: photon solar energy, C6H12O6: glucose hexose sugar, CO2: carbon dioxide"
-            })
-
-        # 7. Classical Mechanics & Motion
+        # 6. Classical Mechanics & Motion
         if any(k in combined_text for k in ["kinetic energy", "momentum", "force", "acceleration", "newton", "velocity"]):
             formulas.append({
                 "name": "Newton's Second Law & Linear Momentum",
@@ -493,6 +734,51 @@ class StudyGuideGenerator:
         formulas: List[Dict[str, Any]],
         takeaways: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
+        terms_str = " ".join(t.get("en", "").lower() for t in (detected_terms or []))
+        is_resp = any(k in terms_str for k in ["respiration", "glucose", "mitochondri", "glycolysis", "pyruvate", "atp", "krebs"])
+        is_photo = any(k in terms_str for k in ["photosynthesis", "chloroplast", "calvin", "thylakoid"])
+        
+        if is_resp:
+            nodes = [
+                {"id": "node_1", "label": "Glucose Substrate", "detail": "Hexose Sugar Fuel"},
+                {"id": "node_2", "label": "Cytoplasmic Glycolysis", "detail": "Pyruvate & 2 ATP"},
+                {"id": "node_3", "label": "Mitochondrial Matrix", "detail": "Krebs Citric Acid Cycle"},
+                {"id": "node_4", "label": "Inner Cristae ETC", "detail": "Oxidative Phosphorylation"},
+                {"id": "node_5", "label": "32 ATP Synthesis", "detail": "Cellular Energy"}
+            ]
+            edges = [
+                {"from": "node_1", "to": "node_2"},
+                {"from": "node_2", "to": "node_3"},
+                {"from": "node_3", "to": "node_4"},
+                {"from": "node_4", "to": "node_5"}
+            ]
+            return {
+                "title": "Cellular Respiration Metabolic Concept Map",
+                "nodes": nodes,
+                "edges": edges,
+                "source": "Grounded Cellular Bioenergetics Model"
+            }
+        elif is_photo:
+            nodes = [
+                {"id": "node_1", "label": "Solar Photons", "detail": "Light Absorption"},
+                {"id": "node_2", "label": "Thylakoid Light Reactions", "detail": "Photolysis & ATP Synthesis"},
+                {"id": "node_3", "label": "Calvin Cycle", "detail": "Stroma Carbon Fixation"},
+                {"id": "node_4", "label": "Glucose Synthesis", "detail": "C6H12O6 Product"},
+                {"id": "node_5", "label": "Plant Metabolism", "detail": "Bioenergetics"}
+            ]
+            edges = [
+                {"from": "node_1", "to": "node_2"},
+                {"from": "node_2", "to": "node_3"},
+                {"from": "node_3", "to": "node_4"},
+                {"from": "node_4", "to": "node_5"}
+            ]
+            return {
+                "title": "Photosynthesis Biochemical Concept Map",
+                "nodes": nodes,
+                "edges": edges,
+                "source": "Grounded Plant Bioenergetics Model"
+            }
+
         nodes = [{
             "id": "lecture",
             "label": "Core Foundations",
@@ -548,19 +834,25 @@ class StudyGuideGenerator:
                     "caption": f"{primary_eq.get('name', 'Equation')}: {primary_eq.get('description', '')}"
                 }
 
-        if any(k in lower_text for k in ["thermodynamic", "heat", "internal energy", "conduction", "convection", "carnot"]):
-            visuals["thermoCycle"] = {
-                "caption": "First Law energy conservation: heat input converts to internal energy change and work output."
+        is_bio = any(k in lower_text for k in ["respiration", "glucose", "mitochondri", "glycolysis", "pyruvate", "atp", "krebs", "photosynthesis", "chloroplast"])
+
+        if any(k in lower_text for k in ["respiration", "glycolysis", "mitochondri", "krebs", "pyruvate", "atp"]):
+            visuals["cellularRespiration"] = {
+                "caption": "Cellular respiration metabolic flow: cytoplasmic glycolysis followed by mitochondrial matrix Krebs cycle and inner cristae ETC."
             }
-        elif any(k in lower_text for k in ["photosynthesis", "chloroplast", "calvin", "thylakoid", "glucose"]):
+        elif any(k in lower_text for k in ["photosynthesis", "chloroplast", "calvin", "thylakoid"]):
             visuals["photosynthesis"] = {
                 "caption": "Dual-phase photosynthetic pathway: thylakoid light reactions coupled with stroma Calvin cycle."
             }
-        elif any(k in lower_text for k in ["eigenvalue", "eigenvector", "matrix", "linear algebra", "vector"]):
+        elif any(k in lower_text for k in ["thermodynamic", "heat", "internal energy", "conduction", "convection", "carnot"]):
+            visuals["thermoCycle"] = {
+                "caption": "First Law energy conservation: heat input converts to internal energy change and work output."
+            }
+        elif not is_bio and any(k in lower_text for k in ["eigenvalue", "eigenvector", "matrix", "linear algebra", "vector"]):
             visuals["vectorTransform"] = {
                 "caption": "Linear transformation scaling eigenvector v along its span by characteristic factor λ."
             }
-        elif any(k in lower_text for k in ["gradient", "loss", "training", "epoch", "neural", "deep learning", "machine learning"]):
+        elif not is_bio and any(k in lower_text for k in ["gradient", "loss", "training", "epoch", "neural", "deep learning", "machine learning"]):
             visuals["lossCurve"] = {
                 "caption": "Optimization convergence profile: loss decreases toward global minimum over training epochs."
             }

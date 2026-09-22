@@ -142,6 +142,38 @@ function printStudyGuideAsPdfDocument(guide, targetLang) {
         <div class="visual-caption">${escapeHtml(visuals.photosynthesis.caption)}</div>
       </div>
     `;
+  } else if (visuals.cellularRespiration) {
+    visualDiagramHtml = `
+      <div class="visual-card bio">
+        <div class="visual-title">Cellular Respiration Metabolic Pathway</div>
+        <svg viewBox="0 0 420 180" class="svg-diagram">
+          <rect x="10" y="25" width="115" height="100" rx="8" fill="#fef3c7" stroke="#f59e0b" stroke-width="1.5" />
+          <text x="20" y="48" fill="#b45309" font-size="11" font-weight="bold">1. Glycolysis</text>
+          <text x="20" y="68" fill="#475569" font-size="9">• Cytoplasm (Anaerobic)</text>
+          <text x="20" y="85" fill="#475569" font-size="9">• Glucose ➔ 2 Pyruvate</text>
+          <text x="20" y="105" fill="#16a34a" font-size="10" font-weight="bold">Net: 2 ATP + 2 NADH</text>
+
+          <line x1="125" y1="75" x2="145" y2="75" stroke="#f59e0b" stroke-width="2" />
+
+          <rect x="150" y="25" width="125" height="100" rx="8" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5" />
+          <text x="158" y="48" fill="#1d4ed8" font-size="11" font-weight="bold">2. Krebs Cycle</text>
+          <text x="158" y="68" fill="#475569" font-size="9">• Mitochondrial Matrix</text>
+          <text x="158" y="85" fill="#475569" font-size="9">• Acetyl-CoA ➔ CO₂</text>
+          <text x="158" y="105" fill="#2563eb" font-size="10" font-weight="bold">6 NADH + 2 FADH₂ + 2 ATP</text>
+
+          <line x1="275" y1="75" x2="295" y2="75" stroke="#3b82f6" stroke-width="2" />
+
+          <rect x="300" y="25" width="110" height="100" rx="8" fill="#dcfce7" stroke="#22c55e" stroke-width="1.5" />
+          <text x="308" y="48" fill="#15803d" font-size="11" font-weight="bold">3. Oxidative Phos.</text>
+          <text x="308" y="68" fill="#475569" font-size="9">• Inner Cristae ETC</text>
+          <text x="308" y="85" fill="#475569" font-size="9">• Proton Gradient (O₂)</text>
+          <text x="308" y="105" fill="#15803d" font-size="10" font-weight="bold">~26-28 ATP (Total: 32)</text>
+
+          <text x="80" y="155" fill="#475569" font-size="10">C₆H₁₂O₆ + 6O₂ ➔ 6CO₂ + 6H₂O + 30–32 ATP</text>
+        </svg>
+        <div class="visual-caption">${escapeHtml(visuals.cellularRespiration.caption)}</div>
+      </div>
+    `;
   } else if (visuals.vectorTransform) {
     visualDiagramHtml = `
       <div class="visual-card math">

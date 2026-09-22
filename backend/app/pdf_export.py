@@ -227,6 +227,7 @@ class PDFExportService:
                     vname = {
                         "thermoCycle": "Thermodynamic Energy Balance",
                         "photosynthesis": "Dual-Phase Photosynthetic Pathway",
+                        "cellularRespiration": "Cellular Respiration Metabolic Flow",
                         "vectorTransform": "Eigenvector Linear Scaling",
                         "lossCurve": "Convergence Optimization Profile",
                         "network": "Neural Error Propagation",

@@ -2604,31 +2604,275 @@ export default function App() {
       timestamp: s.timestamp || `00:${String(idx * 15).padStart(2, '0')}`
     }));
 
-    // Build rich dynamic definitions from top words and transcript
-    const sampleWords = topWords.length > 0 ? topWords : ["System", "Model", "Parameter", "Algorithm"];
-    const definitions = sampleWords.slice(0, 6).map((w, idx) => {
-      let vTerm = `${w} (கருத்து)`;
-      let vDef = `${w} என்பது இந்த விரிவுரையின் முக்கிய தொழில்நுட்ப கருத்தாகும்.`;
-      if (targetLang === 'ml') {
-        vTerm = `${w} (തത്വം)`;
-        vDef = `${w} എന്നത് ഈ പ്രഭാഷണത്തിലെ പ്രധാന സാങ്കേതിക ആശയമാണ്.`;
-      } else if (targetLang === 'hi') {
-        vTerm = `${w} (सिद्धांत)`;
-        vDef = `${w} इस व्याख्यान की मुख्य तकनीकी अवधारणा है।`;
+    // 1. Curated real academic STEM definitions dictionary
+    const STEM_KB = {
+      glucose: {
+        def: "A 6-carbon monosaccharide sugar (C6H12O6) serving as the primary cellular fuel oxidized during cellular respiration to synthesize ATP.",
+        vTa: "குளுக்கோஸ் (Glucose) - செல்லுலார் ஆற்றல் உற்பத்திக்கு உதவும் முதன்மை மோனோசாக்கரைடு சர்க்கரை.",
+        vMl: "ഗ്ലൂക്കോസ് (Glucose) - കോശ ശ്വസനത്തിന് ഉപയോഗിക്കുന്ന പ്രധാന ഊർജ്ജ പഞ്ചസാര.",
+        vHi: "ग्लूकोज (Glucose) - कोशिकीय श्वसन में उपयोग होने वाली प्राथमिक ऊर्जा शर्करा।",
+        cat: "Biochemistry"
+      },
+      cellular: {
+        def: "Relating to the biological cell, the fundamental structural, functional, and metabolic unit of all living organisms.",
+        vTa: "செல்லுலார் (Cellular) - உயிரினங்களின் அடிப்படை கட்டமைப்பு மற்றும் செயல்பாட்டு அலகு.",
+        vMl: "കോശീയ (Cellular) - ജീവജാലങ്ങളുടെ ഘടനാപരമായ അടിസ്ഥാന ഘടകം.",
+        vHi: "कोशिकीय (Cellular) - सभी जीवों की मौलिक संरचनात्मक और जैविक इकाई।",
+        cat: "Cell Biology"
+      },
+      respiration: {
+        def: "The catabolic biochemical process in cells that breaks down glucose in the presence of oxygen to generate usable ATP energy.",
+        vTa: "சுவாசம் (Respiration) - குளுக்கோஸை ஆக்ஸிஜனேற்றம் செய்து ஏடிபி வடிவில் ஆற்றலை உருவாக்கும் முறை.",
+        vMl: "കോശ ശ്വസനം (Respiration) - ഊർജ്ജം ഉത്പാദിപ്പിക്കുന്നതിനുള്ള രാസപ്രക്രിയ.",
+        vHi: "श्वसन (Respiration) - ऊर्जा (ATP) उत्पन्न करने वाली कोशिकीय प्रक्रिया।",
+        cat: "Cell Biology"
+      },
+      carbon: {
+        def: "The tetravalent nonmetallic chemical element forming the essential structural backbone of all organic biomolecules in living systems.",
+        vTa: "கார்பன் (Carbon) - அனைத்து கரிம மூலக்கூறுகளின் மைய வேதியியல் முதுகெலும்பு.",
+        vMl: "കാർബൺ (Carbon) - ജൈവ തന്മാത്രകളുടെ അടിസ്ഥാന രാസമൂലകം.",
+        vHi: "कार्बन (Carbon) - सभी कार्बनिक अणुओं का मूलभूत आधार तत्व।",
+        cat: "Chemistry"
+      },
+      mitochondria: {
+        def: "Double-membrane cellular organelles acting as the powerhouses of the cell, hosting the Krebs citric acid cycle and oxidative phosphorylation.",
+        vTa: "மைட்டோகாண்ட்ரியா (Mitochondria) - செல்லின் ஆற்றல் மையம், ஏடிபி உற்பத்தியை நிகழ்த்துகிறது.",
+        vMl: "മൈറ്റോകോൺഡ്രിയ (Mitochondria) - കോശത്തിന്റെ ഊർജ്ജ നിലയം.",
+        vHi: "माइटोकॉन्ड्रिया (Mitochondria) - कोशिका का ऊर्जा घर (Powerhouse)।",
+        cat: "Cell Biology"
+      },
+      mitochondrial: {
+        def: "Pertaining to the mitochondria, especially the mitochondrial matrix and inner cristae membrane where ATP synthesis occurs.",
+        vTa: "மைட்டோகாண்ட்ரியல் (Mitochondrial) - மைட்டோகாண்ட்ரியாவின் உட்சுவர் மற்றும் மேட்ரிக்ஸ் சார்ந்த.",
+        vMl: "മൈറ്റോകോൺഡ്രിയൽ (Mitochondrial) - മൈറ്റോകോൺഡ്രിയയുമായി ബന്ധപ്പെട്ട.",
+        vHi: "माइटोकॉन्ड्रियल (Mitochondrial) - माइटोकॉन्ड्रिया से संबंधित आंतरिक भाग।",
+        cat: "Cell Biology"
+      },
+      atp: {
+        def: "Adenosine Triphosphate, the universal molecular energy currency of living cells utilized to drive cellular processes and synthesis.",
+        vTa: "ஏடிபி (ATP) - செல்களின் உலகளாவிய வேதியியல் ஆற்றல் நாணயம்.",
+        vMl: "എ.ടി.പി (ATP) - കോശങ്ങളുടെ സാർവത്രിക ഊർജ്ജ നാണയം.",
+        vHi: "एटीपी (ATP) - कोशिकाओं की सार्वभौमिक ऊर्जा मुद्रा।",
+        cat: "Biochemistry"
+      },
+      glycolysis: {
+        def: "The 10-step enzymatic metabolic pathway in the cytoplasm converting one glucose molecule into two pyruvates, yielding net 2 ATP and 2 NADH.",
+        vTa: "கிளைகோலிசிஸ் (Glycolysis) - குளுக்கோஸை பைருவேட்டாக உடைத்து ஆற்றல் உருவாக்கும் நிலை.",
+        vMl: "ഗ്ലൈക്കോളിസിസ് (Glycolysis) - ഗ്ലൂക്കോസ് വിഘടിച്ച് പൈറുവേറ്റ് ആകുന്ന പ്രക്രിയ.",
+        vHi: "ग्लाइकोलाइसिस (Glycolysis) - ग्लूकोज को पाइरूवेट में तोड़ने की प्रक्रिया।",
+        cat: "Biochemistry"
+      },
+      pyruvate: {
+        def: "A 3-carbon organic carboxylate produced by glycolysis that is transported into the mitochondrial matrix to fuel the Krebs cycle.",
+        vTa: "பைருவேட் (Pyruvate) - கிளைகோலிசிஸில் உருவாகும் 3-கார்பன் கரிம அமிலம்.",
+        vMl: "പൈറുവേറ്റ് (Pyruvate) - ഗ്ലൈക്കോളിസിസിന്റെ ഉൽപ്പന്നം.",
+        vHi: "पाइरूवेट (Pyruvate) - ग्लाइकोलाइसिस का अंतिम 3-कार्बन उत्पाद।",
+        cat: "Biochemistry"
+      },
+      krebs: {
+        def: "The citric acid cycle in the mitochondrial matrix that oxidizes Acetyl-CoA, reducing NAD+ and FAD into high-energy electron carriers.",
+        vTa: "கிரெப்ஸ் சுழற்சி (Krebs Cycle) - மைட்டோகாண்ட்ரியல் மேட்ரிக்ஸில் நிகழும் சிட்ரிக் அமில ஆக்சிஜனேற்ற சுழற்சி.",
+        vMl: "ക്രെബ്സ് ചക്രം (Krebs Cycle) - സിട്രിക് ആസിഡ് ചക്രം.",
+        vHi: "क्रेब्स चक्र (Krebs Cycle) - माइटोकॉन्ड्रियल मैट्रिक्स में सिट्रिक एसिड चक्र।",
+        cat: "Cell Biology"
+      },
+      oxygen: {
+        def: "The essential atmospheric gas functioning as the final electron acceptor in the mitochondrial electron transport chain during aerobic respiration.",
+        vTa: "ஆக்ஸிஜன் (Oxygen) - ஏரோபிக் சுவாசத்தில் இறுதி எலக்ட்ரான் ஏற்பியாக செயல்படும் வாயு.",
+        vMl: "ഓക്സിജൻ (Oxygen) - കോശ ശ്വസനത്തിലെ പ്രധാന ഇലക്ട്രോൺ സ്വീകർത്താവ്.",
+        vHi: "ऑक्सीजन (Oxygen) - कोशिकीय श्वसन में अंतिम इलेक्ट्रॉन स्वीकर्ता।",
+        cat: "Chemistry"
+      },
+      photosynthesis: {
+        def: "The anabolic biological process in plant chloroplasts utilizing solar photons to synthesize glucose from carbon dioxide and water.",
+        vTa: "ஒளிச்சேர்க்கை (Photosynthesis) - சூரிய ஒளியால் தாவரங்கள் உணவு தயாரிக்கும் உயிர்முறை.",
+        vMl: "പ്രകാശസംശ്ലേഷണം (Photosynthesis) - സസ്യങ്ങൾ ആഹാരം നിർമ്മിക്കുന്ന പ്രക്രിയ.",
+        vHi: "प्रकाश संश्लेषण (Photosynthesis) - सौर ऊर्जा से भोजन बनाने की जैविक प्रक्रिया।",
+        cat: "Plant Biology"
+      },
+      chloroplast: {
+        def: "Plastid organelle in plant and algal cells containing thylakoids and chlorophyll pigments where photosynthesis occurs.",
+        vTa: "பசுங்கணிகம் (Chloroplast) - தாவரங்களில் ஒளிச்சேர்க்கை நிகழும் செல் உறுப்பு.",
+        vMl: "ഹരിതകം (Chloroplast) - പ്രകാശസംശ്ലേഷണം നടക്കുന്ന കോശാംഗം.",
+        vHi: "हरितलवक (Chloroplast) - पादप कोशिकाओं में प्रकाश संश्लेषण का अंगक।",
+        cat: "Plant Biology"
+      },
+      enzyme: {
+        def: "A macromolecular biological protein catalyst that increases biochemical reaction velocities by lowering activation energy barriers.",
+        vTa: "என்சைம் / நொதி (Enzyme) - உயிர்வேதியியல் வினைகளை விரைவுபடுத்தும் புரத வினையூக்கி.",
+        vMl: "എൻസൈം (Enzyme) - ജൈവ രാസപ്രവർത്തനങ്ങളുടെ വേഗത കൂട്ടുന്ന രാസത്വരകം.",
+        vHi: "एंजाइम (Enzyme) - जैव रासायनिक प्रतिक्रियाओं को तेज करने वाला उत्प्रेरक।",
+        cat: "Biochemistry"
+      },
+      gradient: {
+        def: "A multi-variable differential vector pointing in the direction of greatest instantaneous rate of increase of a scalar objective function.",
+        vTa: "சரிவு (Gradient) - சார்பு அதிகரிக்கும் திசையைக் காட்டும் பகுதி வகையீட்டு திசையன்.",
+        vMl: "ഗ്രേഡിയന്റ് (Gradient) - മാറ്റത്തിന്റെ നിരക്ക് അളക്കുന്ന വെക്ടർ.",
+        vHi: "प्रवणता (Gradient) - फलन के अधिकतम परिवर्तन की दिशा दर्शाने वाला सदिश।",
+        cat: "Optimization & Math"
+      },
+      loss: {
+        def: "A mathematical scalar objective function quantifying the penalty or discrepancy between model predictions and true empirical targets.",
+        vTa: "இழப்புச் சார்பு (Loss Function) - மாதிரி கணிப்புகளின் பிழையை அளவிடும் சார்பு.",
+        vMl: "നഷ്ട ഫംഗ്ഷൻ (Loss) - പ്രവചനത്തിലെ പിശക് കണക്കാക്കുന്ന തത്വം.",
+        vHi: "हानि फलन (Loss) - मॉडल की त्रुटि मापने वाला गणितीय फलन।",
+        cat: "Machine Learning"
+      },
+      neural: {
+        def: "A computational learning system composed of layers of artificial interconnected nodes (neurons) that approximate complex non-linear functions.",
+        vTa: "நரம்பியல் நெட்வொர்க் (Neural Network) - செயற்கை நியூரான்களைக் கொண்ட கணினி மாதிரி.",
+        vMl: "ന്യൂറൽ നെറ്റ്വർക്ക് (Neural) - കമ്പ്യൂട്ടേഷണൽ ലേണിംഗ് ഘടന.",
+        vHi: "न्यूरल नेटवर्क (Neural) - कृत्रिम न्यूरॉन्स पर आधारित कम्प्यूटेशनल मॉडल।",
+        cat: "Artificial Intelligence"
+      },
+      backpropagation: {
+        def: "The iterative learning algorithm applying the calculus chain rule backward through neural layers to compute weight gradient updates.",
+        vTa: "பின்னோக்கிய பரவல் (Backpropagation) - நரம்பியல் நெட்வொர்க் எடைகளை புதுப்பிக்கும் முறை.",
+        vMl: "ബാക്ക്പ്രൊപ്പഗേഷൻ (Backpropagation) - പിശക് തിരുത്തൽ രീതി.",
+        vHi: "बैकप्रॉपैगैशन (Backpropagation) - ग्रेडिएंट गणना और भार अद्यतन की कलन विधि।",
+        cat: "Deep Learning"
+      },
+      eigenvalue: {
+        def: "A characteristic scalar factor by which an eigenvector is multiplied and scaled during a linear matrix transformation (Av = λv).",
+        vTa: "ஐகன் மதிப்பு (Eigenvalue) - நேரியல் உருமாற்றத்தில் திசையன் அளவிடப்படும் காரணி.",
+        vMl: "ഐഗൻ മൂല്യം (Eigenvalue) - ലീനിയർ പരിവർത്തനത്തിലെ സ്കെയിലിംഗ് ഘടകം.",
+        vHi: "आइगेन मान (Eigenvalue) - रैखिक रूपांतरण में प्रयुक्त अदिश स्केलर।",
+        cat: "Linear Algebra"
+      },
+      eigenvector: {
+        def: "A non-zero vector whose directional orientation remains invariant (unchanged) under a linear matrix transformation, scaled only by λ.",
+        vTa: "ஐகன் திசையன் (Eigenvector) - உருமாற்றத்தில் திசை மாறாத சிறப்பியல்பு திசையன்.",
+        vMl: "ഐഗൻ വെക്ടർ (Eigenvector) - ദിശ മാറാത്ത പ്രത്യേക വെക്ടർ.",
+        vHi: "आइगेन सदिश (Eigenvector) - रूपांतरण के बाद भी दिशा अपरिवर्तित रखने वाला सदिश।",
+        cat: "Linear Algebra"
+      },
+      thermodynamics: {
+        def: "The branch of physical science examining the relationships between thermal heat, mechanical work, internal energy, and system entropy.",
+        vTa: "வெப்ப இயக்கவியல் (Thermodynamics) - வெப்பம், வேலை மற்றும் ஆற்றல் பரிமாற்ற அறிவியல்.",
+        vMl: "താപഗതികം (Thermodynamics) - താപോർജ്ജവും യാന്ത്രികോർജ്ജവും തമ്മിലുള്ള ബന്ധം പഠിക്കുന്ന ശാസ്ത്രം.",
+        vHi: "ऊष्मागतिकी (Thermodynamics) - ऊष्मा और ऊर्जा रूपांतरण का विज्ञान।",
+        cat: "Physics"
+      },
+      algorithm: {
+        def: "A finite, unambiguous, deterministic sequence of computational instructions designed to solve a well-defined computational problem.",
+        vTa: "வழிமுறை (Algorithm) - கணினி சிக்கல்களைத் தீர்க்கும் படிநிலைக் கட்டளைகள்.",
+        vMl: "അൽഗോരിതം (Algorithm) - പ്രശ്നപരിഹാരത്തിനായുള്ള നിർദ്ദേശങ്ങളുടെ ക്രമം.",
+        vHi: "कलन विधि (Algorithm) - समस्या समाधान के लिए चरणबद्ध निर्देश।",
+        cat: "Computer Science"
       }
+    };
+
+    // Helper: find genuine sentence context from transcript for words outside dictionary
+    const findWordContext = (word) => {
+      const reg = new RegExp(`([^.!?]*\\b${word}\\b[^.!?]*)`, 'i');
+      const match = fullText.match(reg);
+      if (match && match[1] && match[1].trim().length > 15) {
+        return match[1].trim();
+      }
+      return null;
+    };
+
+    // Build rich, academic definitions
+    const sampleWords = topWords.length > 0 ? topWords : ["System", "Process", "Analysis"];
+    const definitions = sampleWords.slice(0, 6).map((w) => {
+      const lowerW = w.toLowerCase();
+      const kbEntry = STEM_KB[lowerW];
+
+      let defText = "";
+      let vTerm = `${w} (${targetLang.toUpperCase()})`;
+      let vDef = "";
+      let cat = "Core Subject Concept";
+
+      if (kbEntry) {
+        defText = kbEntry.def;
+        cat = kbEntry.cat;
+        if (targetLang === 'ta') { vTerm = kbEntry.vTa.split(' - ')[0]; vDef = kbEntry.vTa; }
+        else if (targetLang === 'ml') { vTerm = kbEntry.vMl.split(' - ')[0]; vDef = kbEntry.vMl; }
+        else if (targetLang === 'hi') { vTerm = kbEntry.vHi.split(' - ')[0]; vDef = kbEntry.vHi; }
+        else { vTerm = `${w} (Concept)`; vDef = kbEntry.def; }
+      } else {
+        const sentenceContext = findWordContext(lowerW);
+        if (sentenceContext) {
+          defText = `Discussed in lecture: "${sentenceContext}." Key conceptual principle essential for analytical understanding.`;
+        } else {
+          defText = `Foundational technical term: ${w}, central to the structural and analytical development of this lecture session.`;
+        }
+        if (targetLang === 'ta') {
+          vTerm = `${w} (கருத்து)`;
+          vDef = `${w} என்பது இந்த விரிவுரையின் முக்கிய தொழில்நுட்ப கருத்தாகும்.`;
+        } else if (targetLang === 'ml') {
+          vTerm = `${w} (തത്വം)`;
+          vDef = `${w} എന്നത് ഈ പ്രഭാഷണത്തിലെ പ്രധാന സാങ്കേതിക ആശയമാണ്.`;
+        } else if (targetLang === 'hi') {
+          vTerm = `${w} (सिद्धांत)`;
+          vDef = `${w} इस व्याख्यान की मुख्य तकनीकी अवधारणा है।`;
+        } else {
+          vTerm = `${w} (Term)`;
+          vDef = defText;
+        }
+      }
+
       return {
         term: w,
         vernacular_term: vTerm,
-        category: "STEM Principles",
-        definition: `Fundamental core concept introduced in this lecture: ${w}, governing the analytical behavior of the subject matter.`,
+        category: cat,
+        definition: defText,
         vernacular_definition: vDef
       };
     });
 
-    // Build formulas dynamically based on transcript keywords
+    // 2. Strict Domain Disambiguation (Prevents cross-domain graph collapse)
     const lowerFull = fullText.toLowerCase();
+
+    // Priority 1: Biology / Cellular Respiration / Biochemistry
+    const isBio = lowerFull.includes("glucose") || lowerFull.includes("cellular") || lowerFull.includes("respiration") ||
+                  lowerFull.includes("glycolysis") || lowerFull.includes("mitochondr") || lowerFull.includes("atp") ||
+                  lowerFull.includes("pyruvate") || lowerFull.includes("krebs") || lowerFull.includes("chloroplast") ||
+                  lowerFull.includes("photosynthesis") || lowerFull.includes("enzyme") || lowerFull.includes("biology");
+
+    // Priority 2: Machine Learning / Neural Networks
+    const isML = !isBio && (lowerFull.includes("gradient") || lowerFull.includes("loss") || lowerFull.includes("neural") ||
+                            lowerFull.includes("learn") || lowerFull.includes("backprop") || lowerFull.includes("epoch"));
+
+    // Priority 3: Linear Algebra (STRICT: Never match "mitochondrial matrix" as math!)
+    const isMath = !isBio && (lowerFull.includes("eigen") || lowerFull.includes("determinant") ||
+                             (lowerFull.includes("matrix") && !lowerFull.includes("mitochondr") && !lowerFull.includes("cell")) ||
+                             (lowerFull.includes("vector") && (lowerFull.includes("space") || lowerFull.includes("linear") || lowerFull.includes("algebra"))));
+
+    // Priority 4: Thermodynamics
+    const isThermo = !isBio && (lowerFull.includes("thermo") || lowerFull.includes("carnot") || lowerFull.includes("enthalpy") ||
+                               (lowerFull.includes("heat") && !lowerFull.includes("biological")));
+
+    // Priority 5: Computer Science / Digital Logic / Algorithms
+    const isCS = !isBio && (lowerFull.includes("search") || lowerFull.includes("sort") || lowerFull.includes("tree") ||
+                            lowerFull.includes("algorithm") || lowerFull.includes("logic") || lowerFull.includes("gate") || lowerFull.includes("boolean"));
+
+    // Build Domain-Accurate Formulas
     const formulas = [];
-    if (lowerFull.includes("gradient") || lowerFull.includes("loss") || lowerFull.includes("neural") || lowerFull.includes("learn")) {
+    if (isBio) {
+      if (lowerFull.includes("photosynthesis") || lowerFull.includes("chloroplast") || lowerFull.includes("calvin")) {
+        formulas.push({
+          name: "Photosynthesis Stoichiometric Reaction",
+          latex: "6\\text{CO}_2 + 6\\text{H}_2\\text{O} + hν \\xrightarrow{\\text{chlorophyll}} \\text{C}_6\\text{H}_{12}\\text{O}_6 + 6\\text{O}_2",
+          description: "Light-driven anabolic synthesis of high-energy glucose and oxygen in plant chloroplasts.",
+          variables: "CO2: carbon dioxide, H2O: water, hν: photon light energy, C6H12O6: glucose, O2: oxygen"
+        });
+      } else {
+        // Cellular Respiration / Glucose / ATP
+        formulas.push({
+          name: "Cellular Respiration Net Oxidation Reaction",
+          latex: "\\text{C}_6\\text{H}_{12}\\text{O}_6 + 6\\text{O}_2 \\longrightarrow 6\\text{CO}_2 + 6\\text{H}_2\\text{O} + 30\\text{--}32\\,\\text{ATP}",
+          description: "Aerobic catabolic oxidation of hexose glucose into carbon dioxide, water, and usable ATP energy.",
+          variables: "C6H12O6: glucose fuel, O2: terminal electron acceptor, ATP: cellular energy currency"
+        });
+        formulas.push({
+          name: "Glycolysis Net Energy Yield",
+          latex: "\\text{Glucose} + 2\\text{NAD}^+ + 2\\text{ADP} + 2\\text{P}_i \\longrightarrow 2\\text{Pyruvate} + 2\\text{NADH} + 2\\text{ATP}",
+          description: "Anaerobic cytoplasmic metabolic pathway splitting 6-carbon glucose into two 3-carbon pyruvates.",
+          variables: "NAD+: electron carrier, ADP: adenosine diphosphate, Pi: inorganic phosphate"
+        });
+      }
+    } else if (isML) {
       formulas.push({
         name: "Gradient Descent Parameter Optimization",
         latex: "θ_{t+1} = θ_t - η ∇J(θ_t)",
@@ -2641,36 +2885,38 @@ export default function App() {
         description: "Quantifies average squared deviation between model predictions and ground truth.",
         variables: "m: sample size, h_θ: hypothesis prediction, y: ground truth target"
       });
-    } else if (lowerFull.includes("eigen") || lowerFull.includes("matrix") || lowerFull.includes("vector")) {
+    } else if (isMath) {
       formulas.push({
         name: "Eigenvalue Characteristic Transformation",
         latex: "A v = λ v \\iff \\det(A - λ I) = 0",
         description: "Defines invariant directional eigenvectors scaled by characteristic eigenvalue scalar.",
         variables: "A: transformation matrix, v: eigenvector, λ: eigenvalue, I: identity matrix"
       });
-    } else if (lowerFull.includes("thermo") || lowerFull.includes("heat") || lowerFull.includes("energy")) {
+    } else if (isThermo) {
       formulas.push({
         name: "First Law of Thermodynamics (Energy Conservation)",
         latex: "ΔU = Q - W",
         description: "Governs conservation of energy in thermal-mechanical state changes.",
         variables: "ΔU: internal energy change (J), Q: heat input, W: boundary work done"
       });
-    } else if (lowerFull.includes("search") || lowerFull.includes("sort") || lowerFull.includes("tree") || lowerFull.includes("algorithm")) {
-      formulas.push({
-        name: "Algorithmic Operational Complexity",
-        latex: "T(n) = T(n/2) + O(1) \\implies T(n) = O(\\log_2 n)",
-        description: "Logarithmic recurrence relation for iterative divide-and-conquer processing.",
-        variables: "n: input elements, T(n): running operation count"
-      });
-    } else if (lowerFull.includes("logic") || lowerFull.includes("gate") || lowerFull.includes("boolean")) {
-      formulas.push({
-        name: "De Morgan's Logical Duality Laws",
-        latex: "\\overline{A \\cdot B} = \\overline{A} + \\overline{B}, \\quad \\overline{A + B} = \\overline{A} \\cdot \\overline{B}",
-        description: "Fundamental algebraic laws governing complementary Boolean digital gate synthesis.",
-        variables: "A, B: binary logic inputs ∈ {0, 1}"
-      });
+    } else if (isCS) {
+      if (lowerFull.includes("logic") || lowerFull.includes("gate") || lowerFull.includes("boolean")) {
+        formulas.push({
+          name: "De Morgan's Logical Duality Laws",
+          latex: "\\overline{A \\cdot B} = \\overline{A} + \\overline{B}, \\quad \\overline{A + B} = \\overline{A} \\cdot \\overline{B}",
+          description: "Fundamental algebraic laws governing complementary Boolean digital gate synthesis.",
+          variables: "A, B: binary logic inputs ∈ {0, 1}"
+        });
+      } else {
+        formulas.push({
+          name: "Algorithmic Operational Complexity",
+          latex: "T(n) = T(n/2) + O(1) \\implies T(n) = O(\\log_2 n)",
+          description: "Logarithmic recurrence relation for iterative divide-and-conquer processing.",
+          variables: "n: input elements, T(n): running operation count"
+        });
+      }
     } else {
-      // General analytical governing formulation for any STEM session
+      // General analytical governing formulation
       formulas.push({
         name: "Governing System Flux & Rate of Change",
         latex: "\\frac{dQ}{dt} = \\lim_{Δt \\to 0} \\frac{ΔQ}{Δt}",
@@ -2691,10 +2937,10 @@ export default function App() {
     definitions.slice(0, 3).forEach((d) => {
       flashcards.push({
         id: fcId++,
-        front: `What is the role of ${d.term} in this lecture?`,
+        front: `What is ${d.term}?`,
         vernacular_front: `${d.vernacular_term} என்றால் என்ன?`,
         back: d.definition,
-        category: "Definitions"
+        category: d.category || "Definitions"
       });
     });
     formulas.slice(0, 2).forEach((f) => {
@@ -2716,38 +2962,87 @@ export default function App() {
       });
     });
 
-    // Build concept map nodes from top words + formulas
-    const nodes = [
-      { id: "lecture", label: "Core Foundations", detail: "Theoretical Baseline" },
-      ...sampleWords.map((w, i) => ({ id: `concept_${i + 1}`, label: w, detail: "Domain Concept" })),
-      { id: `concept_${sampleWords.length + 1}`, label: formulas[0]?.name || "Governing Principle", detail: "Analytical Law" },
-      { id: `concept_${sampleWords.length + 2}`, label: "Practical Applications", detail: "Synthesis" }
-    ];
+    // Build clean concept map nodes (Domain-specific milestones, NEVER collapsed with previous graph)
+    let nodes = [];
+    if (isBio) {
+      if (lowerFull.includes("photosynthesis")) {
+        nodes = [
+          { id: "node_1", label: "Solar Photons", detail: "Light Absorption" },
+          { id: "node_2", label: "Thylakoid Light Reactions", detail: "Photolysis & ATP Synthesis" },
+          { id: "node_3", label: "Calvin Cycle", detail: "Stroma Carbon Fixation" },
+          { id: "node_4", label: "Glucose Synthesis", detail: "C6H12O6 Product" },
+          { id: "node_5", label: "Plant Metabolism", detail: "Bioenergetics" }
+        ];
+      } else {
+        nodes = [
+          { id: "node_1", label: "Glucose Substrate", detail: "Hexose Sugar Fuel" },
+          { id: "node_2", label: "Cytoplasmic Glycolysis", detail: "Pyruvate & 2 ATP" },
+          { id: "node_3", label: "Mitochondrial Matrix", detail: "Krebs Citric Acid Cycle" },
+          { id: "node_4", label: "Inner Cristae ETC", detail: "Oxidative Phosphorylation" },
+          { id: "node_5", label: "32 ATP Synthesis", detail: "Cellular Energy" }
+        ];
+      }
+    } else if (isML) {
+      nodes = [
+        { id: "node_1", label: "Training Data", detail: "Feature Representation" },
+        { id: "node_2", label: "Forward Prediction", detail: "Hypothesis Function" },
+        { id: "node_3", label: "Loss Computation", detail: "Error Function J(θ)" },
+        { id: "node_4", label: "Gradient Descent", detail: "Backpropagation Update" },
+        { id: "node_5", label: "Model Convergence", detail: "Optimized Weights" }
+      ];
+    } else if (isMath) {
+      nodes = [
+        { id: "node_1", label: "Vector Space", detail: "Linear Coordinates" },
+        { id: "node_2", label: "Matrix Transformation", detail: "Operator A" },
+        { id: "node_3", label: "Characteristic Equation", detail: "det(A - λI) = 0" },
+        { id: "node_4", label: "Eigenvalues & Vectors", detail: "Av = λv" },
+        { id: "node_5", label: "Diagonalization", detail: "Eigenspace Decomposition" }
+      ];
+    } else if (isThermo) {
+      nodes = [
+        { id: "node_1", label: "Hot Reservoir", detail: "Thermal Heat Input Q" },
+        { id: "node_2", label: "Thermodynamic System", detail: "Internal Energy ΔU" },
+        { id: "node_3", label: "Work Extraction", detail: "Mechanical Output W" },
+        { id: "node_4", label: "Cold Reservoir", detail: "Residual Waste Heat" },
+        { id: "node_5", label: "Carnot Efficiency", detail: "Thermodynamic Bound" }
+      ];
+    } else {
+      nodes = [
+        { id: "node_1", label: "Core Foundations", detail: "Theoretical Baseline" },
+        ...sampleWords.slice(0, 3).map((w, i) => ({ id: `node_${i + 2}`, label: w, detail: "Subject Concept" })),
+        { id: `node_${sampleWords.slice(0, 3).length + 2}`, label: "Practical Applications", detail: "Synthesis" }
+      ];
+    }
+
     const edges = [];
     for (let i = 0; i < nodes.length - 1; i++) {
       edges.push({ from: nodes[i].id, to: nodes[i + 1].id });
     }
 
-    // Build visuals suite
+    // Build visuals suite (Matches exact domain, NO cross-domain collapse!)
     const visuals = {
       equation: {
         title: formulas[0]?.name || "Core Analytical Relation",
-        latex: formulas[0]?.latex || "\\frac{dQ}{dt} = \\lim_{Δt \\to 0} \\frac{ΔQ}{Δt}",
+        latex: formulas[0]?.latex || "E = mc^2",
         caption: formulas[0]?.description || "Governing mathematical model of the observed system."
-      },
-      conceptFlow: {
-        caption: "Sequential progression and conceptual hierarchy of core lecture principles."
       }
     };
-    if (lowerFull.includes("gradient") || lowerFull.includes("loss") || lowerFull.includes("neural")) {
+
+    if (isBio) {
+      if (lowerFull.includes("photosynthesis")) {
+        visuals.photosynthesis = { caption: "Dual-phase photosynthetic pathway: thylakoid light reactions coupled with stroma Calvin cycle." };
+      } else {
+        visuals.cellularRespiration = { caption: "Cellular respiration metabolic flow: cytoplasmic glycolysis followed by mitochondrial matrix Krebs cycle and inner cristae ETC." };
+      }
+    } else if (isML) {
       visuals.lossCurve = { caption: "Loss convergence profile toward minimum during iterative optimization." };
       visuals.network = { caption: "Neural architecture forward signal propagation and error gradient updates." };
-    } else if (lowerFull.includes("thermo") || lowerFull.includes("heat")) {
+    } else if (isThermo) {
       visuals.thermoCycle = { caption: "First Law energy conservation: heat input converts to internal energy and work." };
-    } else if (lowerFull.includes("eigen") || lowerFull.includes("matrix")) {
+    } else if (isMath) {
       visuals.vectorTransform = { caption: "Linear transformation scaling eigenvector along its span by factor λ." };
-    } else if (lowerFull.includes("photosynthesis")) {
-      visuals.photosynthesis = { caption: "Dual-phase photosynthetic pathway: light reactions coupled with Calvin cycle." };
+    } else {
+      visuals.conceptFlow = { caption: "Sequential progression and conceptual hierarchy of core lecture principles." };
     }
 
     const guideData = {

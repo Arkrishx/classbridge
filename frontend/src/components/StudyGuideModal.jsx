@@ -280,6 +280,46 @@ export default function StudyGuideModal({
                     </div>
                   )}
 
+                  {/* 4b. Cellular Respiration Metabolic Pathway */}
+                  {guide.visuals.cellularRespiration && (
+                    <div className="visual-explanation-card bio-card" style={{ padding: '12px', border: '1px solid rgba(16, 185, 129, 0.35)', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.05)' }}>
+                      <div style={{ color: 'var(--accent-emerald)', fontWeight: 700, fontSize: '13px', marginBottom: '6px' }}>Cellular Respiration Metabolic Flow</div>
+                      <svg viewBox="0 0 320 170" role="img" aria-label="Cellular respiration glycolysis krebs ETC pathway" style={{ width: '100%', height: '170px' }}>
+                        {/* Cytoplasm: Glycolysis */}
+                        <rect x="12" y="35" width="82" height="75" rx="8" fill="rgba(56, 189, 248, 0.15)" stroke="#38bdf8" strokeWidth="1.5" />
+                        <text x="22" y="55" fill="#38bdf8" fontSize="11" fontWeight="bold">Glycolysis</text>
+                        <text x="20" y="70" fill="#cbd5e1" fontSize="9">Cytoplasm</text>
+                        <text x="20" y="85" fill="#cbd5e1" fontSize="9">Glucose ➔ Pyruvate</text>
+                        <text x="20" y="100" fill="#facc15" fontSize="9" fontWeight="bold">+2 ATP, 2 NADH</text>
+
+                        {/* Arrow 1 */}
+                        <line x1="96" y1="72" x2="114" y2="72" stroke="#38bdf8" strokeWidth="2" />
+
+                        {/* Mitochondria: Krebs Cycle */}
+                        <rect x="116" y="25" width="88" height="95" rx="8" fill="rgba(245, 158, 11, 0.15)" stroke="#f59e0b" strokeWidth="1.5" />
+                        <text x="124" y="45" fill="#f59e0b" fontSize="11" fontWeight="bold">Krebs Cycle</text>
+                        <text x="122" y="60" fill="#cbd5e1" fontSize="9">Mitochondrial Matrix</text>
+                        <text x="122" y="75" fill="#cbd5e1" fontSize="9">Acetyl-CoA ➔ CO₂</text>
+                        <text x="122" y="90" fill="#cbd5e1" fontSize="9">NADH &amp; FADH₂</text>
+                        <text x="122" y="105" fill="#facc15" fontSize="9" fontWeight="bold">+2 ATP</text>
+
+                        {/* Arrow 2 */}
+                        <line x1="206" y1="72" x2="224" y2="72" stroke="#f59e0b" strokeWidth="2" />
+
+                        {/* Inner Cristae: ETC */}
+                        <rect x="226" y="35" width="82" height="75" rx="8" fill="rgba(16, 185, 129, 0.2)" stroke="#10b981" strokeWidth="1.5" />
+                        <text x="232" y="55" fill="#10b981" fontSize="11" fontWeight="bold">Oxidative Phos</text>
+                        <text x="230" y="70" fill="#cbd5e1" fontSize="9">Inner Cristae ETC</text>
+                        <text x="230" y="85" fill="#cbd5e1" fontSize="9">O₂ ➔ H₂O</text>
+                        <text x="230" y="100" fill="#facc15" fontSize="9" fontWeight="bold">+28 ATP</text>
+
+                        {/* Summary Footer */}
+                        <text x="45" y="148" fill="#94a3b8" fontSize="10">Net: C₆H₁₂O₆ + 6O₂ ➔ 6CO₂ + 6H₂O + ~32 ATP</text>
+                      </svg>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '11px' }}>{guide.visuals.cellularRespiration.caption}</div>
+                    </div>
+                  )}
+
                   {/* 5. Linear Algebra Vector Transformation */}
                   {guide.visuals.vectorTransform && (
                     <div className="visual-explanation-card math-card" style={{ padding: '12px', border: '1px solid rgba(168, 85, 247, 0.35)', borderRadius: '10px', background: 'rgba(168, 85, 247, 0.05)' }}>
@@ -301,7 +341,7 @@ export default function StudyGuideModal({
                   )}
 
                   {/* 6. Universal Concept Progression Flow */}
-                  {guide.visuals.conceptFlow && !guide.visuals.lossCurve && !guide.visuals.thermoCycle && !guide.visuals.photosynthesis && !guide.visuals.vectorTransform && (
+                  {guide.visuals.conceptFlow && !guide.visuals.lossCurve && !guide.visuals.thermoCycle && !guide.visuals.photosynthesis && !guide.visuals.cellularRespiration && !guide.visuals.vectorTransform && (
                     <div className="visual-explanation-card general-card" style={{ padding: '12px', border: '1px solid rgba(56, 189, 248, 0.35)', borderRadius: '10px', background: 'rgba(56, 189, 248, 0.05)' }}>
                       <div style={{ color: 'var(--accent-cyan)', fontWeight: 700, fontSize: '13px', marginBottom: '6px' }}>Core Concept Progression</div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '170px', gap: '8px' }}>
